@@ -58,8 +58,10 @@ Available tools:
 
 | Engine | Technology | Cost |
 |---|---|---|
-| `local` | pysentimiento (Latin American Spanish) | Free |
-| `claude` | Claude Haiku API | Low cost |
+| `local` | pysentimiento (Spanish + English, auto-detected) | Free |
+| `claude` | Claude Haiku API (multilingual) | Low cost |
+
+Language is auto-detected per text — no configuration needed. Spanish content uses the Latin American Spanish model, English content uses the English model. Both engines handle mixed-language inputs seamlessly.
 
 Configurable in `.env` or overridable per execution from the CLI.
 
