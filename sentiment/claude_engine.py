@@ -26,12 +26,14 @@ def analyze(texts: list[str]) -> list[SentimentResult]:
                 continue
 
             prompt = (
-                "Analiza el sentimiento de estos textos en espanol latinoamericano.\n"
-                "Responde SOLO con un JSON array sin explicaciones ni markdown.\n"
-                "Formato por item:\n"
+                "Analyze the sentiment of these texts. They may be in Spanish or English.\n"
+                "Auto-detect the language and analyze accordingly.\n"
+                "Respond ONLY with a JSON array, no explanations or markdown.\n"
+                "Format per item:\n"
                 '{"label":"positive|negative|neutral","score":0.0-1.0,'
+                '"lang":"es|en",'
                 '"emotions":{"joy":0.0,"anger":0.0,"fear":0.0,"sadness":0.0,"surprise":0.0}}\n\n'
-                f"Textos:\n{json.dumps(batch, ensure_ascii=False)}"
+                f"Texts:\n{json.dumps(batch, ensure_ascii=False)}"
             )
 
             response = client.messages.create(
