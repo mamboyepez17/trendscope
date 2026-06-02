@@ -4,7 +4,7 @@
 
 ## What is it?
 
-TrendScope aggregates trend signals from Reddit, Google Trends, Twitter/X, Amazon and TikTok. It scores each signal 0-100 and analyzes sentiment in Latin American Spanish. Generates structured JSON for AI agents and Markdown reports for humans.
+TrendScope aggregates trend signals from Reddit, Google Trends, Twitter/X, Amazon and TikTok. It scores each signal 0-100 and analyzes sentiment in both Spanish and English (auto-detected). Generates structured JSON for AI agents and Markdown reports for humans.
 
 ## Installation
 
@@ -83,7 +83,7 @@ Each analysis generates two files in `data/`:
 - Scrapling (replaces Playwright + requests + BeautifulSoup)
 - PRAW (Reddit API)
 - pytrends (Google Trends fallback)
-- pysentimiento (Latin American Spanish sentiment)
+- pysentimiento (bilingual sentiment: Spanish + English)
 - anthropic (Claude Haiku API)
 - FastAPI + uvicorn (REST API)
 - mcp (MCP server)
