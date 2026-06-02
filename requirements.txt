@@ -1,0 +1,26 @@
+# Scraping adaptativo (reemplaza playwright + requests + beautifulsoup4)
+scrapling
+
+# Reddit
+praw>=7.8.1
+
+# Google Trends fallback
+pytrends>=4.9.2
+
+# Sentimiento español latinoamericano (instalar aparte si falla en Python 3.14)
+# pysentimiento>=0.7.3
+
+# Claude API (sentimiento premium)
+anthropic>=0.25.0
+
+# API REST
+fastapi>=0.111.0
+uvicorn>=0.30.0
+
+# MCP
+mcp[cli]>=1.0.0
+
+# Utils
+python-dotenv>=1.0.1
+loguru>=0.7.2
+rich>=13.7.1

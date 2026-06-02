@@ -1,0 +1,30 @@
+# Privado — nunca al repo
+.env
+.env.*
+!.env.example
+.context/
+data/
+*.log
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+dist/
+build/
+.venv/
+venv/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+Thumbs.db
+.DS_Store
+
+# Playwright (ya no se usa pero por si acaso)
+.playwright/
