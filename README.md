@@ -51,6 +51,7 @@ Available tools:
 | Reddit | PRAW + public JSON fallback | Free |
 | Google Trends | RSS primary + pytrends fallback | Free |
 | Twitter/X | xactions-py | Free |
+| TweetClaw/OpenClaw | Optional local JSON export | Bring your own TweetClaw run |
 | Amazon Best Sellers | Scrapling StealthyFetcher | Free |
 | TikTok Creative Center | Scrapling DynamicFetcher | Free |
 
@@ -103,6 +104,9 @@ REDDIT_CLIENT_SECRET=your_client_secret
 TWITTER_AUTH_TOKEN=your_auth_token
 TWITTER_CT0=your_ct0
 
+# TweetClaw/OpenClaw optional JSON export path
+TWEETCLAW_RESULTS_FILE=data/tweetclaw_crypto_colombia.json
+
 # Claude API (optional, for premium sentiment)
 ANTHROPIC_API_KEY=your_api_key
 
@@ -111,6 +115,8 @@ SENTIMENT_ENGINE=local
 ```
 
 **Note:** All credentials are optional. Without them, TrendScope uses sources that don't require authentication (Google Trends RSS, Amazon via Scrapling).
+
+For OpenClaw agents, TweetClaw can collect tweet search results first and TrendScope can score them from a local JSON file. See [TweetClaw OpenClaw Source](docs/tweetclaw-openclaw-source.md).
 
 ## How it works
 

@@ -11,6 +11,7 @@ REDDIT_USER_AGENT    = os.getenv("REDDIT_USER_AGENT", "TrendScope/1.0")
 
 TWITTER_AUTH_TOKEN   = os.getenv("TWITTER_AUTH_TOKEN", "")
 TWITTER_CT0          = os.getenv("TWITTER_CT0", "")
+TWEETCLAW_RESULTS_FILE = os.getenv("TWEETCLAW_RESULTS_FILE", "")
 
 ANTHROPIC_API_KEY    = os.getenv("ANTHROPIC_API_KEY", "")
 
