@@ -43,7 +43,7 @@ def _score_by_source(item: dict) -> float:
     elif source == "google_trends_pytrends":
         return min(80, item.get("avg_interest_7d", 0) * 0.8)
 
-    elif source == "twitter":
+    elif source in {"twitter", "tweetclaw"}:
         likes = min(item.get("likes", 0), 10000)
         retweets = min(item.get("retweets", 0), 5000)
         followers = min(item.get("user_followers", 0), 1000000)

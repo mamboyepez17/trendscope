@@ -14,6 +14,7 @@ from output.report_exporter import export as export_report
 import scrapers.reddit as reddit
 import scrapers.google_trends as gtrends
 import scrapers.twitter as twitter
+import scrapers.tweetclaw as tweetclaw
 import scrapers.amazon as amazon
 import scrapers.tiktok as tiktok
 
@@ -31,6 +32,7 @@ SOURCES = [
     ("Reddit", reddit.run),
     ("Google Trends", gtrends.run),
     ("Twitter/X", twitter.run),
+    ("TweetClaw JSON", tweetclaw.run),
     ("Amazon", amazon.run),
     ("TikTok", tiktok.run),
 ]
