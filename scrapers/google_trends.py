@@ -28,12 +28,20 @@ def _fetch_rss(geo: str) -> list[dict]:
             title = item.findtext("title", "")
             traffic = item.findtext("ht:approx_traffic", "N/A", ns)
             link = item.findtext("link", "")
+            # Extraer noticias relacionadas si existen
+            news_items = []
+            for news in item.findall(".//ht:news_item", ns)[:3]:
+                news_title = news.findtext("ht:news_item_title", "", ns)
+                news_source = news.findtext("ht:news_item_source", "", ns)
+                if news_title:
+                    news_items.append({"title": news_title, "source": news_source})
             results.append({
                 "source": "google_trends_rss",
                 "keyword": title,
                 "approx_traffic": traffic,
                 "url": link,
                 "geo": geo,
+                "related_news": news_items,
             })
         logger.info(f"Google Trends RSS ({geo}): {len(results)} tendencias")
         return results
@@ -81,20 +89,65 @@ def _fetch_pytrends(keywords: list[str], geo: str) -> list[dict]:
         return []
 
 
+def _score_relevance(keyword: str, query_keywords: list[str]) -> int:
+    """
+    Puntua relevancia de un trending topic vs las keywords de la query.
+    Mayor = mas relevante.
+    """
+    kw_lower = keyword.lower()
+    score = 0
+    for qk in query_keywords:
+        qk_lower = qk.lower()
+        if qk_lower in kw_lower:
+            score += 10
+        elif kw_lower in qk_lower:
+            score += 5
+        # Match parcial por palabras
+        else:
+            qk_words = set(qk_lower.split())
+            kw_words = set(kw_lower.split())
+            overlap = len(qk_words & kw_words)
+            score += overlap * 3
+    return score
+
+
 def run(query: TrendQuery) -> list[dict]:
     """Entry point del scraper de Google Trends."""
     # Intentar RSS primero, pytrends como fallback
     results = _fetch_rss(query.geo)
-    if not results:
-        results = _fetch_pytrends(query.keywords, query.geo)
 
-    # Filtrar por relevancia si hay keywords y los resultados vienen del RSS
+    # Si el RSS da resultados, intentar pytrends para keywords especificas
+    # (combinar ambas fuentes para mayor cobertura)
+    pt_results = _fetch_pytrends(query.keywords, query.geo) if query.keywords else []
+    if pt_results:
+        results.extend(pt_results)
+
+    # Si no hay nada de RSS ni pytrends, devolver vacio
+    if not results:
+        return []
+
+    # Filtrar y rankear por relevancia con las keywords de la query
     if query.keywords and results:
-        kws = [k.lower() for k in query.keywords]
-        filtered = [
-            r for r in results
-            if any(k in r.get("keyword", "").lower() for k in kws)
-        ]
-        return filtered or results  # Si no hay match, devolver todo
+        # Asignar score de relevancia a cada resultado
+        for r in results:
+            r["_relevance"] = _score_relevance(r.get("keyword", ""), query.keywords)
+
+        # Ordenar por relevancia (descendente)
+        results.sort(key=lambda x: x.get("_relevance", 0), reverse=True)
+
+        # Si hay resultados con relevancia > 0, priorizar esos
+        relevant = [r for r in results if r.get("_relevance", 0) > 0]
+        if relevant:
+            # Tomar los relevantes + algunos generales para contexto
+            top_relevant = relevant[:20]
+            general = [r for r in results if r.get("_relevance", 0) == 0][:5]
+            results = top_relevant + general
+        else:
+            # Si ninguno es relevante, devolver los top generales
+            results = results[:25]
+
+        # Limpiar campo temporal
+        for r in results:
+            r.pop("_relevance", None)
 
     return results

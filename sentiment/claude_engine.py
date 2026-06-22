@@ -21,8 +21,22 @@ def analyze(texts: list[str]) -> list[SentimentResult]:
         batch_size = 10
 
         for i in range(0, len(texts), batch_size):
-            batch = [t[:300] for t in texts[i:i + batch_size] if t and len(t.strip()) > 3]
-            if not batch:
+            batch_raw = texts[i:i + batch_size]
+            batch = [t[:300] if t and len(t.strip()) > 3 else "" for t in batch_raw]
+            # Filtrar solo los no-vacios para el prompt, pero mantener
+            # alineacion 1:1 con los items originales.
+            non_empty_indices = [j for j, t in enumerate(batch) if t]
+            prompt_texts = [batch[j] for j in non_empty_indices]
+            if not prompt_texts:
+                # Todos vacios en este batch -> agregar neutrals
+                for _ in batch:
+                    results.append(SentimentResult(
+                        text="",
+                        label="neutral",
+                        score=0.5,
+                        engine="claude_skipped",
+                        emotions={},
+                    ))
                 continue
 
             prompt = (
@@ -33,7 +47,7 @@ def analyze(texts: list[str]) -> list[SentimentResult]:
                 '{"label":"positive|negative|neutral","score":0.0-1.0,'
                 '"lang":"es|en",'
                 '"emotions":{"joy":0.0,"anger":0.0,"fear":0.0,"sadness":0.0,"surprise":0.0}}\n\n'
-                f"Texts:\n{json.dumps(batch, ensure_ascii=False)}"
+                f"Texts:\n{json.dumps(prompt_texts, ensure_ascii=False)}"
             )
 
             response = client.messages.create(
@@ -50,16 +64,50 @@ def analyze(texts: list[str]) -> list[SentimentResult]:
                 parsed = json.loads(raw)
             except json.JSONDecodeError as e:
                 logger.warning(f"Claude JSON parse error: {e}")
+                # Si falla el parse, agregar neutrals para todo el batch
+                for _ in batch:
+                    results.append(SentimentResult(
+                        text="",
+                        label="neutral",
+                        score=0.5,
+                        engine="claude_parse_error",
+                        emotions={},
+                    ))
                 continue
 
-            for idx, item in enumerate(parsed):
-                if idx < len(batch):
+            # Mapear resultados de Claude a las posiciones correctas del batch
+            # Mantener alineacion 1:1: iterar el batch en orden, y para cada
+            # posicion, si es non-empty usar el siguiente resultado de Claude,
+            # si es empty, agregar neutral.
+            parsed_idx = 0
+            for batch_pos in range(len(batch)):
+                if batch_pos in non_empty_indices:
+                    if parsed_idx < len(parsed):
+                        item = parsed[parsed_idx]
+                        results.append(SentimentResult(
+                            text=batch[batch_pos][:100],
+                            label=item.get("label", "neutral"),
+                            score=float(item.get("score", 0.5)),
+                            engine="claude",
+                            emotions=item.get("emotions", {}),
+                        ))
+                        parsed_idx += 1
+                    else:
+                        # Claude devolvio menos resultados de los esperados
+                        results.append(SentimentResult(
+                            text=batch[batch_pos][:100],
+                            label="neutral",
+                            score=0.5,
+                            engine="claude_short_result",
+                            emotions={},
+                        ))
+                else:
                     results.append(SentimentResult(
-                        text=batch[idx][:100],
-                        label=item.get("label", "neutral"),
-                        score=float(item.get("score", 0.5)),
-                        engine="claude",
-                        emotions=item.get("emotions", {}),
+                        text="",
+                        label="neutral",
+                        score=0.5,
+                        engine="claude_skipped",
+                        emotions={},
                     ))
 
         logger.success(f"Claude sentiment: {len(results)} textos analizados")

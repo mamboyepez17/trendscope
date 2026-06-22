@@ -12,6 +12,7 @@ import uvicorn
 from config import API_HOST, API_PORT, CATEGORIES, DATA_DIR
 from core.query import TrendQuery
 from core.pipeline import run as run_pipeline
+from core import cache as result_cache
 
 app = FastAPI(
     title="TrendScope API",
@@ -95,6 +96,19 @@ def get_report(
             detail=f"No hay reportes para '{slug}'. Genera uno primero con GET /trends",
         )
     return reports[0].read_text(encoding="utf-8")
+
+
+@app.get("/cache/stats")
+def cache_stats():
+    """Retorna estadisticas del cache de resultados."""
+    return result_cache.stats()
+
+
+@app.delete("/cache")
+def cache_clear():
+    """Limpia todo el cache de resultados."""
+    result_cache.clear()
+    return {"status": "ok", "message": "Cache limpiado"}
 
 
 if __name__ == "__main__":

@@ -7,6 +7,7 @@ from rich.console import Console
 from rich.panel import Panel
 from rich.prompt import Prompt
 from rich.table import Table
+from rich.progress import Progress, SpinnerColumn, TextColumn
 
 from config import CATEGORIES, SENTIMENT_ENGINE_DEFAULT
 from core.query import TrendQuery
@@ -62,28 +63,47 @@ def choose_sentiment() -> str:
 
 
 def show_results(payload: dict, query: TrendQuery) -> None:
-    """Muestra resultados en terminal."""
+    """Muestra resultados en terminal con tablas rich."""
     top = payload["top_trends"]
     ss = payload["meta"]["sentiment_summary"]
     date = payload["meta"]["date"]
+    sources = payload["meta"]["sources_used"]
 
     console.print(f"\n[bold green]Analisis completado[/bold green]")
     console.print(f"  JSON:    data/trends_{date}_{query.topic_slug}.json")
     console.print(f"  Reporte: data/report_{date}_{query.topic_slug}.md")
     console.print(
         f"\n  Sentimiento: [bold]{ss['overall'].upper()}[/bold] "
-        f"(+{ss['positive']} -{ss['negative']} ~{ss['neutral']})\n"
+        f"([green]+{ss['positive']}[/green] "
+        f"[red]-{ss['negative']}[/red] "
+        f"[dim]~{ss['neutral']}[/dim])\n"
     )
 
-    console.print(Panel("[bold]Top 5 Tendencias[/bold]", border_style="yellow"))
-    for item in top[:5]:
+    # Fuente info
+    console.print(f"[dim]Fuentes activas: {', '.join(sources)}[/dim]\n")
+
+    # Tabla de top tendencias
+    table = Table(
+        title="Top Tendencias",
+        show_header=True,
+        header_style="bold yellow",
+        border_style="yellow",
+    )
+    table.add_column("#", style="dim", width=3)
+    table.add_column("Heat", width=6)
+    table.add_column("Sent", width=4)
+    table.add_column("Titulo", min_width=40, max_width=60)
+    table.add_column("Score", justify="right", width=7)
+    table.add_column("Fuente", width=18)
+
+    for item in top[:10]:
         s = item["trend_score"]
         if s >= 75:
-            heat = "[red][HOT][/red]"
+            heat = "[red]HOT[/red]"
         elif s >= 50:
-            heat = "[yellow][MED][/yellow]"
+            heat = "[yellow]MED[/yellow]"
         else:
-            heat = "[green][LOW][/green]"
+            heat = "[green]LOW[/green]"
 
         sent_label = item["sentiment"]["label"]
         if sent_label == "positive":
@@ -93,8 +113,46 @@ def show_results(payload: dict, query: TrendQuery) -> None:
         else:
             s_mark = "[dim]~[/dim]"
 
-        console.print(f"  {item['rank']}. {heat} {s_mark} [bold]{item['title'][:70]}[/bold]")
-        console.print(f"     Score: {s}/100 | {item['source'].replace('_',' ').title()}\n")
+        title = item["title"][:60]
+        source = item["source"].replace("_", " ").title()
+
+        table.add_row(
+            str(item["rank"]),
+            heat,
+            s_mark,
+            title,
+            f"{s}/100",
+            source,
+        )
+
+    console.print(table)
+
+    # Detalles de top 3
+    console.print("\n[bold]Detalles Top 3:[/bold]\n")
+    for item in top[:3]:
+        sigs = item.get("signals", {})
+        details = []
+        if sigs.get("reddit_score"):
+            details.append(f"Upvotes: {sigs['reddit_score']}")
+        if sigs.get("comments"):
+            details.append(f"Comments: {sigs['comments']}")
+        if sigs.get("likes"):
+            details.append(f"Likes: {sigs['likes']}")
+        if sigs.get("retweets"):
+            details.append(f"RTs: {sigs['retweets']}")
+        if sigs.get("google_traffic"):
+            details.append(f"Traffic: {sigs['google_traffic']}")
+        if sigs.get("amazon_rank"):
+            details.append(f"Amazon #{sigs['amazon_rank']}")
+        if sigs.get("price"):
+            details.append(f"Price: {sigs['price']}")
+
+        console.print(f"  [bold]{item['rank']}. {item['title'][:70]}[/bold]")
+        if details:
+            console.print(f"     [dim]{' | '.join(details)}[/dim]")
+        if item.get("url"):
+            console.print(f"     [dim blue]{item['url'][:80]}[/dim blue]")
+        console.print("")
 
 
 def main() -> None:
@@ -114,9 +172,33 @@ def main() -> None:
         payload, _ = run(query)
         show_results(payload, query)
 
+        # Preguntar si quiere abrir el reporte
+        console.print("\n[bold]Que quieres hacer?[/bold]")
+        console.print("  [cyan]1[/cyan] - Ver reporte Markdown completo")
+        console.print("  [cyan]2[/cyan] - Analizar otro tema")
+        console.print("  [cyan]3[/cyan] - Salir\n")
+        action = Prompt.ask("Opcion", choices=["1", "2", "3"], default="3")
+
+        if action == "1":
+            import os
+            date = payload["meta"]["date"]
+            report_path = os.path.join("data", f"report_{date}_{query.topic_slug}.md")
+            console.print(f"\n[green]Reporte en: {report_path}[/green]")
+            try:
+                with open(report_path, "r", encoding="utf-8") as f:
+                    console.print(Panel(f.read(), border_style="cyan", title="Reporte"))
+            except Exception:
+                console.print("[red]No se pudo leer el reporte.[/red]")
+        elif action == "2":
+            main()  # Recursivo: volver a empezar
+
     except KeyboardInterrupt:
         console.print("\n[red]Cancelado.[/red]")
         sys.exit(0)
+    except Exception as e:
+        console.print(f"\n[red]Error inesperado: {e}[/red]")
+        console.print("[dim]Revisa los logs para mas detalles.[/dim]")
+        sys.exit(1)
 
 
 if __name__ == "__main__":

@@ -7,8 +7,10 @@ praw>=7.8.1
 # Google Trends fallback
 pytrends>=4.9.2
 
-# Sentimiento español latinoamericano (instalar aparte si falla en Python 3.14)
-# pysentimiento>=0.7.3
+# Sentimiento español latinoamericano + ingles (autodeteccion de idioma)
+# Nota: pysentimiento requiere torch, que puede fallar en algunos entornos.
+# Si pysentimiento no instala/carga, TrendScope usa fallback por keywords automaticamente.
+pysentimiento>=0.7.3
 
 # Claude API (sentimiento premium)
 anthropic>=0.25.0
@@ -17,7 +19,7 @@ anthropic>=0.25.0
 fastapi>=0.111.0
 uvicorn>=0.30.0
 
-# MCP
+# MCP server
 mcp[cli]>=1.0.0
 
 # Utils

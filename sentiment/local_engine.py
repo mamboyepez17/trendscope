@@ -136,7 +136,17 @@ def analyze(texts: list[str]) -> list[SentimentResult]:
     LABEL_MAP = {"POS": "positive", "NEG": "negative", "NEU": "neutral"}
 
     for text in texts:
+        # Mantener alineacion 1:1 con los items: si el texto es vacio o
+        # muy corto, devolver neutral en lugar de saltarlo (sino se
+        # desalinean los resultados con los items originales).
         if not text or len(text.strip()) < 3:
+            results.append(SentimentResult(
+                text="",
+                label="neutral",
+                score=0.5,
+                engine="local_skipped",
+                emotions={},
+            ))
             continue
         try:
             text_clean = text[:512]

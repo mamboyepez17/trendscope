@@ -1,12 +1,23 @@
 # analyzer/deduplicator.py
+import hashlib
 from difflib import SequenceMatcher
 
 from loguru import logger
 
 
+def _normalize_text(text: str) -> str:
+    """Normaliza texto para comparacion: lowercase, sin espacios extra."""
+    return " ".join(text.lower().split())
+
+
 def _similarity(a: str, b: str) -> float:
     """Calcula similitud entre dos strings (0.0 a 1.0)."""
-    return SequenceMatcher(None, a.lower(), b.lower()).ratio()
+    return SequenceMatcher(None, a, b).ratio()
+
+
+def _text_hash(text: str) -> str:
+    """Hash normalizado para deduplicacion exacta rapida."""
+    return hashlib.md5(_normalize_text(text).encode()).hexdigest()
 
 
 def deduplicate(items: list[dict], threshold: float = 0.72) -> list[dict]:
@@ -14,8 +25,11 @@ def deduplicate(items: list[dict], threshold: float = 0.72) -> list[dict]:
     Elimina items con texto muy similar entre fuentes.
     Threshold 0.72 = 72% de similitud para considerar duplicado.
     Mantiene el primero (mayor score al llegar ordenado por fuente).
+
+    Optimizacion: primero checa hash exacto (O(1)), luego similarity (O(n)).
     """
-    seen: list[str] = []
+    seen_hashes: set[str] = set()
+    seen_texts: list[str] = []
     result: list[dict] = []
 
     for item in items:
@@ -29,9 +43,18 @@ def deduplicate(items: list[dict], threshold: float = 0.72) -> list[dict]:
         if not text or len(text) < 3:
             continue
 
-        is_duplicate = any(_similarity(text, s) > threshold for s in seen)
+        normalized = _normalize_text(text)
+        h = _text_hash(text)
+
+        # Check exacto primero (rapido)
+        if h in seen_hashes:
+            continue
+
+        # Check por similitud (mas lento pero necesario para near-duplicates)
+        is_duplicate = any(_similarity(normalized, s) > threshold for s in seen_texts)
         if not is_duplicate:
-            seen.append(text)
+            seen_hashes.add(h)
+            seen_texts.append(normalized)
             result.append(item)
 
     removed = len(items) - len(result)

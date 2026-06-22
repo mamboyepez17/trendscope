@@ -27,12 +27,14 @@ def _fetch_public(subreddit: str, feed: str = "hot", limit: int = 20) -> list[di
     """
     Endpoint JSON publico de Reddit — sin API key.
     Funciona sin credenciales, 100% gratuito.
+    Usa www.reddit.com con User-Agent de navegador real.
     """
     url = f"https://www.reddit.com/r/{subreddit}/{feed}.json?limit={limit}&raw_json=1"
     headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36",
-        "Accept": "application/json",
-        "Accept-Language": "en-US,en;q=0.9",
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36",
+        "Accept": "application/json, text/plain, */*",
+        "Accept-Language": "en-US,en;q=0.9,es;q=0.8",
+        "Referer": f"https://www.reddit.com/r/{subreddit}/",
     }
     try:
         resp = requests.get(url, headers=headers, timeout=10)
