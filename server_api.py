@@ -111,5 +111,34 @@ def cache_clear():
     return {"status": "ok", "message": "Cache limpiado"}
 
 
+@app.get("/dashboard", response_class=PlainTextResponse)
+def get_dashboard():
+    """Sirve el dashboard web HTML."""
+    from pathlib import Path
+    dashboard_path = Path(__file__).parent / "dashboard.html"
+    if dashboard_path.exists():
+        return dashboard_path.read_text(encoding="utf-8")
+    raise HTTPException(status_code=404, detail="dashboard.html no encontrado")
+
+
+@app.get("/compare")
+def compare_topics(
+    topic1: str = QParam(..., description="Primer tema a comparar"),
+    topic2: str = QParam(..., description="Segundo tema a comparar"),
+    sentiment_engine: str = QParam("local", description="local | claude"),
+):
+    """Compara dos temas lado a lado."""
+    q1 = TrendQuery(mode="free", free_topic=topic1, sentiment_engine=sentiment_engine)
+    q2 = TrendQuery(mode="free", free_topic=topic2, sentiment_engine=sentiment_engine)
+
+    payload1, _ = run_pipeline(q1)
+    payload2, _ = run_pipeline(q2)
+
+    return {
+        "topic1": {"name": topic1, "data": payload1},
+        "topic2": {"name": topic2, "data": payload2},
+    }
+
+
 if __name__ == "__main__":
     uvicorn.run("server_api:app", host=API_HOST, port=API_PORT, reload=False)

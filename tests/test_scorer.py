@@ -63,6 +63,28 @@ class ScorerTest(unittest.TestCase):
         self.assertGreater(score, 50)
         self.assertLessEqual(score, 100)
 
+    def test_hackernews_score(self):
+        item = {
+            "source": "hackernews",
+            "title": "New AI breakthrough in Colombia",
+            "score": 500,
+            "comments": 200,
+            "created_utc": 0,
+        }
+        score = score_item(item, self.query)
+        self.assertGreater(score, 0)
+        self.assertLessEqual(score, 100)
+
+    def test_youtube_score(self):
+        item = {
+            "source": "youtube",
+            "title": "AI tutorial 2026",
+            "views": 1_000_000,
+        }
+        score = score_item(item, self.query)
+        self.assertGreater(score, 50)
+        self.assertLessEqual(score, 100)
+
     def test_keyword_bonus(self):
         """Items matching query keywords should get a bonus."""
         item_no_match = {

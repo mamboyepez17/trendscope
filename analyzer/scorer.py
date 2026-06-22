@@ -61,6 +61,21 @@ def _score_by_source(item: dict) -> float:
             return min(85, 50 + (video_count / 1000000) * 35)
         return 65.0
 
+    elif source == "hackernews":
+        points = min(item.get("score", 0), 2000)
+        comments = min(item.get("comments", 0), 1000)
+        # Bonus por recencia
+        created = item.get("created_utc", 0)
+        hours_old = (datetime.now(timezone.utc).timestamp() - created) / 3600 if created else 999
+        recency = 15 if hours_old < 24 else (8 if hours_old < 72 else 0)
+        return (points / 2000 * 45) + (comments / 1000 * 30) + recency
+
+    elif source == "youtube":
+        views = min(item.get("views", 0), 10_000_000)
+        if views > 0:
+            return min(90, 30 + math.log10(max(1, views)) * 12)
+        return 40.0
+
     return 0.0
 
 

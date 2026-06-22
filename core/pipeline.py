@@ -19,6 +19,8 @@ import scrapers.twitter as twitter
 import scrapers.tweetclaw as tweetclaw
 import scrapers.amazon as amazon
 import scrapers.tiktok as tiktok
+import scrapers.hackernews as hackernews
+import scrapers.youtube as youtube
 
 # Forzar UTF-8 en Windows para evitar encoding errors con rich
 if sys.platform == "win32" and not isinstance(sys.stdout, io.TextIOWrapper):
@@ -37,10 +39,12 @@ SOURCES = [
     ("TweetClaw JSON", tweetclaw.run),
     ("Amazon", amazon.run),
     ("TikTok", tiktok.run),
+    ("Hacker News", hackernews.run),
+    ("YouTube", youtube.run),
 ]
 
 # Scrapers que requieren I/O de red pesado (benefician mas de paralelismo)
-_PARALLEL_SOURCES = {"Reddit", "Google Trends", "Amazon", "TikTok"}
+_PARALLEL_SOURCES = {"Reddit", "Google Trends", "Amazon", "TikTok", "Hacker News", "YouTube"}
 # Scrapers que pueden saturar rate limits o dependen de auth frágil (mejor secuencial)
 _SERIAL_SOURCES = {"Twitter/X", "TweetClaw JSON"}
 

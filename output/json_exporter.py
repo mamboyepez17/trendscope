@@ -66,6 +66,9 @@ def export(items: list[dict], query: TrendQuery) -> dict:
                     "google_traffic": i.get("approx_traffic"),
                     "amazon_rank": i.get("rank"),
                     "price": i.get("price"),
+                    "hn_points": i.get("hn_points"),
+                    "youtube_views": i.get("views"),
+                    "youtube_channel": i.get("channel"),
                 },
             }
             for idx, i in enumerate(top)

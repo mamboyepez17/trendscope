@@ -1,0 +1,591 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TrendScope · Intelligence Dashboard</title>
+<style>
+  :root{
+    --bg:#0a0e1a; --card:#141b2d; --card2:#1a2238; --accent:#00d4ff;
+    --text:#e0e6ed; --muted:#6b7a99; --border:#1e2940;
+    --pos:#22c55e; --neg:#ef4444; --neu:#6b7a99;
+    --red:#ef4444; --yellow:#eab308; --green:#22c55e;
+    --reddit:#ff5700; --twitter:#00d4ff; --google:#3b82f6;
+    --hackernews:#22c55e; --youtube:#ef4444; --amazon:#eab308; --tiktok:#ec4899;
+    --radius:14px; --shadow:0 8px 30px rgba(0,0,0,.35);
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{
+    background:radial-gradient(1200px 600px at 80% -10%, #0f1a30 0%, transparent 60%),
+               radial-gradient(900px 500px at -10% 10%, #0c1426 0%, transparent 55%),
+               var(--bg);
+    color:var(--text); font-family:'Segoe UI',system-ui,-apple-system,Roboto,Helvetica,Arial,sans-serif;
+    line-height:1.5; min-height:100vh; -webkit-font-smoothing:antialiased;
+  }
+  a{color:var(--accent);text-decoration:none}
+  ::selection{background:rgba(0,212,255,.3)}
+
+  /* ---------- Header ---------- */
+  header.top{
+    position:sticky; top:0; z-index:50;
+    background:rgba(10,14,26,.82); backdrop-filter:blur(10px);
+    border-bottom:1px solid var(--border);
+  }
+  .top-inner{
+    max-width:1400px;margin:0 auto;padding:14px 22px;
+    display:flex;align-items:center;gap:18px;flex-wrap:wrap;
+  }
+  .logo{
+    font-family:'Consolas','Courier New',monospace;font-weight:700;
+    white-space:pre;line-height:1.05;color:var(--accent);
+    text-shadow:0 0 14px rgba(0,212,255,.35);font-size:12px;
+    letter-spacing:0;
+  }
+  .brand{display:flex;align-items:center;gap:12px;margin-right:auto}
+  .brand h1{font-size:18px;font-weight:700;letter-spacing:.5px}
+  .brand h1 span{color:var(--accent)}
+  .brand small{color:var(--muted);font-size:11px;display:block;margin-top:-2px}
+
+  .controls{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+  .field{display:flex;flex-direction:column;gap:4px}
+  .field label{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.8px}
+  select,input[type=text]{
+    background:var(--card);color:var(--text);border:1px solid var(--border);
+    border-radius:9px;padding:9px 12px;font-size:13px;min-width:160px;
+    transition:border-color .15s, box-shadow .15s; outline:none;
+  }
+  select:focus,input:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(0,212,255,.15)}
+  .geo{min-width:80px !important;width:80px}
+  .btn{
+    background:linear-gradient(135deg,var(--accent),#0099cc);color:#02121a;
+    border:none;border-radius:9px;padding:10px 18px;font-size:13px;font-weight:700;
+    cursor:pointer;transition:transform .08s, box-shadow .15s, opacity .15s;
+    box-shadow:0 4px 16px rgba(0,212,255,.25);letter-spacing:.3px;
+  }
+  .btn:hover{box-shadow:0 6px 22px rgba(0,212,255,.4)}
+  .btn:active{transform:translateY(1px)}
+  .btn:disabled{opacity:.5;cursor:not-allowed}
+  .btn.ghost{background:transparent;color:var(--text);border:1px solid var(--border);box-shadow:none}
+  .btn.ghost:hover{border-color:var(--accent);color:var(--accent)}
+
+  .toggle{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted);cursor:pointer;user-select:none}
+  .switch{position:relative;width:42px;height:22px;background:var(--card2);border:1px solid var(--border);border-radius:12px;transition:.2s}
+  .switch::after{content:"";position:absolute;top:2px;left:2px;width:16px;height:16px;border-radius:50%;background:var(--muted);transition:.2s}
+  .toggle.on .switch{background:rgba(0,212,255,.2);border-color:var(--accent)}
+  .toggle.on .switch::after{left:22px;background:var(--accent)}
+
+  /* ---------- Layout ---------- */
+  main{max-width:1400px;margin:0 auto;padding:24px 22px 80px}
+  .grid{display:grid;gap:18px}
+  .card{
+    background:var(--card);border:1px solid var(--border);border-radius:var(--radius);
+    padding:18px;box-shadow:var(--shadow);
+  }
+  .card h2{font-size:13px;text-transform:uppercase;letter-spacing:1.2px;color:var(--muted);margin-bottom:14px;display:flex;align-items:center;gap:8px}
+  .card h2::before{content:"";width:4px;height:14px;background:var(--accent);border-radius:2px}
+
+  /* ---------- Stats row ---------- */
+  .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:18px}
+  .stat{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:18px;position:relative;overflow:hidden}
+  .stat::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(0,212,255,.05),transparent 50%);pointer-events:none}
+  .stat .k{font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--muted)}
+  .stat .v{font-size:30px;font-weight:800;margin-top:6px;line-height:1}
+  .stat .sub{font-size:12px;color:var(--muted);margin-top:8px;display:flex;gap:10px;flex-wrap:wrap}
+  .pill{display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:600}
+  .dot{width:8px;height:8px;border-radius:50%;display:inline-block}
+
+  /* ---------- Two-col visual ---------- */
+  .visuals{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+  .gauge-wrap{display:flex;align-items:center;justify-content:center;gap:24px;flex-wrap:wrap}
+  .gauge-legend{display:flex;flex-direction:column;gap:10px;font-size:13px}
+  .gauge-legend .row{display:flex;align-items:center;gap:8px;min-width:160px;justify-content:space-between}
+  .bar-mini{flex:1;height:6px;background:var(--card2);border-radius:3px;overflow:hidden;margin:0 8px}
+  .bar-mini > i{display:block;height:100%;border-radius:3px;transform:scaleX(0);transform-origin:left;transition:transform .9s cubic-bezier(.2,.8,.2,1)}
+
+  /* ---------- Source bars ---------- */
+  .src-row{display:grid;grid-template-columns:120px 1fr 44px;align-items:center;gap:12px;margin-bottom:12px;font-size:13px}
+  .src-row:last-child{margin-bottom:0}
+  .src-name{display:flex;align-items:center;gap:8px}
+  .src-track{height:14px;background:var(--card2);border-radius:7px;overflow:hidden;position:relative}
+  .src-fill{height:100%;border-radius:7px;width:0;transition:width 1s cubic-bezier(.2,.8,.2,1)}
+  .src-count{text-align:right;color:var(--muted);font-variant-numeric:tabular-nums}
+
+  /* ---------- Histogram ---------- */
+  .hist{display:flex;align-items:flex-end;gap:8px;height:180px;padding-top:10px}
+  .hist-col{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%;gap:6px}
+  .hist-bar{width:100%;max-width:46px;background:linear-gradient(180deg,var(--accent),#006688);border-radius:6px 6px 0 0;height:0;transition:height 1s cubic-bezier(.2,.8,.2,1);min-height:2px}
+  .hist-lbl{font-size:11px;color:var(--muted);font-variant-numeric:tabular-nums}
+
+  /* ---------- Trends table ---------- */
+  .trends{list-style:none}
+  .trend{
+    display:grid;grid-template-columns:36px 1fr auto;gap:14px;align-items:center;
+    padding:14px;border:1px solid var(--border);border-radius:12px;margin-bottom:10px;
+    background:var(--card2);transition:border-color .15s, transform .15s;opacity:0;transform:translateY(8px);
+    animation:fadein .5s forwards;
+  }
+  .trend:hover{border-color:var(--accent)}
+  @keyframes fadein{to{opacity:1;transform:translateY(0)}}
+  .rank{font-size:18px;font-weight:800;color:var(--muted);text-align:center;font-variant-numeric:tabular-nums}
+  .rank.top{color:var(--accent)}
+  .trend-main{min-width:0}
+  .trend-title{font-size:14px;line-height:1.4;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;word-break:break-word}
+  .trend-title a{color:var(--text)}
+  .trend-title a:hover{color:var(--accent)}
+  .trend-meta{display:flex;align-items:center;gap:10px;margin-top:8px;flex-wrap:wrap}
+  .badge{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:700;padding:3px 9px;border-radius:20px;text-transform:uppercase;letter-spacing:.5px}
+  .senti{display:inline-flex;align-items:center;gap:4px;font-size:12px;font-weight:700}
+  .senti.pos{color:var(--pos)} .senti.neg{color:var(--neg)} .senti.neu{color:var(--neu)}
+  .scorebar-wrap{width:130px}
+  .scorebar{height:8px;background:var(--card);border-radius:4px;overflow:hidden}
+  .scorebar > i{display:block;height:100%;width:0;border-radius:4px;transition:width 1s cubic-bezier(.2,.8,.2,1)}
+  .score-num{font-size:12px;font-weight:700;text-align:right;margin-top:3px;font-variant-numeric:tabular-nums}
+  .eng{display:flex;gap:12px;font-size:11px;color:var(--muted);margin-top:8px;flex-wrap:wrap}
+  .eng span{display:inline-flex;align-items:center;gap:4px}
+  .eng b{color:var(--text);font-variant-numeric:tabular-nums}
+  .ico{font-style:normal;font-family:'Segoe UI Symbol',sans-serif}
+
+  /* ---------- Comparison ---------- */
+  .cmp{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+  .cmp .panel{border:1px solid var(--border);border-radius:var(--radius);overflow:hidden}
+  .cmp .panel > .ph{padding:10px 14px;background:var(--card2);font-weight:700;font-size:14px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px}
+  .cmp .panel > .pb{padding:0}
+  .cmp .panel .trend{margin:0;border:none;border-radius:0;border-bottom:1px solid var(--border)}
+  .cmp .panel .trend:last-child{border-bottom:none}
+
+  /* ---------- States ---------- */
+  .status{min-height:60px;margin:18px 0;display:none}
+  .status.show{display:block}
+  .loader{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:30px;color:var(--muted)}
+  .spinner{width:44px;height:44px;border:4px solid var(--card2);border-top-color:var(--accent);border-radius:50%;animation:spin 1s linear infinite}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .error{background:rgba(239,68,68,.1);border:1px solid var(--neg);border-radius:12px;padding:16px;color:#ffb4b4;display:flex;align-items:flex-start;gap:10px}
+  .error b{color:#fff}
+  .empty{text-align:center;color:var(--muted);padding:50px 20px}
+  .empty .big{font-size:40px;margin-bottom:10px;opacity:.5}
+
+  .meta-line{color:var(--muted);font-size:12px;margin-bottom:16px;flex-wrap:wrap;display:flex;gap:14px}
+  .meta-line b{color:var(--text)}
+  .hidden{display:none !important}
+  section{margin-top:22px}
+
+  /* ---------- Responsive ---------- */
+  @media (max-width:1000px){
+    .stats{grid-template-columns:repeat(2,1fr)}
+    .visuals{grid-template-columns:1fr}
+    .cmp{grid-template-columns:1fr}
+  }
+  @media (max-width:640px){
+    .top-inner{padding:12px 14px}
+    .brand{width:100%;margin-right:0}
+    .controls{width:100%}
+    select,input[type=text]{flex:1;min-width:0}
+    .stats{grid-template-columns:1fr 1fr}
+    .trend{grid-template-columns:28px 1fr;gap:10px}
+    .trend .scorebar-wrap{grid-column:1/-1;width:100%}
+    .src-row{grid-template-columns:90px 1fr 36px}
+    main{padding:18px 14px 60px}
+    .logo{font-size:9px}
+  }
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div class="top-inner">
+    <div class="brand">
+      <pre class="logo"> ████████╗███████╗██████╗ ████████╗██╗░░░██╗
+ ╚══██╔══╝██╔════╝██╔══██╗╚══██╔══╝╚██╗░██╔╝
+    ██║   █████╗  ██████╔╝   ██║   ░╚███╔╝░
+    ██║   ██╔══╝  ██╔══██╗   ██║   ░██╔░██╗░
+    ██║   ███████╗██║  ░██║   ██║   ░██║░╚███╗
+    ╚═╝   ╚══════╝╚═╝  ░╚═╝   ╚═╝   ╚═╝░░╚██╗
+    ░░░╚═╝</pre>
+      <div>
+        <h1>Trend<span>Scope</span></h1>
+        <small>Trend Intelligence · v1.0.0</small>
+      </div>
+    </div>
+
+    <div class="controls">
+      <div class="field">
+        <label for="cat">Categoría</label>
+        <select id="cat"><option value="">Cargando…</option></select>
+      </div>
+      <div class="field" id="topicField">
+        <label for="topic">Tema libre (opcional)</label>
+        <input type="text" id="topic" placeholder="ej: crypto Colombia">
+      </div>
+      <div class="field hidden" id="topic2Field">
+        <label for="topic2">Tema 2 (comparación)</label>
+        <input type="text" id="topic2" placeholder="ej: bitcoin">
+      </div>
+      <div class="field">
+        <label for="geo">Geo</label>
+        <input type="text" id="geo" class="geo" value="CO" maxlength="3">
+      </div>
+      <button class="btn" id="analizar">Analizar</button>
+      <div class="toggle" id="cmpToggle" title="Modo Comparación">
+        <span>Comparar</span>
+        <span class="switch"></span>
+      </div>
+    </div>
+  </div>
+</header>
+
+<main>
+  <div class="status" id="status"></div>
+
+  <!-- single result -->
+  <div id="singleView">
+    <div class="stats grid" id="stats"></div>
+    <div class="visuals" style="margin-top:18px">
+      <section class="card"><h2>Sentimiento global</h2><div class="gauge-wrap" id="gaugeWrap"></div></section>
+      <section class="card"><h2>Distribución por fuente</h2><div id="sources"></div></section>
+    </div>
+    <section class="card" style="margin-top:18px"><h2>Distribución de puntajes</h2><div class="hist" id="hist"></div></section>
+    <section class="card" style="margin-top:18px"><h2>Top tendencias</h2><div class="meta-line" id="meta"></div><ul class="trends" id="trends"></ul></section>
+  </div>
+
+  <!-- comparison result -->
+  <div id="cmpView" class="hidden">
+    <div class="cmp" id="cmpPanels"></div>
+  </div>
+</main>
+
+<script>
+const API = 'http://localhost:8000';
+const $ = id => document.getElementById(id);
+
+const SRC_COLORS = {
+  reddit:/^reddit/, twitter:/^twitter/, google_trends:/^google_trends/,
+  hackernews:/^hackernews/, youtube:/^youtube/, amazon:/^amazon/, tiktok:/^tiktok/
+};
+const SRC_HEX = {reddit:'#ff5700',twitter:'#00d4ff',google_trends:'#3b82f6',
+  hackernews:'#22c55e',youtube:'#ef4444',amazon:'#eab308',tiktok:'#ec4899'};
+
+function srcKey(name){
+  name = (name||'').toLowerCase();
+  for(const k in SRC_COLORS) if(SRC_COLORS[k].test(name)) return k;
+  return name.replace(/[^a-z0-9]/g,'_') || 'other';
+}
+function srcColor(name){ return SRC_HEX[srcKey(name)] || '#6b7a99'; }
+function srcLabel(name){ return (name||'').replace(/_/g,' '); }
+
+function scoreColor(s){ return s>=75?'#ef4444': s>=50?'#eab308':'#22c55e'; }
+function sentiInfo(label){
+  label=(label||'neutral').toLowerCase();
+  if(label.startsWith('pos')) return {cls:'pos',sym:'+',col:'#22c55e'};
+  if(label.startsWith('neg')) return {cls:'neg',sym:'−',col:'#ef4444'};
+  return {cls:'neu',sym:'~',col:'#6b7a99'};
+}
+function fmt(n){
+  if(n==null) return '—';
+  n=Number(n);
+  if(n>=1e6) return (n/1e6).toFixed(1).replace(/\.0$/,'')+'M';
+  if(n>=1e3) return (n/1e3).toFixed(1).replace(/\.0$/,'')+'K';
+  return String(n);
+}
+function esc(s){ return (s==null?'':String(s)).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function trunc(s,n){ s=s||''; return s.length>n? s.slice(0,n-1)+'…':s; }
+
+/* ---------- Categories ---------- */
+async function loadCategories(){
+  try{
+    const r = await fetch(API+'/categories');
+    if(!r.ok) throw new Error('HTTP '+r.status);
+    const j = await r.json();
+    const cats = (j && j.categories) || [];
+    const sel = $('cat');
+    sel.innerHTML = '<option value="">— libre —</option>' +
+      cats.map(c=>`<option value="${esc(c)}">${esc(c)}</option>`).join('');
+  }catch(e){
+    const sel=$('cat');
+    sel.innerHTML = '<option value="">tecnologia</option>'.replace('tecnologia',
+      ['tecnologia','economia','salud','moda','deportes','politica','emprendimiento','educacion','inmobiliario','crypto']
+      .map(c=>`<option value="${c}">${c}</option>`).join(''));
+  }
+}
+
+/* ---------- Fetch ---------- */
+async function fetchTrends({category, topic, geo='CO'}){
+  const p = new URLSearchParams();
+  if(topic) p.set('topic', topic);
+  else if(category) p.set('category', category);
+  if(geo) p.set('geo', geo);
+  p.set('top_n','25');
+  const r = await fetch(API+'/trends?'+p.toString());
+  if(!r.ok){
+    let msg='HTTP '+r.status;
+    try{ const e=await r.json(); msg=e.detail||msg; }catch(_){}
+    throw new Error(msg);
+  }
+  return await r.json();
+}
+
+/* ---------- Status helpers ---------- */
+function showLoading(msg){
+  const s=$('status'); s.className='status show';
+  s.innerHTML=`<div class="loader"><div class="spinner"></div><div>${esc(msg||'Analizando tendencias…')}</div></div>`;
+}
+function showError(msg){
+  const s=$('status'); s.className='status show';
+  s.innerHTML=`<div class="error"><b>⚠ Error:</b><span>${esc(msg)}</span></div>`;
+}
+function clearStatus(){ $('status').className='status'; $('status').innerHTML=''; }
+
+/* ---------- Render: stats ---------- */
+function renderStats(meta){
+  const ss = meta.sentiment_summary||{};
+  const total = meta.total_analyzed ?? 0;
+  const sources = (meta.sources_used||[]).length;
+  const top = meta.top_trends ? meta.top_trends[0]?.trend_score : null;
+  const topScore = top!=null ? Math.round(top) : '—';
+  const pos=ss.positive||0, neg=ss.negative||0, neu=ss.neutral||0;
+  $('stats').innerHTML = `
+    <div class="stat"><div class="k">Total señales</div><div class="v" data-count="${total}">0</div></div>
+    <div class="stat"><div class="k">Fuentes activas</div><div class="v" data-count="${sources}">0</div></div>
+    <div class="stat"><div class="k">Sentimiento</div><div class="v" style="font-size:20px;line-height:1.3">
+        <span class="pill" style="color:#22c55e"><span class="dot" style="background:#22c55e"></span>${pos}+</span>
+        <span class="pill" style="color:#ef4444"><span class="dot" style="background:#ef4444"></span>${neg}−</span>
+        <span class="pill" style="color:#6b7a99"><span class="dot" style="background:#6b7a99"></span>${neu}~</span></div></div>
+    <div class="stat"><div class="k">Top score</div><div class="v" data-count="${topScore}">0</div></div>`;
+  animateCounts();
+}
+function animateCounts(){
+  document.querySelectorAll('[data-count]').forEach(el=>{
+    const target=el.getAttribute('data-count');
+    if(target==='—'){ el.textContent='—'; return; }
+    const n=parseInt(target,10); if(isNaN(n)){ el.textContent=target; return; }
+    const dur=900, t0=performance.now();
+    function step(t){
+      const p=Math.min((t-t0)/dur,1); const e=1-Math.pow(1-p,3);
+      el.textContent=Math.round(n*e);
+      if(p<1) requestAnimationFrame(step);
+    }
+    requestAnimationFrame(step);
+  });
+}
+
+/* ---------- Render: gauge ---------- */
+function renderGauge(meta){
+  const ss=meta.sentiment_summary||{};
+  const pos=ss.positive||0, neg=ss.negative||0, neu=ss.neutral||0;
+  const total=Math.max(pos+neg+neu,1);
+  const pP=pos/total, pN=neg/total, pU=neu/total;
+  // donut segments via stroke-dasharray on three concentric arcs is messy;
+  // use a single circle with stacked dash segments.
+  const R=70, C=2*Math.PI*R;
+  const segs=[
+    {v:pP,col:'#22c55e',lbl:'Positivo'},
+    {v:pU,col:'#6b7a99',lbl:'Neutral'},
+    {v:pN,col:'#ef4444',lbl:'Negativo'}
+  ];
+  let offset=0;
+  const arcs = segs.map(s=>{
+    const len=s.v*C;
+    const el=`<circle cx="100" cy="100" r="${R}" fill="none" stroke="${s.col}" stroke-width="22"
+      stroke-dasharray="${len.toFixed(2)} ${(C-len).toFixed(2)}"
+      stroke-dashoffset="${(-offset).toFixed(2)}"
+      transform="rotate(-90 100 100)" style="transition:stroke-dasharray 1s cubic-bezier(.2,.8,.2,1)"/>`;
+    offset+=len; return el;
+  }).join('');
+  const overall=(ss.overall||'neutral');
+  const oi=sentiInfo(overall);
+  $('gaugeWrap').innerHTML=`
+    <svg viewBox="0 0 200 200" width="200" height="200">
+      <circle cx="100" cy="100" r="${R}" fill="none" stroke="#1a2238" stroke-width="22"/>
+      ${arcs}
+      <text x="100" y="96" text-anchor="middle" fill="#e0e6ed" font-size="30" font-weight="800">${total}</text>
+      <text x="100" y="118" text-anchor="middle" fill="${oi.col}" font-size="12" font-weight="700" style="text-transform:uppercase">${esc(overall)} ${oi.sym}</text>
+    </svg>
+    <div class="gauge-legend">
+      ${segs.map(s=>`<div class="row"><span class="pill"><span class="dot" style="background:${s.col}"></span>${s.lbl}</span>
+        <span class="bar-mini"><i style="background:${s.col};transform:scaleX(${s.v})"></i></span>
+        <b>${Math.round(s.v*100)}%</b></div>`).join('')}
+    </div>`;
+}
+
+/* ---------- Render: sources ---------- */
+function renderSources(trends){
+  const counts={};
+  trends.forEach(t=>{ const k=srcKey(t.source); counts[k]=(counts[k]||0)+1; });
+  const rows=Object.entries(counts).sort((a,b)=>b[1]-a[1]);
+  const max=Math.max(...rows.map(r=>r[1]),1);
+  $('sources').innerHTML = rows.map(([k,c])=>`
+    <div class="src-row">
+      <div class="src-name"><span class="dot" style="background:${srcColor(k)}"></span>${esc(srcLabel(k))}</div>
+      <div class="src-track"><div class="src-fill" data-w="${(c/max*100).toFixed(1)}" style="background:${srcColor(k)}"></div></div>
+      <div class="src-count">${c}</div>
+    </div>`).join('') || '<div class="empty">Sin datos</div>';
+  requestAnimationFrame(()=>{
+    document.querySelectorAll('#sources .src-fill').forEach(el=>{ el.style.width=el.getAttribute('data-w')+'%'; });
+  });
+}
+
+/* ---------- Render: histogram ---------- */
+function renderHistogram(trends){
+  const bins=[0,0,0,0,0]; // 0-19,20-39,40-59,60-79,80-100
+  trends.forEach(t=>{
+    let s=t.trend_score||0;
+    let i = s>=80?4 : s>=60?3 : s>=40?2 : s>=20?1 : 0;
+    bins[i]++;
+  });
+  const max=Math.max(...bins,1);
+  const labels=['0-19','20-39','40-59','60-79','80-100'];
+  const cols=['#22c55e','#22c55e','#eab308','#ef4444','#ef4444'];
+  $('hist').innerHTML = bins.map((c,i)=>`
+    <div class="hist-col">
+      <div class="hist-bar" data-h="${(c/max*100).toFixed(1)}" style="background:linear-gradient(180deg,${cols[i]},${cols[i]}aa)"></div>
+      <div class="hist-lbl">${c}</div>
+      <div class="hist-lbl">${labels[i]}</div>
+    </div>`).join('');
+  requestAnimationFrame(()=>{
+    document.querySelectorAll('#hist .hist-bar').forEach(el=>{ el.style.height=el.getAttribute('data-h')+'%'; });
+  });
+}
+
+/* ---------- Render: trends table ---------- */
+function trendsHTML(trends, maxShow){
+  const list=(trends||[]).slice(0,maxShow||25);
+  if(!list.length) return '<div class="empty"><div class="big">∅</div>No se encontraron tendencias</div>';
+  return list.map((t,i)=>{
+    const s=sentiInfo(t.sentiment?.label);
+    const sc=t.trend_score||0;
+    const sig=t.signals||{};
+    const eng=[];
+    if(sig.likes!=null) eng.push(`<span>❤ <b>${fmt(sig.likes)}</b></span>`);
+    if(sig.retweets!=null) eng.push(`<span>🔁 <b>${fmt(sig.retweets)}</b></span>`);
+    if(sig.comments!=null) eng.push(`<span>💬 <b>${fmt(sig.comments)}</b></span>`);
+    if(sig.youtube_views!=null) eng.push(`<span>▶ <b>${fmt(sig.youtube_views)}</b></span>`);
+    if(sig.reddit_score!=null) eng.push(`<span>⬆ <b>${fmt(sig.reddit_score)}</b></span>`);
+    if(sig.google_traffic!=null) eng.push(`<span>📈 <b>${esc(sig.google_traffic)}</b></span>`);
+    if(sig.amazon_rank!=null) eng.push(`<span>🛒 <b>#${fmt(sig.amazon_rank)}</b></span>`);
+    const col=scoreColor(sc);
+    const url=t.url?`<a href="${esc(t.url)}" target="_blank" rel="noopener">${esc(trunc(t.title,140))}</a>`:esc(trunc(t.title,140));
+    return `<li class="trend" style="animation-delay:${Math.min(i*40,600)}ms">
+      <div class="rank ${i<3?'top':''}">${t.rank||i+1}</div>
+      <div class="trend-main">
+        <div class="trend-title">${url}</div>
+        <div class="trend-meta">
+          <span class="badge" style="background:${srcColor(t.source)}22;color:${srcColor(t.source)};border:1px solid ${srcColor(t.source)}55">${esc(srcLabel(t.source))}</span>
+          <span class="senti ${s.cls}"><b class="ico">${s.sym}</b> ${esc(t.sentiment?.label||'neutral')}</span>
+          ${t.category?`<span style="color:var(--muted);font-size:11px">${esc(t.category)}</span>`:''}
+        </div>
+        ${eng.length?`<div class="eng">${eng.join('')}</div>`:''}
+      </div>
+      <div class="scorebar-wrap">
+        <div class="scorebar"><i data-w="${Math.min(sc,100)}" style="background:${col}"></i></div>
+        <div class="score-num" style="color:${col}">${sc.toFixed?sc.toFixed(1):sc}</div>
+      </div>
+    </li>`;
+  }).join('');
+}
+function renderTrends(data){
+  const meta=data.meta||{};
+  const q=meta.query||{};
+  $('meta').innerHTML = `
+    <span>📅 <b>${esc(meta.date||'')}</b></span>
+    <span>🔍 <b>${esc(q.topic||q.category||'')}</b></span>
+    <span>🌍 <b>${esc(q.geo||'CO')}</b></span>
+    <span>🛰 <b>${esc((meta.sources_used||[]).join(', '))}</b></span>
+    <span>🧠 <b>${esc(meta.sentiment_summary?.engine||'local')}</b></span>`;
+  $('trends').innerHTML = trendsHTML(data.top_trends);
+  requestAnimationFrame(()=>{
+    document.querySelectorAll('#trends .scorebar > i').forEach(el=>{ el.style.width=el.getAttribute('data-w')+'%'; });
+  });
+}
+
+/* ---------- Render full single ---------- */
+function renderSingle(data){
+  const meta=data.meta||{};
+  renderStats(meta);
+  renderGauge(meta);
+  renderSources(data.top_trends||[]);
+  renderHistogram(data.top_trends||[]);
+  renderTrends(data);
+}
+
+/* ---------- Comparison ---------- */
+function renderComparison(d1,d2,t1,t2){
+  const panel=(d,title)=>`
+    <div class="panel">
+      <div class="ph"><span class="dot" style="background:var(--accent)"></span>${esc(title)}</div>
+      <div class="pb">
+        ${(d.top_trends||[]).slice(0,10).map((t,i)=>{
+          const s=sentiInfo(t.sentiment?.label); const sc=t.trend_score||0; const col=scoreColor(sc);
+          return `<div class="trend" style="animation-delay:${i*30}ms">
+            <div class="rank ${i<3?'top':''}">${t.rank||i+1}</div>
+            <div class="trend-main">
+              <div class="trend-title">${t.url?`<a href="${esc(t.url)}" target="_blank" rel="noopener">${esc(trunc(t.title,100))}</a>`:esc(trunc(t.title,100))}</div>
+              <div class="trend-meta">
+                <span class="badge" style="background:${srcColor(t.source)}22;color:${srcColor(t.source)};border:1px solid ${srcColor(t.source)}55">${esc(srcLabel(t.source))}</span>
+                <span class="senti ${s.cls}"><b class="ico">${s.sym}</b></span>
+              </div>
+            </div>
+            <div class="scorebar-wrap"><div class="scorebar"><i data-w="${Math.min(sc,100)}" style="background:${col}"></i></div>
+              <div class="score-num" style="color:${col}">${sc.toFixed?sc.toFixed(1):sc}</div></div>
+          </div>`;
+        }).join('') || '<div class="empty"><div class="big">∅</div>Sin datos</div>'}
+      </div>
+    </div>`;
+  $('cmpPanels').innerHTML = panel(d1,t1)+panel(d2,t2);
+  requestAnimationFrame(()=>{
+    document.querySelectorAll('#cmpPanels .scorebar > i').forEach(el=>{ el.style.width=el.getAttribute('data-w')+'%'; });
+  });
+}
+
+/* ---------- Actions ---------- */
+let cmpMode=false;
+function setCompare(on){
+  cmpMode=on;
+  $('cmpToggle').classList.toggle('on',on);
+  $('topic2Field').classList.toggle('hidden',!on);
+  $('topicField').querySelector('label').textContent = on? 'Tema 1 (libre/cat.)' : 'Tema libre (opcional)';
+}
+
+async function analyze(){
+  clearStatus();
+  const cat=$('cat').value, topic=$('topic').value.trim(), geo=$('geo').value.trim()||'CO';
+  if(cmpMode){
+    const t1=topic||cat, t2=($('topic2').value||'').trim();
+    if(!t1 || !t2){ showError('Modo comparación requiere dos temas.'); return; }
+    $('singleView').classList.add('hidden');
+    $('cmpView').classList.remove('hidden');
+    showLoading(`Comparando "${t1}" vs "${t2}"…`);
+    try{
+      const [d1,d2]=await Promise.all([
+        fetchTrends({topic:t1, geo}),
+        fetchTrends({topic:t2, geo})
+      ]);
+      clearStatus();
+      renderComparison(d1,d2,t1,t2);
+    }catch(e){ showError(e.message+' (¿API corriendo en '+API+'?)'); }
+    return;
+  }
+  $('singleView').classList.remove('hidden');
+  $('cmpView').classList.add('hidden');
+  if(!topic && !cat){ showError('Selecciona una categoría o escribe un tema libre.'); return; }
+  showLoading();
+  try{
+    const data=await fetchTrends({category:cat||undefined, topic:topic||undefined, geo});
+    clearStatus();
+    renderSingle(data);
+  }catch(e){
+    showError(e.message+' (¿API corriendo en '+API+'?)');
+    $('stats').innerHTML=''; $('gaugeWrap').innerHTML=''; $('sources').innerHTML='';
+    $('hist').innerHTML=''; $('trends').innerHTML=''; $('meta').innerHTML='';
+  }
+}
+
+/* ---------- Init ---------- */
+$('analizar').addEventListener('click', analyze);
+$('topic').addEventListener('keydown',e=>{ if(e.key==='Enter') analyze(); });
+$('topic2').addEventListener('keydown',e=>{ if(e.key==='Enter') analyze(); });
+$('cat').addEventListener('change',e=>{ if(e.target.value) $('topic').value=''; });
+$('cmpToggle').addEventListener('click',()=>setCompare(!cmpMode));
+loadCategories();
+</script>
+</body>
+</html>
