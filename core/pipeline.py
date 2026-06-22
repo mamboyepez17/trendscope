@@ -68,6 +68,10 @@ def run(query: TrendQuery) -> tuple[dict, str]:
 
     all_items: list[dict] = []
 
+    # Silenciar logs INFO durante recoleccion paralela (evita interleaving)
+    logger.remove()
+    logger.add(lambda msg: None, level="ERROR")
+
     # Dividir fuentes en paralelas y seriales
     parallel_sources = [(n, f) for n, f in SOURCES if n in _PARALLEL_SOURCES]
     serial_sources = [(n, f) for n, f in SOURCES if n in _SERIAL_SOURCES]
@@ -79,20 +83,27 @@ def run(query: TrendQuery) -> tuple[dict, str]:
                 pool.submit(fn, query): name
                 for name, fn in parallel_sources
             }
+            results_parallel: list[tuple[str, list[dict]]] = []
             for future in as_completed(futures):
                 name = futures[future]
-                console.print(f"  [cyan]>[/cyan] {name}...", end=" ")
                 try:
                     items = future.result()
-                    all_items.extend(items)
-                    console.print(f"[green]OK ({len(items)} items)[/green]")
+                    results_parallel.append((name, items))
                 except Exception as e:
                     logger.error(f"Pipeline - {name}: {e}")
-                    console.print(f"[red]FAIL[/red]")
+                    results_parallel.append((name, []))
+
+            # Imprimir resultados DESPUES de que todos terminen (sin interleaving)
+            for name, items in results_parallel:
+                if items:
+                    console.print(f"  [cyan]>[/cyan] {name}... [green]OK ({len(items)} items)[/green]")
+                else:
+                    console.print(f"  [cyan]>[/cyan] {name}... [red]FAIL[/red]")
+                all_items.extend(items)
 
     # --- Fuentes seriales ---
     for name, scraper_fn in serial_sources:
-        console.print(f"  [cyan]>[/cyan] {name}...", end=" ")
+        console.print(f"  [cyan]>[/cyan] {name}... ", end="")
         try:
             items = scraper_fn(query)
             all_items.extend(items)
@@ -102,6 +113,10 @@ def run(query: TrendQuery) -> tuple[dict, str]:
             console.print(f"[red]FAIL[/red]")
 
     console.print(f"\n[yellow]Recolectado: {len(all_items)} senales[/yellow]")
+
+    # Restaurar logs normales
+    logger.remove()
+    logger.add(lambda msg: print(msg, end=""), level="INFO", colorize=True)
 
     # Deduplicacion
     all_items = deduplicate(all_items)
