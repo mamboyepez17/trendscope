@@ -1,10 +1,13 @@
 """
 XActions-PY — Scrapers
 Replicas en Python de los scrapers HTTP de XActions.
+v1.1.0: Mejorado parse_tweet para manejar todas las variantes de GraphQL,
+        mejor extraccion de metricas, y wrapper sync para uso facil.
 """
 
+import asyncio
 from typing import Optional, List, Dict, Any
-from .client import TwitterClient, DEFAULT_FEATURES, NotFoundError
+from .client import TwitterClient, DEFAULT_FEATURES, NotFoundError, TwitterError
 
 
 # ─── Helpers de parseo ────────────────────────────────────────────────────────
@@ -13,6 +16,14 @@ def _upgrade_avatar(url: Optional[str]) -> Optional[str]:
     if not url:
         return None
     return url.replace("_normal", "_400x400")
+
+
+def _safe_int(val: Any, default: int = 0) -> int:
+    """Convierte cualquier valor a int de forma segura."""
+    try:
+        return int(val) if val is not None else default
+    except (ValueError, TypeError):
+        return default
 
 
 def parse_user(raw: Dict) -> Optional[Dict]:
@@ -27,9 +38,9 @@ def parse_user(raw: Dict) -> Optional[Dict]:
         "bio":            legacy.get("description"),
         "verified":       raw.get("is_blue_verified", legacy.get("verified", False)),
         "avatar":         _upgrade_avatar(legacy.get("profile_image_url_https")),
-        "followers":      legacy.get("followers_count", 0),
-        "following":      legacy.get("friends_count", 0),
-        "tweets_count":   legacy.get("statuses_count", 0),
+        "followers":      _safe_int(legacy.get("followers_count", 0)),
+        "following":      _safe_int(legacy.get("friends_count", 0)),
+        "tweets_count":   _safe_int(legacy.get("statuses_count", 0)),
         "protected":      legacy.get("protected", False),
         "created_at":     legacy.get("created_at"),
         "location":       legacy.get("location"),
@@ -42,35 +53,77 @@ def parse_user(raw: Dict) -> Optional[Dict]:
 
 
 def parse_tweet(raw: Dict, author: Optional[Dict] = None) -> Optional[Dict]:
-    """Convierte un resultado GraphQL de tweet al formato XActions."""
+    """
+    Convierte un resultado GraphQL de tweet al formato XActions.
+    Maneja multiples variantes de estructura que Twitter devuelve:
+    - TweetWithVisibilityResults
+    - Tweet
+    - TweetTombstone (descartado)
+    """
     if not raw:
         return None
-    result = raw.get("tweet_results", {}).get("result") or raw
-    if result.get("__typename") == "TweetTombstone":
+
+    # El tweet puede venir directo o dentro de tweet_results.result
+    result = raw.get("tweet_results", {}).get("result") if "tweet_results" in raw else raw
+    if not result:
+        # A veces viene como itemContent con tweet_results anidado
+        result = raw.get("itemContent", {}).get("tweet_results", {}).get("result", raw)
+
+    if not result or result.get("__typename") == "TweetTombstone":
         return None
+
+    # TweetWithVisibilityResults tiene el tweet real dentro de .tweet
+    if result.get("__typename") == "TweetWithVisibilityResults":
+        result = result.get("tweet", result)
 
     core    = result.get("core", {})
     legacy  = result.get("legacy", {})
+    notes   = result.get("notes", {})
     metrics = result.get("public_metrics") or {}
 
+    # El id puede estar en varios lugares
+    tweet_id = result.get("rest_id") or legacy.get("id_str") or raw.get("rest_id")
+    if not tweet_id:
+        return None
+
+    # Author: priorizar el que se pasa, sino extraer del core
+    tweet_author = author
+    if not tweet_author:
+        user_result = core.get("user_results", {}).get("result", {})
+        if user_result:
+            tweet_author = parse_user(user_result)
+
+    # Texto: full_text es el completo, text es el truncado
+    text = legacy.get("full_text") or legacy.get("text") or ""
+
+    # Metricas: pueden venir en legacy o en public_metrics (API v2)
+    likes = _safe_int(legacy.get("favorite_count", 0)) or _safe_int(metrics.get("like_count", 0))
+    retweets = _safe_int(legacy.get("retweet_count", 0)) or _safe_int(metrics.get("retweet_count", 0))
+    replies = _safe_int(legacy.get("reply_count", 0)) or _safe_int(metrics.get("reply_count", 0))
+    quotes = _safe_int(legacy.get("quote_count", 0)) or _safe_int(metrics.get("quote_count", 0))
+    views = _safe_int(result.get("views", {}).get("count", 0))
+
+    # Bookmark count (si esta disponible)
+    bookmarks = _safe_int(legacy.get("bookmark_count", 0))
+
     return {
-        "id":         result.get("rest_id") or legacy.get("id_str"),
-        "text":       legacy.get("full_text", ""),
-        "author":     author or parse_user(
-            core.get("user_results", {}).get("result", {})
-        ),
-        "created_at": legacy.get("created_at"),
-        "likes":      legacy.get("favorite_count", 0),
-        "retweets":   legacy.get("retweet_count", 0),
-        "replies":    legacy.get("reply_count", 0),
-        "quotes":     legacy.get("quote_count", 0),
-        "views":      int(result.get("views", {}).get("count", 0) or 0),
-        "lang":       legacy.get("lang"),
-        "is_reply":   bool(legacy.get("in_reply_to_status_id_str")),
-        "is_retweet": "retweeted_status_result" in legacy,
-        "media":      _parse_media(legacy),
-        "url":        f"https://x.com/i/web/status/{result.get('rest_id') or legacy.get('id_str')}",
-        "platform":   "twitter",
+        "id":           tweet_id,
+        "text":         text,
+        "author":       tweet_author or {},
+        "created_at":   legacy.get("created_at"),
+        "likes":        likes,
+        "retweets":     retweets,
+        "replies":      replies,
+        "quotes":       quotes,
+        "views":        views,
+        "bookmarks":    bookmarks,
+        "lang":         legacy.get("lang"),
+        "is_reply":     bool(legacy.get("in_reply_to_status_id_str")),
+        "is_retweet":   "retweeted_status_result" in legacy,
+        "is_quote":     "quoted_status_id_str" in legacy,
+        "media":        _parse_media(legacy),
+        "url":          f"https://x.com/i/web/status/{tweet_id}",
+        "platform":     "twitter",
     }
 
 
@@ -122,6 +175,45 @@ def _parse_user_list(instructions: List) -> tuple[List[Dict], Optional[str]]:
     return users, cursor
 
 
+def _parse_tweet_list(instructions: List) -> tuple[List[Dict], Optional[str]]:
+    """Extrae tweets y cursor de las instrucciones de una timeline GraphQL."""
+    tweets: List[Dict] = []
+    cursor: Optional[str] = None
+
+    for instruction in instructions:
+        itype = instruction.get("type") or instruction.get("__typename", "")
+        if "AddEntries" not in itype and "TimelineAddEntries" not in itype:
+            continue
+
+        for entry in instruction.get("entries", []):
+            entry_id = entry.get("entryId", "")
+            content  = entry.get("content", {})
+
+            # Cursor para paginacion
+            if "cursor-bottom" in entry_id or "cursor-top" in entry_id:
+                cursor = content.get("value") or content.get("itemContent", {}).get("value")
+                continue
+
+            # Tweet normal
+            item_content = content.get("itemContent", {})
+            if item_content.get("itemType") == "TimelineTweet":
+                tweet = parse_tweet(item_content)
+                if tweet:
+                    tweets.append(tweet)
+                continue
+
+            # Thread: puede tener multiples tweets dentro
+            if "TimelineTimelineModule" in str(content.get("itemType", "")):
+                for sub_item in content.get("items", []):
+                    sub_content = sub_item.get("item", {}).get("itemContent", {})
+                    if sub_content.get("itemType") == "TimelineTweet":
+                        tweet = parse_tweet(sub_content)
+                        if tweet:
+                            tweets.append(tweet)
+
+    return tweets, cursor
+
+
 # ─── Scrapers de perfil ───────────────────────────────────────────────────────
 
 async def scrape_profile(client: TwitterClient, username: str) -> Dict:
@@ -156,7 +248,7 @@ async def _paginate_users(
     user_id: str,
     limit: int = 100,
 ) -> List[Dict]:
-    """Paginador genérico para followers/following."""
+    """Paginador generico para followers/following."""
     all_users: List[Dict] = []
     cursor: Optional[str] = None
 
@@ -194,7 +286,7 @@ async def _paginate_users(
 
 
 async def get_user_id(client: TwitterClient, username: str) -> str:
-    """Obtiene el ID numérico de un usuario (requerido para queries de relaciones)."""
+    """Obtiene el ID numerico de un usuario."""
     profile = await scrape_profile(client, username)
     uid = profile.get("id")
     if not uid:
@@ -225,9 +317,7 @@ async def scrape_non_followers(
     username: str,
     limit: int = 200,
 ) -> List[Dict]:
-    """
-    Retorna los usuarios que sigues pero que no te siguen de vuelta.
-    """
+    """Retorna los usuarios que sigues pero que no te siguen de vuelta."""
     following = await scrape_following(client, username, limit=limit)
     followers  = await scrape_followers(client, username, limit=limit)
     follower_ids = {u["id"] for u in followers if u.get("id")}
@@ -269,30 +359,11 @@ async def scrape_tweets(
                 .get("timeline", {})
         )
         instructions = timeline.get("instructions", [])
-        new_cursor: Optional[str] = None
+        batch, new_cursor = _parse_tweet_list(instructions)
 
-        for instruction in instructions:
-            itype = instruction.get("type", "")
-            if "AddEntries" not in itype:
-                continue
-            for entry in instruction.get("entries", []):
-                entry_id = entry.get("entryId", "")
-                content  = entry.get("content", {})
+        all_tweets.extend(batch)
 
-                if entry_id.startswith("cursor-bottom"):
-                    new_cursor = (
-                        content.get("value")
-                        or content.get("itemContent", {}).get("value")
-                    )
-                    continue
-
-                item_content = content.get("itemContent", {})
-                if item_content.get("itemType") == "TimelineTweet":
-                    tweet = parse_tweet(item_content)
-                    if tweet:
-                        all_tweets.append(tweet)
-
-        if not new_cursor or new_cursor == cursor:
+        if not new_cursor or new_cursor == cursor or not batch:
             break
         cursor = new_cursor
 
@@ -303,8 +374,13 @@ async def search_tweets(
     client: TwitterClient,
     query: str,
     limit: int = 50,
-    mode: str = "Latest",  # "Latest" o "Top"
+    mode: str = "Top",  # "Top" (con engagement) o "Latest" (mas recientes)
 ) -> List[Dict]:
+    """
+    Busca tweets por query.
+    mode="Top" devuelve tweets con mas engagement (likes, RTs).
+    mode="Latest" devuelve los mas recientes (suelen tener menos engagement).
+    """
     all_tweets: List[Dict] = []
     cursor: Optional[str] = None
 
@@ -318,7 +394,13 @@ async def search_tweets(
         if cursor:
             variables["cursor"] = cursor
 
-        data = await client.graphql("SearchTimeline", variables=variables)
+        try:
+            data = await client.graphql("SearchTimeline", variables=variables)
+        except TwitterError as e:
+            if "HTTP 403" in str(e) or "NoneType" in str(e):
+                # Twitter a veces da 403 en ciertas queries, retornar lo que tengamos
+                break
+            raise
 
         timeline = (
             data.get("data", {})
@@ -326,29 +408,83 @@ async def search_tweets(
                 .get("search_timeline", {})
                 .get("timeline", {})
         )
+        if not timeline:
+            break
+
         instructions = timeline.get("instructions", [])
-        new_cursor: Optional[str] = None
+        batch, new_cursor = _parse_tweet_list(instructions)
 
-        for instruction in instructions:
-            itype = instruction.get("type", "")
-            if "AddEntries" not in itype:
-                continue
-            for entry in instruction.get("entries", []):
-                entry_id = entry.get("entryId", "")
-                content  = entry.get("content", {})
+        all_tweets.extend(batch)
 
-                if "cursor-bottom" in entry_id:
-                    new_cursor = content.get("value") or content.get("itemContent", {}).get("value")
-                    continue
-
-                item_content = content.get("itemContent", {})
-                if item_content.get("itemType") == "TimelineTweet":
-                    tweet = parse_tweet(item_content)
-                    if tweet:
-                        all_tweets.append(tweet)
-
-        if not new_cursor or new_cursor == cursor or not all_tweets:
+        if not new_cursor or new_cursor == cursor or not batch:
             break
         cursor = new_cursor
 
     return all_tweets[:limit]
+
+
+# ─── Wrapper sincrono (para uso facil desde otros proyectos) ───────────────────
+
+def search_tweets_sync(
+    cookies: str,
+    query: str,
+    limit: int = 50,
+    mode: str = "Top",
+) -> List[Dict]:
+    """
+    Wrapper sincrono para buscar tweets. No requiere asyncio.
+    Uso: search_tweets_sync("auth_token=xxx; ct0=yyy", "crypto Colombia", 20)
+    """
+    client = TwitterClient(cookies=cookies)
+    if not client.is_authenticated():
+        raise TwitterError("Cookies no validas: falta auth_token")
+
+    loop = asyncio.new_event_loop()
+    try:
+        asyncio.set_event_loop(loop)
+        results = loop.run_until_complete(
+            search_tweets(client, query=query, limit=limit, mode=mode)
+        )
+    finally:
+        loop.close()
+
+    return results
+
+
+def scrape_profile_sync(cookies: str, username: str) -> Dict:
+    """Wrapper sincrono para obtener perfil de usuario."""
+    client = TwitterClient(cookies=cookies)
+    if not client.is_authenticated():
+        raise TwitterError("Cookies no validas: falta auth_token")
+
+    loop = asyncio.new_event_loop()
+    try:
+        asyncio.set_event_loop(loop)
+        results = loop.run_until_complete(scrape_profile(client, username))
+    finally:
+        loop.close()
+
+    return results
+
+
+def scrape_tweets_sync(
+    cookies: str,
+    username: str,
+    limit: int = 50,
+    include_replies: bool = False,
+) -> List[Dict]:
+    """Wrapper sincrono para obtener tweets de un usuario."""
+    client = TwitterClient(cookies=cookies)
+    if not client.is_authenticated():
+        raise TwitterError("Cookies no validas: falta auth_token")
+
+    loop = asyncio.new_event_loop()
+    try:
+        asyncio.set_event_loop(loop)
+        results = loop.run_until_complete(
+            scrape_tweets(client, username, limit, include_replies)
+        )
+    finally:
+        loop.close()
+
+    return results
