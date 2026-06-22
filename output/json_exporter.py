@@ -9,7 +9,7 @@ from config import DATA_DIR
 from core.query import TrendQuery
 
 
-def export(items: list[dict], query: TrendQuery) -> dict:
+def export(items: list[dict], query: TrendQuery, insights: dict = None) -> dict:
     """
     Exporta items puntuados como JSON estructurado para agentes.
     Genera archivo en data/ y retorna el payload como dict.
@@ -84,6 +84,10 @@ def export(items: list[dict], query: TrendQuery) -> dict:
             "Se especifico, concreto y practico."
         ),
     }
+
+    # Insights del motor de análisis
+    if insights:
+        payload["insights"] = insights
 
     Path(DATA_DIR).mkdir(exist_ok=True)
     filepath = Path(DATA_DIR) / f"trends_{now.strftime('%Y-%m-%d')}_{query.topic_slug}.json"

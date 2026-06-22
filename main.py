@@ -154,6 +154,48 @@ def show_results(payload: dict, query: TrendQuery) -> None:
             console.print(f"     [dim blue]{item['url'][:80]}[/dim blue]")
         console.print("")
 
+    # Mostrar insights del análisis
+    insights = payload.get("insights")
+    if insights:
+        console.print(Panel("🧠 Análisis de TrendScope", border_style="magenta"))
+
+        # Resumen ejecutivo
+        console.print(f"\n[bold]Resumen ejecutivo:[/bold]")
+        console.print(f"  {insights.get('executive_summary', 'N/A')}\n")
+
+        # Insights accionables
+        for i in insights.get("actionable_insights", []):
+            color = "green" if i["type"] == "opportunity" else "red" if i["type"] == "alert" else "cyan"
+            icon = "🎯" if i["type"] == "opportunity" else "⚠️" if i["type"] == "alert" else "📊"
+            console.print(f"  [{color}]{icon} [{i['priority'].upper()}][/{color}] {i['title']}")
+            console.print(f"  [dim]   {i['description'][:100]}[/dim]\n")
+
+        # Correlaciones
+        for c in insights.get("correlations", []):
+            icon = "🤝" if c["type"] == "consensus" else "🔀" if c["type"] == "divergence" else "📈"
+            console.print(f"  [cyan]{icon}[/cyan] {c['description'][:100]}")
+        console.print("")
+
+        # Emergentes
+        em = insights.get("emerging_vs_established", {})
+        if em.get("emerging"):
+            console.print("  [bold yellow]⚡ Emergentes:[/bold yellow]")
+            for e in em["emerging"][:3]:
+                console.print(f"     {e['title'][:60]} ({e['score']}/100)")
+        if em.get("established"):
+            console.print("  [bold green]✅ Establecidas:[/bold green]")
+            for e in em["established"][:3]:
+                console.print(f"     {e['title'][:60]} ({e['score']}/100, {e['sources_count']} fuentes)")
+        console.print("")
+
+        # Recomendaciones
+        recs = insights.get("recommendations", [])
+        if recs:
+            console.print("  [bold magenta]🎯 Recomendaciones:[/bold magenta]")
+            for r in recs:
+                console.print(f"     {r}")
+        console.print("")
+
 
 def main() -> None:
     """Entry point del CLI."""

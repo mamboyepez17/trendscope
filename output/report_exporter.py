@@ -9,7 +9,7 @@ from core.query import TrendQuery
 from sentiment.base import SENTIMENT_EMOJI
 
 
-def export(payload: dict, query: TrendQuery) -> str:
+def export(payload: dict, query: TrendQuery, insights: dict = None) -> str:
     """
     Genera reporte Markdown legible para humanos.
     Guarda archivo en data/ y retorna el contenido como string.
@@ -90,6 +90,63 @@ def export(payload: dict, query: TrendQuery) -> str:
             lines.append(f"**Link:** {url[:100]}")
         lines.append("")
 
+    # --- Sección de Insights ---
+    if insights:
+        lines += [
+            "---",
+            "",
+            "## 🧠 Análisis de TrendScope",
+            "",
+            f"**Resumen ejecutivo:** {insights.get('executive_summary', 'N/A')}",
+            "",
+        ]
+
+        # Insights accionables
+        actionable = insights.get("actionable_insights", [])
+        if actionable:
+            lines.append("### Insights accionables")
+            lines.append("")
+            for i in actionable:
+                icon = "🎯" if i["type"] == "opportunity" else "⚠️" if i["type"] == "alert" else "📊"
+                lines.append(f"{icon} **[{i['priority'].upper()}]** {i['title']}")
+                lines.append(f"   {i['description']}")
+                lines.append("")
+
+        # Correlaciones
+        correlations = insights.get("correlations", [])
+        if correlations:
+            lines.append("### Correlaciones entre fuentes")
+            lines.append("")
+            for c in correlations:
+                icon = "🤝" if c["type"] == "consensus" else "🔀" if c["type"] == "divergence" else "📈"
+                lines.append(f"{icon} {c['description']}")
+                lines.append("")
+
+        # Emergentes vs Establecidos
+        em = insights.get("emerging_vs_established", {})
+        if em.get("emerging"):
+            lines.append("### ⚡ Tendencias emergentes")
+            lines.append("")
+            for e in em["emerging"]:
+                lines.append(f"- **{e['title'][:70]}** (score: {e['score']}, fuente: {e['source']})")
+            lines.append("")
+
+        if em.get("established"):
+            lines.append("### ✅ Tendencias establecidas")
+            lines.append("")
+            for e in em["established"]:
+                lines.append(f"- **{e['title'][:70]}** (score: {e['score']}, fuentes: {e['sources_count']})")
+            lines.append("")
+
+        # Recomendaciones
+        recs = insights.get("recommendations", [])
+        if recs:
+            lines.append("### 🎯 Recomendaciones")
+            lines.append("")
+            for r in recs:
+                lines.append(f"- {r}")
+            lines.append("")
+
     lines += [
         "---",
         "",
@@ -98,7 +155,7 @@ def export(payload: dict, query: TrendQuery) -> str:
         f"> {payload['agent_prompt']}",
         "",
         "---",
-        f"*TrendScope v1.0 | mamboyepez17 | {now.strftime('%Y-%m-%d')}*",
+        f"*TrendScope v1.2 | mamboyepez17 | {now.strftime('%Y-%m-%d')}*",
     ]
 
     report = "\n".join(lines)

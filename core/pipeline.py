@@ -9,6 +9,7 @@ from rich.console import Console
 from core.query import TrendQuery
 from analyzer.scorer import enrich_and_score
 from analyzer.deduplicator import deduplicate
+from analyzer.insights import generate_insights
 from sentiment import analyze_items
 from output.json_exporter import export as export_json
 from output.report_exporter import export as export_report
@@ -113,9 +114,20 @@ def run(query: TrendQuery) -> tuple[dict, str]:
     # Scoring
     scored = enrich_and_score(all_items, query)
 
+    # Insights — el "cerebro" de TrendScope
+    console.print(f"[yellow]Generando analisis...[/yellow]")
+    sentiment_summary = {
+        "positive": sum(1 for i in scored if i.get("sentiment_label") == "positive"),
+        "negative": sum(1 for i in scored if i.get("sentiment_label") == "negative"),
+        "neutral": sum(1 for i in scored if i.get("sentiment_label") == "neutral"),
+        "engine": query.sentiment_engine,
+        "overall": max(set(i.get("sentiment_label", "neutral") for i in scored), key=list(i.get("sentiment_label", "neutral") for i in scored).count) if scored else "neutral",
+    }
+    insights = generate_insights(scored, query, sentiment_summary)
+
     # Export
-    json_payload = export_json(scored, query)
-    report = export_report(json_payload, query)
+    json_payload = export_json(scored, query, insights)
+    report = export_report(json_payload, query, insights)
 
     # Guardar en cache para futuras consultas
     cache_set(cache_key, (json_payload, report))

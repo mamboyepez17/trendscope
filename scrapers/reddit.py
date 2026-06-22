@@ -222,19 +222,25 @@ def run(query: TrendQuery) -> list[dict]:
                 time.sleep(1.5)
     else:
         # --- Modo RSS (sin API key, 100% gratis) ---
-        # Limitar a 2 subreddits top para evitar rate limiting
-        top_subs = query.subreddits[:2]
+        # Usar hasta 3 subreddits con delay adaptativo
+        top_subs = query.subreddits[:3]
+        delay = 3  # delay inicial
 
         for sub in top_subs:
             posts = _fetch_rss(sub, "hot", limit=20)
-            all_posts.extend(posts)
-            time.sleep(3)  # Rate limit respetuoso
+            if posts:
+                all_posts.extend(posts)
+                delay = max(2, delay - 1)  # si funciona, reducir delay
+            else:
+                delay = min(10, delay + 4)  # si falla, aumentar delay
+            time.sleep(delay)
 
-        # Busqueda por keyword principal via RSS (1 sola busqueda para no saturar)
+        # Busqueda por keyword principal via RSS
         if query.keywords:
-            primary_kw = query.keywords[0]
-            search_results = _fetch_search_rss(primary_kw, sort="new", limit=15)
-            all_posts.extend(search_results)
+            for kw in query.keywords[:2]:
+                search_results = _fetch_search_rss(kw, sort="new", limit=15)
+                all_posts.extend(search_results)
+                time.sleep(delay)
 
     # Filtrar por relevancia con las keywords de la query
     if query.keywords and all_posts:
