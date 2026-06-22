@@ -6,7 +6,7 @@ import threading
 from pathlib import Path
 
 from fastapi import FastAPI, Query as QParam, HTTPException
-from fastapi.responses import PlainTextResponse
+from fastapi.responses import PlainTextResponse, HTMLResponse
 import uvicorn
 
 from config import API_HOST, API_PORT, CATEGORIES, DATA_DIR
@@ -111,13 +111,14 @@ def cache_clear():
     return {"status": "ok", "message": "Cache limpiado"}
 
 
-@app.get("/dashboard", response_class=PlainTextResponse)
+@app.get("/dashboard")
 def get_dashboard():
     """Sirve el dashboard web HTML."""
     from pathlib import Path
+    from fastapi.responses import HTMLResponse
     dashboard_path = Path(__file__).parent / "dashboard.html"
     if dashboard_path.exists():
-        return dashboard_path.read_text(encoding="utf-8")
+        return HTMLResponse(content=dashboard_path.read_text(encoding="utf-8"), media_type="text/html")
     raise HTTPException(status_code=404, detail="dashboard.html no encontrado")
 
 
