@@ -17,7 +17,6 @@ def _search_youtube(keyword: str, limit: int = 15) -> list[dict]:
     No requiere API key — usa el mismo endpoint que usa la pagina de busqueda.
     """
     url = "https://www.youtube.com/youtubei/v1/search"
-    params = {}  # API key publica embebida
     payload = {
         "context": {
             "client": {
@@ -32,7 +31,7 @@ def _search_youtube(keyword: str, limit: int = 15) -> list[dict]:
     }
 
     try:
-        resp = requests.post(url, params=params, json=payload, timeout=15)
+        resp = requests.post(url, json=payload, timeout=15)
         resp.raise_for_status()
         data = resp.json()
 
