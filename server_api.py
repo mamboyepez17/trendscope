@@ -122,6 +122,13 @@ def get_dashboard():
     raise HTTPException(status_code=404, detail="dashboard.html no encontrado")
 
 
+@app.get("/doctor")
+def doctor():
+    """Diagnostica el estado de todas las fuentes de TrendScope."""
+    from core.doctor import check_all
+    return check_all()
+
+
 @app.get("/compare")
 def compare_topics(
     topic1: str = QParam(..., description="Primer tema a comparar"),

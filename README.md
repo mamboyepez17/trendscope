@@ -1,10 +1,10 @@
 # TrendScope
 
-> Universal trend intelligence infrastructure — analyze any topic from 8 free sources with sentiment analysis and a live dashboard.
+> Universal trend intelligence infrastructure — analyze any topic from 8 free sources with sentiment analysis, AI-powered insights, and a live dashboard.
 
 ## What is it?
 
-TrendScope aggregates trend signals from Reddit, Google Trends, Twitter/X, Hacker News, YouTube, TweetClaw, Amazon and TikTok. It scores each signal 0-100 and analyzes sentiment in both Spanish and English (auto-detected). Generates structured JSON for AI agents, Markdown reports for humans, and serves a real-time web dashboard.
+TrendScope aggregates trend signals from Reddit, Google Trends, Twitter/X, Hacker News, YouTube, TweetClaw, Amazon and TikTok. It scores each signal 0-100, analyzes sentiment in both Spanish and English (auto-detected), and generates actionable insights, correlations, emerging vs established trend detection, and recommendations — all locally, no external AI API needed. Outputs structured JSON for agents, Markdown reports for humans, and serves a real-time web dashboard.
 
 ## Installation
 
@@ -23,7 +23,7 @@ cp .env.example .env  # fill in your credentials (all optional)
 ```bash
 python main.py
 ```
-Interactive menu with category selector, sentiment engine picker, and rich-formatted results table.
+Interactive menu with category selector, sentiment engine picker, and rich-formatted results table with analysis panel.
 
 ### Dashboard web
 ```bash
@@ -31,15 +31,16 @@ python server_api.py
 ```
 Then open **http://localhost:8000/dashboard** in your browser.
 
-The dashboard features:
-- Dark theme with cyan accents
-- Stats cards (total signals, sources active, sentiment breakdown, top score)
-- Sentiment gauge (SVG donut chart)
-- Source distribution bar chart
-- Score distribution histogram
-- Top trends table with score bars, source badges, engagement metrics (likes, RTs, comments, views, points)
-- Modo Comparación: analyze 2 topics side by side
-- Responsive (works on desktop and mobile)
+Features: dark theme, stats cards, sentiment gauge (SVG donut), source distribution bars, score histogram, top trends table with engagement metrics (likes, RTs, comments, views, points), modo comparación (2 topics side by side), responsive.
+
+### Doctor (diagnose sources)
+Check which sources are working and how to fix the ones that aren't:
+```bash
+python -c "from core.doctor import run_doctor; from rich.console import Console; Console().print(run_doctor())"
+```
+Or via API: `GET http://localhost:8000/doctor`
+
+The doctor performs real probes on each source (not just file existence) and reports status with actionable fix instructions.
 
 ### REST API (for HTTP agents)
 ```bash
@@ -49,9 +50,10 @@ python server_api.py
 # GET http://localhost:8000/report?topic=crypto
 # GET http://localhost:8000/categories
 # GET http://localhost:8000/health
+# GET http://localhost:8000/doctor              — diagnose all sources
 # GET http://localhost:8000/cache/stats
 # DELETE http://localhost:8000/cache
-# GET http://localhost:8000/dashboard        — web dashboard
+# GET http://localhost:8000/dashboard            — web dashboard
 # GET http://localhost:8000/compare?topic1=crypto&topic2=IA  — side-by-side comparison
 # Interactive docs: http://localhost:8000/docs
 ```
@@ -66,10 +68,25 @@ Available tools:
 - `get_categories` — List predefined categories
 - `get_latest_report` — Get the latest generated report
 
+### SKILL.md (for agent discovery)
+TrendScope includes a `SKILL.md` file that AI agents (Claude Code, OpenClaw, Hermes, Cursor) can discover automatically. It describes all available commands, endpoints, and configuration options.
+
 ### Run tests
 ```bash
 python -m pytest tests/ -v
 ```
+
+## AI-Powered Analysis (v1.3.0)
+
+TrendScope doesn't just collect data — it **analyzes it**:
+
+1. **Executive summary** — natural language summary of the findings
+2. **Actionable insights** — opportunities (🎯), alerts (⚠️), info (📊) with priorities
+3. **Correlations** — consensus (🤝), divergence (🔀), score gaps (📈) between sources
+4. **Emerging vs established** — trends in 1 source only (emerging) vs multi-source (established)
+5. **Recommendations** — actionable next steps
+
+All analysis runs locally with pure logic — no API keys, no cost.
 
 ## Data Sources
 
@@ -92,7 +109,7 @@ python -m pytest tests/ -v
 | `local` (fallback) | Keyword-based bilingüe (auto-activates if torch unavailable) | Free |
 | `claude` | Claude Haiku API (multilingual) | Low cost |
 
-Language is auto-detected per text — no configuration needed. Spanish content uses the Latin American Spanish model, English content uses the English model. Both engines handle mixed-language inputs seamlessly.
+Language is auto-detected per text — no configuration needed. Spanish content uses the Latin American Spanish model, English content uses the English model.
 
 If pysentimiento or torch is unavailable (e.g., Windows WDAC policies, Python 3.14), TrendScope automatically falls back to keyword-based bilingual sentiment analysis.
 
@@ -105,8 +122,8 @@ Also accepts **free topic** — any text you want to analyze.
 ## Output
 
 Each analysis generates two files in `data/`:
-- `trends_DATE_TOPIC.json` — Structured JSON for AI agents (includes `agent_prompt`)
-- `report_DATE_TOPIC.md` — Human-readable Markdown report
+- `trends_DATE_TOPIC.json` — Structured JSON for AI agents (includes `insights` and `agent_prompt`)
+- `report_DATE_TOPIC.md` — Human-readable Markdown report with analysis section
 
 ## Architecture
 
@@ -137,6 +154,9 @@ Sentiment Analysis (local or Claude, 1:1 aligned)
 Scorer (0-100 per source + keyword bonus + sentiment bonus)
       |
       v
+Insights Engine (summary, actionable, correlations, emerging, recommendations)
+      |
+      v
   ┌───┴───┐
   v       v
 JSON    Markdown
@@ -146,21 +166,10 @@ JSON    Markdown
       |
       v
   Dashboard (HTML + SVG, served at /dashboard)
+      |
+      v
+  Doctor (health check for all sources)
 ```
-
-### Key Design Decisions
-
-| Decision | Reason |
-|---|---|
-| RSS for Reddit (old.reddit.com) | Works without API key, 100% free since Reddit blocked public JSON |
-| RSS + pytrends for Google Trends | Combines trending topics with keyword-specific interest data |
-| Concurrent pipeline | 6 sources in parallel = 3x faster end-to-end |
-| In-memory cache (5 min) | Avoid redundant scraping on repeated API calls |
-| Sentiment alignment 1:1 | Critical: empty texts get neutral, not skipped |
-| pysentimiento + keyword fallback | Works even if torch is blocked by OS policies |
-| Hash + similarity dedup | O(1) exact match first, O(n) similarity for near-dups |
-| xactions-py included as local module | Avoids broken pyproject.toml build-backend issue |
-| Dashboard as single HTML file | No build step, no frameworks, works standalone |
 
 ## Stack
 
@@ -195,35 +204,29 @@ SENTIMENT_ENGINE=local
 
 # Geo target (ISO 3166-1 alpha-2, default: CO)
 GEO_TARGET=CO
-
-# Number of results per source (default: 25)
 TOP_N=25
-
-# API REST
 API_HOST=0.0.0.0
 API_PORT=8000
 ```
 
 **Note:** All credentials are optional. Without them, TrendScope uses sources that don't require authentication (Google Trends, Reddit RSS, Hacker News, YouTube, Amazon, TikTok). Only Twitter/X requires cookies.
 
-For OpenClaw agents, TweetClaw can collect tweet search results first and TrendScope can score them from a local JSON file. See [TweetClaw OpenClaw Source](docs/tweetclaw-openclaw-source.md).
-
 ## Troubleshooting
 
+### Run the doctor first
+```bash
+python -c "from core.doctor import run_doctor; from rich.console import Console; Console().print(run_doctor())"
+```
+This will tell you exactly what's working, what's not, and how to fix it.
+
 ### pysentimiento / torch import error on Windows
-If you see `OSError: [WinError 4551]` when loading pysentimiento, this is caused by Windows WDAC (Windows Defender Application Control) blocking PyTorch DLLs. TrendScope automatically falls back to keyword-based bilingual sentiment analysis — no action needed.
+If you see `OSError: [WinError 4551]`, Windows WDAC is blocking PyTorch DLLs. TrendScope automatically falls back to keyword-based bilingual sentiment analysis — no action needed.
 
 ### Reddit returns 403
-Reddit blocked the public JSON endpoint. TrendScope now uses RSS via `old.reddit.com` which is 100% free and works without API credentials. If you have Reddit API credentials (PRAW), they're used automatically for better data (real scores, comments, upvote ratios).
+Reddit blocked the public JSON endpoint. TrendScope uses RSS via `old.reddit.com` which is 100% free. PRAW credentials are optional for better data.
 
 ### Twitter returns 401 or 403
-Your cookies may have expired. Get fresh cookies from x.com → DevTools (F12) → Application → Cookies → x.com. Copy `auth_token` and `ct0` into your `.env` file.
-
-### Amazon scraper fails
-Amazon has aggressive anti-bot protection. Requires `curl_cffi` and Scrapling's StealthyFetcher. If it fails, the other sources continue working. TrendScope is designed to be resilient — if one source fails, the rest keep going.
-
-### TikTok API returns empty
-The TikTok Creative Center API may change without notice. The scraper has a fallback to HTML scraping with DynamicFetcher, but this requires Scrapling's browser dependencies to be installed.
+Your cookies may have expired. Get fresh cookies from x.com → DevTools (F12) → Application → Cookies → x.com. Copy `auth_token` and `ct0` into your `.env`.
 
 ## Tests
 
@@ -231,13 +234,7 @@ The TikTok Creative Center API may change without notice. The scraper has a fall
 python -m pytest tests/ -v
 ```
 
-Test coverage:
-- `test_cache.py` — In-memory cache operations
-- `test_deduplicator.py` — Cross-source deduplication (exact + near-duplicate)
-- `test_query.py` — TrendQuery dataclass (keywords, subreddits, slugs)
-- `test_scorer.py` — Trend scoring per source (Reddit, Twitter, HN, YouTube, etc.)
-- `test_sentiment_alignment.py` — Sentiment alignment + bilingüe fallback
-- `test_tweetclaw_scraper.py` — TweetClaw JSON loading and normalization
+49 tests covering: cache, deduplicator, query, scorer (all sources), sentiment alignment, tweetclaw.
 
 ## Related
 
