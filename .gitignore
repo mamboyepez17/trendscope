@@ -1,4 +1,4 @@
-# Privado — nunca al repo
+# Privado - nunca al repo
 .env
 .env.*
 !.env.example
@@ -8,13 +8,23 @@ data/
 
 # Python
 __pycache__/
-*.pyc
-*.pyo
+*.py[cod]
+*$py.class
+*.so
 *.egg-info/
 dist/
 build/
 .venv/
 venv/
+env/
+ENV/
+
+# Test y cache
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
 
 # IDE
 .vscode/
@@ -26,5 +36,5 @@ venv/
 Thumbs.db
 .DS_Store
 
-# Playwright (ya no se usa pero por si acaso)
+# Playwright legacy
 .playwright/
