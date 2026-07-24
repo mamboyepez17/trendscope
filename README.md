@@ -11,23 +11,28 @@ TrendScope aggregates trend signals from Reddit, Google Trends, Twitter/X, Hacke
 ```bash
 git clone https://github.com/mamboyepez17/trendscope
 cd trendscope
-pip install -r requirements.txt
+pip install -e .
 cp .env.example .env  # fill in your credentials (all optional)
 ```
 
-> **Note:** `xactions-py` (Twitter/X toolkit) is included as a local module in the `xactions/` folder — no separate install needed.
+> **Note:** `xactions-py` (Twitter/X toolkit) is included as a local module in the `trendscope/xactions/` folder — no separate install needed.
 
 ## Usage
 
 ### CLI (for humans)
 ```bash
-python main.py
+trendscope
+```
+
+Or from source:
+```bash
+python -m trendscope
 ```
 Interactive menu with category selector, sentiment engine picker, and rich-formatted results table with analysis panel.
 
 ### Dashboard web
 ```bash
-python server_api.py
+trendscope-api
 ```
 Then open **http://localhost:8000/dashboard** in your browser.
 
@@ -60,7 +65,12 @@ python server_api.py
 
 ### MCP Server (for MCP-compatible agents)
 ```bash
-python server_mcp.py
+trendscope-mcp
+```
+
+Or from source:
+```bash
+python -m trendscope.server_mcp
 ```
 
 Available tools:
@@ -73,7 +83,7 @@ TrendScope includes a `SKILL.md` file that AI agents (Claude Code, OpenClaw, Her
 
 ### Run tests
 ```bash
-python -m pytest tests/ -v
+python -m pytest trendscope/tests/ -v
 ```
 
 ## AI-Powered Analysis (v1.3.0)
