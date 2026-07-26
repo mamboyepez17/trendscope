@@ -47,7 +47,7 @@
 - [x] Bloque 7 — Logging estructurado
 - [x] Bloque 8 — Watchlist + monitoreo
 - [x] Bloque 9 — Dashboard real-time
-- [ ] Bloque 10 — Docker + CI/CD
+- [x] Bloque 10 — Docker + CI/CD
 
 ---
 
@@ -1203,11 +1203,11 @@ git commit -m "feat(dashboard): WebSockets, historial, watchlist y tests"
 
 ---
 
-# BLOQUE 7 — Docker + CI/CD
+# BLOQUE 10 — Docker + CI/CD
 
 **Objetivo:** Empaquetar TrendScope en Docker y correr tests automáticamente en GitHub Actions.
 
-### Tarea 7.1: Dockerfile
+### Tarea 10.1: Dockerfile
 **Archivo:** `Dockerfile`
 
 ```dockerfile
@@ -1217,7 +1217,9 @@ WORKDIR /app
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     gcc \
+    g++ \
     libffi-dev \
+    libssl-dev \
     && rm -rf /var/lib/apt/lists/*
 
 COPY pyproject.toml README.md ./
@@ -1225,16 +1227,18 @@ COPY trendscope/ ./trendscope/
 
 RUN pip install --no-cache-dir -e ".[dev]"
 
+RUN useradd -m -u 1000 trendscope && mkdir -p /app/data && chown -R trendscope:trendscope /app
+USER trendscope
+
 EXPOSE 8000
 
 CMD ["trendscope-api"]
 ```
 
-### Tarea 7.2: docker-compose.yml
+### Tarea 10.2: docker-compose.yml
 **Archivo:** `docker-compose.yml`
 
 ```yaml
-version: "3.8"
 services:
   trendscope:
     build: .
@@ -1244,25 +1248,52 @@ services:
       - .env
     volumes:
       - ./data:/app/data
+    restart: unless-stopped
 ```
 
-### Tarea 7.3: GitHub Actions
+### Tarea 10.3: .dockerignore
+**Archivo:** `.dockerignore`
+
+Ignora entornos virtuales, cachés, datos generados y archivos de IDE para reducir el tamaño de la imagen.
+
+### Tarea 10.4: GitHub Actions
 **Archivo:** `.github/workflows/tests.yml`
 
 ```yaml
 name: Tests
-on: [push, pull_request]
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
 jobs:
   test:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.11", "3.12"]
+
     steps:
-      - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v5
-      - run: uv sync
-      - run: uv run pytest trendscope/tests/ -v
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+
+      - name: Run tests
+        run: pytest trendscope/tests/ -v
 ```
 
-### Tarea 7.4: Commit final
+### Tarea 10.5: Commit final
 ```bash
 git add .
 git commit -m "ci: Docker, docker-compose y GitHub Actions"
@@ -1275,6 +1306,6 @@ git commit -m "ci: Docker, docker-compose y GitHub Actions"
 - Cada bloque debe quedar probado antes de continuar.
 - Si algo falla, no avanzar. Retroceder y arreglar.
 - Hacer push a GitHub al final de cada bloque.
-- README.md actualizado al finalizar el bloque 9.
+- README.md y plan maestro actualizados al finalizar el bloque 10.
 
-**¿Listo para empezar con el BLOQUE 10?**
+**Plan maestro completado.**

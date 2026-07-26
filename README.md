@@ -117,6 +117,29 @@ WS     /ws                   — real-time analysis via WebSocket
 
 Interactive docs: **http://localhost:8000/docs**
 
+### Docker
+
+Run TrendScope in a container with Docker Compose:
+
+```bash
+# Copy the example environment file and edit as needed
+cp .env.example .env
+
+# Build and start the container
+docker compose up -d
+
+# View logs
+docker compose logs -f
+```
+
+The API will be available at **http://localhost:8000** and the dashboard at **http://localhost:8000/dashboard**. The `data/` folder is mounted as a volume so analysis results and the SQLite history persist across restarts.
+
+To run tests inside the container:
+
+```bash
+docker compose exec trendscope pytest trendscope/tests/ -v
+```
+
 ### MCP Server (for MCP-compatible agents)
 
 ```cmd
@@ -439,7 +462,7 @@ Or double-click `run_tests.bat`.
 - [x] Rate limiting and API keys
 - [x] Watchlist + recurring monitoring
 - [x] Dashboard with WebSockets and history
-- [ ] Docker + CI/CD
+- [x] Docker + CI/CD
 
 ## Related
 
