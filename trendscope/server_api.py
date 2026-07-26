@@ -2,7 +2,6 @@
 # API REST — TrendScope accesible por cualquier agente HTTP
 # Uso: python server_api.py
 # Docs: http://localhost:8000/docs
-import threading
 from pathlib import Path
 
 from fastapi import FastAPI, Query as QParam, HTTPException
@@ -13,12 +12,61 @@ from trendscope.config import API_HOST, API_PORT, CATEGORIES, DATA_DIR
 from trendscope.core.query import TrendQuery
 from trendscope.core.pipeline import run as run_pipeline
 from trendscope.core import cache as result_cache
+from trendscope.narrator.engine import generate_summary, NARRATIVE_STYLES
 
 app = FastAPI(
     title="TrendScope API",
     description="Inteligencia de tendencias universal — mamboyepez17",
     version="1.0.0",
 )
+
+
+@app.get("/narrate")
+def narrate(
+    topic: str | None = QParam(None, description="Tema libre a narrar"),
+    category: str | None = QParam(None, description="Categoria predefinida"),
+    style: str = QParam("executive", description="executive | creative | technical | alert"),
+    geo: str = QParam("CO", description="Codigo ISO pais"),
+    sentiment_engine: str = QParam("local", description="local | claude"),
+    top_n: int = QParam(25, description="Numero de resultados"),
+):
+    """Genera una narrativa inteligente sobre un tema usando el proveedor configurado."""
+    if not topic and not category:
+        raise HTTPException(
+            status_code=400,
+            detail="Debes pasar 'topic' o 'category'. Ejemplo: ?topic=crypto+Colombia&style=executive",
+        )
+
+    if category and category not in CATEGORIES:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Categoria '{category}' no existe. Usa GET /categories para ver disponibles.",
+        )
+
+    if style not in NARRATIVE_STYLES:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Estilo '{style}' no valido. Opciones: {', '.join(NARRATIVE_STYLES.keys())}",
+        )
+
+    query = TrendQuery(
+        mode="category" if category else "free",
+        category=category,
+        free_topic=topic,
+        geo=geo,
+        sentiment_engine=sentiment_engine,
+        top_n=top_n,
+    )
+
+    payload, _ = run_pipeline(query)
+    result = generate_summary(payload, style=style)
+    return {
+        "topic": topic or category,
+        "style": result["style"],
+        "provider": result["provider"],
+        "model": result["model"],
+        "narrative": result["narrative"],
+    }
 
 
 @app.get("/health")
