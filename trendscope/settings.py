@@ -42,6 +42,10 @@ class Settings(BaseSettings):
     # API
     api_host: str = "0.0.0.0"
     api_port: int = 8000
+    api_rate_limit: int = 60
+    api_rate_window: int = 60
+    api_key_required: bool = False
+    api_keys: str = ""
 
     # Ollama local
     ollama_enabled: bool = False

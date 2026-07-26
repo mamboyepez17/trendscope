@@ -4,6 +4,10 @@
 import sys
 
 from rich.console import Console
+
+from trendscope.logging_config import setup_logging
+
+setup_logging()
 from rich.panel import Panel
 from rich.prompt import Prompt
 from rich.table import Table

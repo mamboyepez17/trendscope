@@ -14,6 +14,12 @@ from trendscope.core.pipeline import run as run_pipeline
 from trendscope.core import cache as result_cache
 from trendscope.narrator.engine import generate_summary, NARRATIVE_STYLES
 from trendscope.output.exporter import export_json, export_csv, export_excel
+from trendscope.api.middleware import RateLimitMiddleware, APIKeyMiddleware
+from trendscope.logging_config import setup_logging
+from trendscope import __version__
+
+
+setup_logging()
 
 
 def _run_pipeline_query(
@@ -51,8 +57,11 @@ def _run_pipeline_query(
 app = FastAPI(
     title="TrendScope API",
     description="Inteligencia de tendencias universal — mamboyepez17",
-    version="1.0.0",
+    version=__version__,
 )
+
+app.add_middleware(RateLimitMiddleware)
+app.add_middleware(APIKeyMiddleware)
 
 
 @app.get("/narrate")
@@ -142,8 +151,17 @@ def export_excel_endpoint(
 
 @app.get("/health")
 def health():
-    """Estado del servicio."""
-    return {"status": "ok", "service": "TrendScope", "version": "1.0.0"}
+    """Estado del servicio con información de configuración."""
+    return {
+        "status": "ok",
+        "service": "TrendScope",
+        "version": __version__,
+        "narrator_provider": settings.narrator_provider,
+        "narrative_enabled": settings.narrative_enabled,
+        "sentiment_engine_default": settings.sentiment_engine,
+        "rate_limit": f"{settings.api_rate_limit}/{settings.api_rate_window}s",
+        "api_key_required": settings.api_key_required,
+    }
 
 
 @app.get("/categories")
