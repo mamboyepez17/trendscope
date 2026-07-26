@@ -56,6 +56,10 @@ class Settings(BaseSettings):
     narrator_provider: str = "openrouter"
     narrative_enabled: bool = True
 
+    # Watchlist
+    watchlist_enabled: bool = True
+    watchlist_default_interval_minutes: int = 60
+
     # Cache
     cache_ttl_seconds: int = 300
 

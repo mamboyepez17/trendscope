@@ -10,16 +10,23 @@ import uvicorn
 
 from trendscope.config import API_HOST, API_PORT, CATEGORIES, DATA_DIR
 from trendscope.core.query import TrendQuery
+from trendscope.settings import settings
 from trendscope.core.pipeline import run as run_pipeline
 from trendscope.core import cache as result_cache
 from trendscope.narrator.engine import generate_summary, NARRATIVE_STYLES
 from trendscope.output.exporter import export_json, export_csv, export_excel
 from trendscope.api.middleware import RateLimitMiddleware, APIKeyMiddleware
 from trendscope.logging_config import setup_logging
+from trendscope.watchlist.models import WatchItem
+from trendscope.watchlist.store import get_store
+from trendscope.watchlist.scheduler import WatchlistScheduler
 from trendscope import __version__
 
 
 setup_logging()
+
+watchlist_store = get_store()
+watchlist_scheduler = WatchlistScheduler(watchlist_store)
 
 
 def _run_pipeline_query(
@@ -62,6 +69,17 @@ app = FastAPI(
 
 app.add_middleware(RateLimitMiddleware)
 app.add_middleware(APIKeyMiddleware)
+
+
+@app.on_event("startup")
+def start_watchlist_scheduler():
+    if settings.watchlist_enabled:
+        watchlist_scheduler.start()
+
+
+@app.on_event("shutdown")
+def stop_watchlist_scheduler():
+    watchlist_scheduler.stop()
 
 
 @app.get("/narrate")
@@ -259,6 +277,122 @@ def compare_topics(
     return {
         "topic1": {"name": topic1, "data": payload1},
         "topic2": {"name": topic2, "data": payload2},
+    }
+
+
+@app.post("/watchlist")
+def create_watch_item(
+    topic: str = QParam(..., description="Topic to monitor"),
+    category: str | None = QParam(None, description="Predefined category (optional)"),
+    geo: str = QParam("CO", description="ISO country code"),
+    sentiment_engine: str = QParam("local", description="local | claude"),
+    interval_minutes: int = QParam(
+        settings.watchlist_default_interval_minutes,
+        description="Analysis interval in minutes",
+    ),
+):
+    """Add a topic to the watchlist."""
+    if category and category not in CATEGORIES:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Category '{category}' does not exist. Use GET /categories",
+        )
+    item = WatchItem(
+        id=None,
+        topic=topic,
+        category=category,
+        geo=geo,
+        sentiment_engine=sentiment_engine,
+        interval_minutes=interval_minutes,
+        active=True,
+    )
+    item = watchlist_store.add(item)
+    watchlist_scheduler.refresh()
+    return item
+
+
+@app.get("/watchlist")
+def list_watch_items():
+    """List all watchlist items."""
+    items = watchlist_store.list_all()
+    return {"items": [item.__dict__ for item in items]}
+
+
+@app.get("/watchlist/stats")
+def watchlist_stats():
+    """Get watchlist and history aggregate stats."""
+    return watchlist_store.get_stats()
+
+
+@app.get("/watchlist/{item_id}")
+def get_watch_item(item_id: int):
+    """Get a single watchlist item."""
+    item = watchlist_store.get(item_id)
+    if not item:
+        raise HTTPException(status_code=404, detail="Watch item not found")
+    return item
+
+
+@app.put("/watchlist/{item_id}")
+def update_watch_item(
+    item_id: int,
+    topic: str = QParam(..., description="Topic to monitor"),
+    category: str | None = QParam(None, description="Predefined category (optional)"),
+    geo: str = QParam("CO", description="ISO country code"),
+    sentiment_engine: str = QParam("local", description="local | claude"),
+    interval_minutes: int = QParam(60, description="Analysis interval in minutes"),
+    active: bool = QParam(True, description="Whether the item is active"),
+):
+    """Update a watchlist item."""
+    existing = watchlist_store.get(item_id)
+    if not existing:
+        raise HTTPException(status_code=404, detail="Watch item not found")
+    item = WatchItem(
+        id=item_id,
+        topic=topic,
+        category=category,
+        geo=geo,
+        sentiment_engine=sentiment_engine,
+        interval_minutes=interval_minutes,
+        active=active,
+    )
+    item = watchlist_store.update(item)
+    watchlist_scheduler.refresh()
+    return item
+
+
+@app.delete("/watchlist/{item_id}")
+def delete_watch_item(item_id: int):
+    """Delete a watchlist item."""
+    if not watchlist_store.delete(item_id):
+        raise HTTPException(status_code=404, detail="Watch item not found")
+    watchlist_scheduler.refresh()
+    return {"status": "ok", "deleted": item_id}
+
+
+@app.post("/watchlist/{item_id}/run")
+def run_watch_item_now(item_id: int):
+    """Run analysis for a watchlist item immediately."""
+    item = watchlist_store.get(item_id)
+    if not item:
+        raise HTTPException(status_code=404, detail="Watch item not found")
+    watchlist_scheduler._analyze_item(item)
+    return {"status": "ok", "topic": item.topic}
+
+
+@app.get("/history")
+def get_history(
+    topic: str | None = QParam(None, description="Filter by topic"),
+    days: int = QParam(7, description="Number of days to look back"),
+    limit: int = QParam(100, description="Maximum records to return"),
+):
+    """Get historical analysis records."""
+    records = watchlist_store.get_history(topic=topic, days=days, limit=limit)
+    return {
+        "topic": topic,
+        "days": days,
+        "count": len(records),
+        "records": [record.__dict__ for record in records],
     }
 
 

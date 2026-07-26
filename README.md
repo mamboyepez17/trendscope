@@ -168,6 +168,29 @@ Every analysis can be exported to common formats:
 | CSV | `/export/csv?topic=...` | Spreadsheets, data science |
 | Excel | `/export/xlsx?topic=...` | Reports with two sheets: Trends + Metadata |
 
+## Watchlist + Recurring Monitoring
+
+TrendScope can monitor topics automatically and keep a historical record:
+
+```bash
+# Add a topic to the watchlist
+POST /watchlist?topic=crypto+Colombia&interval_minutes=60
+
+# List all watchlist items
+GET /watchlist
+
+# Run analysis for an item immediately
+POST /watchlist/{id}/run
+
+# View historical snapshots
+GET /history?topic=crypto+Colombia&days=7
+
+# Watchlist stats
+GET /watchlist/stats
+```
+
+The scheduler runs every active item at its configured interval, saves a snapshot to SQLite, and keeps the last 7 days by default. Enable/disable with `WATCHLIST_ENABLED=true|false` in `.env`.
+
 ## API Protection
 
 TrendScope includes built-in API protection for public deployments:
@@ -399,7 +422,7 @@ Or double-click `run_tests.bat`.
 - [x] Multi-provider narrative generation (OpenRouter, Claude, Ollama)
 - [x] CSV / JSON / Excel export
 - [x] Rate limiting and API keys
-- [ ] Watchlist + recurring monitoring
+- [x] Watchlist + recurring monitoring
 - [ ] Dashboard with WebSockets and history
 - [ ] Docker + CI/CD
 

@@ -45,7 +45,7 @@
 - [x] Bloque 5 — Exportación CSV/JSON/Excel
 - [x] Bloque 6 — Rate limiting + API keys
 - [x] Bloque 7 — Logging estructurado
-- [ ] Bloque 8 — Watchlist + monitoreo
+- [x] Bloque 8 — Watchlist + monitoreo
 - [ ] Bloque 9 — Dashboard real-time
 - [ ] Bloque 10 — Docker + CI/CD
 
