@@ -46,7 +46,7 @@
 - [x] Bloque 6 — Rate limiting + API keys
 - [x] Bloque 7 — Logging estructurado
 - [x] Bloque 8 — Watchlist + monitoreo
-- [ ] Bloque 9 — Dashboard real-time
+- [x] Bloque 9 — Dashboard real-time
 - [ ] Bloque 10 — Docker + CI/CD
 
 ---
@@ -1136,43 +1136,69 @@ git commit -m "feat(watchlist): monitoreo recurrente, historial y scheduler"
 
 ---
 
-# BLOQUE 6 — Dashboard real-time
+# BLOQUE 9 — Dashboard real-time
 
-**Objetivo:** Actualizar el dashboard para soportar WebSockets, historial y comparación temporal.
+**Objetivo:** Actualizar el dashboard para soportar WebSockets, historial, watchlist y comparación temporal.
 
 **Entregables:**
-1. Endpoint WebSocket `/ws`.
-2. Función en dashboard para recibir actualizaciones.
-3. Gráfico de evolución temporal (usando Chart.js desde CDN).
+1. Endpoint WebSocket `/ws` con validación de parámetros.
+2. Dashboard HTML con watchlist, historial, gráfico de evolución y análisis en tiempo real.
+3. Tests para el endpoint WebSocket.
 
-### Tarea 6.1: Endpoint WebSocket
+### Tarea 9.1: Endpoint WebSocket
 **Archivo:** `trendscope/server_api.py`
 
 ```python
 from fastapi import WebSocket, WebSocketDisconnect
+import asyncio
+import json
 
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
     await websocket.accept()
     try:
         while True:
-            msg = await websocket.receive_text()
-            query = TrendQuery(mode="free", free_topic=msg)
-            payload, _ = run_pipeline(query)
+            message = await websocket.receive_text()
+            try:
+                params = json.loads(message)
+            except json.JSONDecodeError:
+                await websocket.send_json({"error": "Invalid JSON"})
+                continue
+
+            topic = params.get("topic")
+            category = params.get("category")
+            if not topic and not category:
+                await websocket.send_json({"error": "topic or category required"})
+                continue
+
+            query = TrendQuery(...)
+            loop = asyncio.get_event_loop()
+            payload, _ = await loop.run_in_executor(None, run_pipeline, query)
             await websocket.send_json(payload)
     except WebSocketDisconnect:
         pass
 ```
 
-### Tarea 6.2: Panel de historial en dashboard
+### Tarea 9.2: Panel de historial en dashboard
 En `dashboard.html` agregar:
+- Sección "Watchlist" con lista de temas monitoreados y botones para analizar.
 - Sección "Historial" con selector de días.
 - Gráfico de línea con Chart.js mostrando score, volumen, sentimiento.
+- Botón "Análisis en tiempo real" que abre WebSocket y muestra resultados.
 
-### Tarea 6.3: Commit
+### Tarea 9.3: Tests del WebSocket
+**Archivo:** `trendscope/tests/test_websocket.py`
+
+- Verificar conexión/desconexión.
+- Verificar rechazo de JSON inválido.
+- Verificar error cuando falta topic y category.
+- Verificar error con categoría desconocida.
+- Verificar respuesta exitosa con pipeline mockeado.
+
+### Tarea 9.4: Commit
 ```bash
 git add .
-git commit -m "feat(dashboard): WebSockets y visualización de historial"
+git commit -m "feat(dashboard): WebSockets, historial, watchlist y tests"
 ```
 
 ---
@@ -1249,6 +1275,6 @@ git commit -m "ci: Docker, docker-compose y GitHub Actions"
 - Cada bloque debe quedar probado antes de continuar.
 - Si algo falla, no avanzar. Retroceder y arreglar.
 - Hacer push a GitHub al final de cada bloque.
-- Actualizar README.md al finalizar el bloque 7.
+- README.md actualizado al finalizar el bloque 9.
 
-**¿Listo para empezar con el BLOQUE 0?**
+**¿Listo para empezar con el BLOQUE 10?**

@@ -2,9 +2,11 @@
 # API REST — TrendScope accesible por cualquier agente HTTP
 # Uso: python server_api.py
 # Docs: http://localhost:8000/docs
+import asyncio
+import json
 from pathlib import Path
 
-from fastapi import FastAPI, Query as QParam, HTTPException
+from fastapi import FastAPI, Query as QParam, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.responses import PlainTextResponse, HTMLResponse, FileResponse
 import uvicorn
 
@@ -394,6 +396,54 @@ def get_history(
         "count": len(records),
         "records": [record.__dict__ for record in records],
     }
+
+
+@app.websocket("/ws")
+async def websocket_endpoint(websocket: WebSocket):
+    """Real-time analysis via WebSocket.
+
+    Send a JSON message with {topic, category?, geo?, sentiment_engine?, top_n?}.
+    The server runs the pipeline and returns the full payload.
+    """
+    await websocket.accept()
+    try:
+        while True:
+            message = await websocket.receive_text()
+            try:
+                params = json.loads(message)
+            except json.JSONDecodeError:
+                await websocket.send_json({"error": "Invalid JSON"})
+                continue
+
+            topic = params.get("topic")
+            category = params.get("category")
+            geo = params.get("geo", "CO")
+            sentiment_engine = params.get("sentiment_engine", "local")
+            top_n = int(params.get("top_n", 25))
+
+            if not topic and not category:
+                await websocket.send_json({"error": "topic or category required"})
+                continue
+
+            if category and category not in CATEGORIES:
+                await websocket.send_json({"error": f"Unknown category: {category}"})
+                continue
+
+            query = TrendQuery(
+                mode="category" if category else "free",
+                category=category,
+                free_topic=topic,
+                geo=geo,
+                sentiment_engine=sentiment_engine,
+                top_n=top_n,
+            )
+
+            # Run sync pipeline in threadpool to avoid blocking the event loop
+            loop = asyncio.get_event_loop()
+            payload, _ = await loop.run_in_executor(None, run_pipeline, query)
+            await websocket.send_json(payload)
+    except WebSocketDisconnect:
+        pass
 
 
 def run():

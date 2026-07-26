@@ -69,7 +69,7 @@ Or double-click `start_api.bat`.
 
 Then open **http://localhost:8000/dashboard** in your browser.
 
-Features: dark theme, stats cards, sentiment gauge (SVG donut), source distribution bars, score histogram, top trends table with engagement metrics (likes, RTs, comments, views, points), comparison mode (2 topics side by side), responsive.
+Features: dark theme, stats cards, sentiment gauge (SVG donut), source distribution bars, score histogram, top trends table with engagement metrics (likes, RTs, comments, views, points), comparison mode (2 topics side by side), live watchlist panel, history chart with Chart.js, real-time WebSocket analysis, and responsive layout.
 
 ### Doctor (diagnose sources)
 
@@ -106,6 +106,13 @@ GET    /cache/stats
 DELETE /cache
 GET    /dashboard            — web dashboard
 GET    /compare?topic1=crypto&topic2=AI  — side-by-side comparison
+GET    /watchlist            — list monitored topics
+POST   /watchlist?topic=...  — add a topic to monitor
+POST   /watchlist/{id}/run   — run analysis immediately
+GET    /watchlist/stats      — watchlist + history stats
+GET    /history?topic=...&days=7  — historical snapshots
+DELETE /watchlist/{id}       — remove a monitored topic
+WS     /ws                   — real-time analysis via WebSocket
 ```
 
 Interactive docs: **http://localhost:8000/docs**
@@ -303,7 +310,15 @@ JSON    Markdown  Narrative
 Persistent SQLite cache (configurable TTL)
   |
   v
-Dashboard (HTML + SVG, served at /dashboard)
+  ┌─────────────┴─────────────┐
+  v                           v
+Dashboard (HTML + Chart.js)  Watchlist + Scheduler
+  |                            |
+  |                            v
+  |                         History (SQLite)
+  |                            |
+  v                            v
+WebSocket /ws                 REST API /watchlist /history
   |
   v
 Doctor (health check for all sources)
@@ -412,7 +427,7 @@ Your API key may be invalid or missing. Get a free key at [openrouter.ai/keys](h
 
 Or double-click `run_tests.bat`.
 
-72 tests covering: cache, persistent cache, deduplicator, query, scorer (all sources), sentiment alignment, tweetclaw, settings, narrator, exporter, middleware.
+88 tests covering: cache, persistent cache, deduplicator, query, scorer (all sources), sentiment alignment, tweetclaw, settings, narrator, exporter, middleware, watchlist, watchlist API, and WebSocket.
 
 ## Roadmap
 
@@ -423,7 +438,7 @@ Or double-click `run_tests.bat`.
 - [x] CSV / JSON / Excel export
 - [x] Rate limiting and API keys
 - [x] Watchlist + recurring monitoring
-- [ ] Dashboard with WebSockets and history
+- [x] Dashboard with WebSockets and history
 - [ ] Docker + CI/CD
 
 ## Related

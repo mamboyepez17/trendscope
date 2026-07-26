@@ -1,9 +1,10 @@
 <!DOCTYPE html>
-<html lang="es">
+<html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>TrendScope · Intelligence Dashboard</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 <style>
   :root{
     --bg:#0a0e1a; --card:#141b2d; --card2:#1a2238; --accent:#00d4ff;
@@ -26,7 +27,6 @@
   a{color:var(--accent);text-decoration:none}
   ::selection{background:rgba(0,212,255,.3)}
 
-  /* ---------- Header ---------- */
   header.top{
     position:sticky; top:0; z-index:50;
     background:rgba(10,14,26,.82); backdrop-filter:blur(10px);
@@ -50,13 +50,14 @@
   .controls{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
   .field{display:flex;flex-direction:column;gap:4px}
   .field label{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.8px}
-  select,input[type=text]{
+  select,input[type=text],input[type=number]{
     background:var(--card);color:var(--text);border:1px solid var(--border);
     border-radius:9px;padding:9px 12px;font-size:13px;min-width:160px;
     transition:border-color .15s, box-shadow .15s; outline:none;
   }
   select:focus,input:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(0,212,255,.15)}
   .geo{min-width:80px !important;width:80px}
+  .interval{min-width:100px !important;width:100px}
   .btn{
     background:linear-gradient(135deg,var(--accent),#0099cc);color:#02121a;
     border:none;border-radius:9px;padding:10px 18px;font-size:13px;font-weight:700;
@@ -68,6 +69,9 @@
   .btn:disabled{opacity:.5;cursor:not-allowed}
   .btn.ghost{background:transparent;color:var(--text);border:1px solid var(--border);box-shadow:none}
   .btn.ghost:hover{border-color:var(--accent);color:var(--accent)}
+  .btn.danger{background:linear-gradient(135deg,#ef4444,#b91c1c);color:#fff;box-shadow:0 4px 16px rgba(239,68,68,.25)}
+  .btn.danger:hover{box-shadow:0 6px 22px rgba(239,68,68,.4)}
+  .btn.sm{padding:6px 10px;font-size:11px}
 
   .toggle{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted);cursor:pointer;user-select:none}
   .switch{position:relative;width:42px;height:22px;background:var(--card2);border:1px solid var(--border);border-radius:12px;transition:.2s}
@@ -75,7 +79,9 @@
   .toggle.on .switch{background:rgba(0,212,255,.2);border-color:var(--accent)}
   .toggle.on .switch::after{left:22px;background:var(--accent)}
 
-  /* ---------- Layout ---------- */
+  .connection-dot{width:8px;height:8px;border-radius:50%;background:var(--neg);display:inline-block;margin-right:6px}
+  .connection-dot.on{background:var(--pos);box-shadow:0 0 8px var(--pos)}
+
   main{max-width:1400px;margin:0 auto;padding:24px 22px 80px}
   .grid{display:grid;gap:18px}
   .card{
@@ -85,7 +91,6 @@
   .card h2{font-size:13px;text-transform:uppercase;letter-spacing:1.2px;color:var(--muted);margin-bottom:14px;display:flex;align-items:center;gap:8px}
   .card h2::before{content:"";width:4px;height:14px;background:var(--accent);border-radius:2px}
 
-  /* ---------- Stats row ---------- */
   .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:18px}
   .stat{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:18px;position:relative;overflow:hidden}
   .stat::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(0,212,255,.05),transparent 50%);pointer-events:none}
@@ -95,7 +100,6 @@
   .pill{display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:600}
   .dot{width:8px;height:8px;border-radius:50%;display:inline-block}
 
-  /* ---------- Two-col visual ---------- */
   .visuals{display:grid;grid-template-columns:1fr 1fr;gap:18px}
   .gauge-wrap{display:flex;align-items:center;justify-content:center;gap:24px;flex-wrap:wrap}
   .gauge-legend{display:flex;flex-direction:column;gap:10px;font-size:13px}
@@ -103,7 +107,6 @@
   .bar-mini{flex:1;height:6px;background:var(--card2);border-radius:3px;overflow:hidden;margin:0 8px}
   .bar-mini > i{display:block;height:100%;border-radius:3px;transform:scaleX(0);transform-origin:left;transition:transform .9s cubic-bezier(.2,.8,.2,1)}
 
-  /* ---------- Source bars ---------- */
   .src-row{display:grid;grid-template-columns:120px 1fr 44px;align-items:center;gap:12px;margin-bottom:12px;font-size:13px}
   .src-row:last-child{margin-bottom:0}
   .src-name{display:flex;align-items:center;gap:8px}
@@ -111,13 +114,11 @@
   .src-fill{height:100%;border-radius:7px;width:0;transition:width 1s cubic-bezier(.2,.8,.2,1)}
   .src-count{text-align:right;color:var(--muted);font-variant-numeric:tabular-nums}
 
-  /* ---------- Histogram ---------- */
   .hist{display:flex;align-items:flex-end;gap:8px;height:180px;padding-top:10px}
   .hist-col{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%;gap:6px}
   .hist-bar{width:100%;max-width:46px;background:linear-gradient(180deg,var(--accent),#006688);border-radius:6px 6px 0 0;height:0;transition:height 1s cubic-bezier(.2,.8,.2,1);min-height:2px}
   .hist-lbl{font-size:11px;color:var(--muted);font-variant-numeric:tabular-nums}
 
-  /* ---------- Trends table ---------- */
   .trends{list-style:none}
   .trend{
     display:grid;grid-template-columns:36px 1fr auto;gap:14px;align-items:center;
@@ -146,7 +147,6 @@
   .eng b{color:var(--text);font-variant-numeric:tabular-nums}
   .ico{font-style:normal;font-family:'Segoe UI Symbol',sans-serif}
 
-  /* ---------- Comparison ---------- */
   .cmp{display:grid;grid-template-columns:1fr 1fr;gap:18px}
   .cmp .panel{border:1px solid var(--border);border-radius:var(--radius);overflow:hidden}
   .cmp .panel > .ph{padding:10px 14px;background:var(--card2);font-weight:700;font-size:14px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px}
@@ -154,7 +154,6 @@
   .cmp .panel .trend{margin:0;border:none;border-radius:0;border-bottom:1px solid var(--border)}
   .cmp .panel .trend:last-child{border-bottom:none}
 
-  /* ---------- States ---------- */
   .status{min-height:60px;margin:18px 0;display:none}
   .status.show{display:block}
   .loader{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:30px;color:var(--muted)}
@@ -170,11 +169,28 @@
   .hidden{display:none !important}
   section{margin-top:22px}
 
-  /* ---------- Responsive ---------- */
+  /* Watchlist & History */
+  .layout{display:grid;grid-template-columns:320px 1fr;gap:18px;align-items:start}
+  .watchlist{max-height:500px;overflow:auto}
+  .watch-item{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px;border:1px solid var(--border);border-radius:10px;margin-bottom:8px;background:var(--card2)}
+  .watch-item:hover{border-color:var(--accent)}
+  .watch-info{min-width:0}
+  .watch-topic{font-weight:700;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .watch-meta{font-size:11px;color:var(--muted)}
+  .watch-actions{display:flex;gap:6px;flex-shrink:0}
+  .add-form{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}
+  .add-form input{flex:1;min-width:120px}
+  .add-form input.interval{min-width:80px;width:80px}
+  .chart-wrap{position:relative;height:260px}
+  .history-list{max-height:200px;overflow:auto;margin-top:14px}
+  .history-row{display:flex;justify-content:space-between;gap:10px;padding:8px 10px;border-bottom:1px solid var(--border);font-size:12px}
+  .history-row:last-child{border-bottom:none}
+
   @media (max-width:1000px){
     .stats{grid-template-columns:repeat(2,1fr)}
     .visuals{grid-template-columns:1fr}
     .cmp{grid-template-columns:1fr}
+    .layout{grid-template-columns:1fr}
   }
   @media (max-width:640px){
     .top-inner{padding:12px 14px}
@@ -204,31 +220,34 @@
     ░░░╚═╝</pre>
       <div>
         <h1>Trend<span>Scope</span></h1>
-        <small>Trend Intelligence · v1.0.0</small>
+        <small>Trend Intelligence · v1.5.0</small>
       </div>
     </div>
 
     <div class="controls">
       <div class="field">
-        <label for="cat">Categoría</label>
-        <select id="cat"><option value="">Cargando…</option></select>
+        <label for="cat">Category</label>
+        <select id="cat"><option value="">Loading…</option></select>
       </div>
       <div class="field" id="topicField">
-        <label for="topic">Tema libre (opcional)</label>
-        <input type="text" id="topic" placeholder="ej: crypto Colombia">
+        <label for="topic">Free topic (optional)</label>
+        <input type="text" id="topic" placeholder="e.g. crypto Colombia">
       </div>
       <div class="field hidden" id="topic2Field">
-        <label for="topic2">Tema 2 (comparación)</label>
-        <input type="text" id="topic2" placeholder="ej: bitcoin">
+        <label for="topic2">Topic 2 (compare)</label>
+        <input type="text" id="topic2" placeholder="e.g. bitcoin">
       </div>
       <div class="field">
         <label for="geo">Geo</label>
         <input type="text" id="geo" class="geo" value="CO" maxlength="3">
       </div>
-      <button class="btn" id="analizar">Analizar</button>
-      <div class="toggle" id="cmpToggle" title="Modo Comparación">
-        <span>Comparar</span>
+      <button class="btn" id="analizar">Analyze</button>
+      <div class="toggle" id="cmpToggle" title="Compare mode">
+        <span>Compare</span>
         <span class="switch"></span>
+      </div>
+      <div style="display:flex;align-items:center;gap:6px;font-size:11px;color:var(--muted)">
+        <span id="wsDot" class="connection-dot"></span><span id="wsText">WS off</span>
       </div>
     </div>
   </div>
@@ -237,15 +256,40 @@
 <main>
   <div class="status" id="status"></div>
 
+  <!-- Watchlist + History sidebar -->
+  <section class="layout">
+    <div class="card">
+      <h2>Watchlist</h2>
+      <div class="add-form">
+        <input type="text" id="wlTopic" placeholder="topic to monitor">
+        <input type="number" id="wlInterval" class="interval" value="60" min="5" title="minutes">
+        <button class="btn sm" id="wlAdd">Add</button>
+      </div>
+      <div class="watchlist" id="watchlist"></div>
+    </div>
+
+    <div class="card" id="historyCard">
+      <h2>History & Trends</h2>
+      <div class="meta-line">
+        <span>Topic: <b id="histTopic">—</b></span>
+        <span>Records: <b id="histCount">0</b></span>
+      </div>
+      <div class="chart-wrap">
+        <canvas id="historyChart"></canvas>
+      </div>
+      <div class="history-list" id="historyList"></div>
+    </div>
+  </section>
+
   <!-- single result -->
   <div id="singleView">
     <div class="stats grid" id="stats"></div>
     <div class="visuals" style="margin-top:18px">
-      <section class="card"><h2>Sentimiento global</h2><div class="gauge-wrap" id="gaugeWrap"></div></section>
-      <section class="card"><h2>Distribución por fuente</h2><div id="sources"></div></section>
+      <section class="card"><h2>Overall sentiment</h2><div class="gauge-wrap" id="gaugeWrap"></div></section>
+      <section class="card"><h2>Source distribution</h2><div id="sources"></div></section>
     </div>
-    <section class="card" style="margin-top:18px"><h2>Distribución de puntajes</h2><div class="hist" id="hist"></div></section>
-    <section class="card" style="margin-top:18px"><h2>Top tendencias</h2><div class="meta-line" id="meta"></div><ul class="trends" id="trends"></ul></section>
+    <section class="card" style="margin-top:18px"><h2>Score distribution</h2><div class="hist" id="hist"></div></section>
+    <section class="card" style="margin-top:18px"><h2>Top trends</h2><div class="meta-line" id="meta"></div><ul class="trends" id="trends"></ul></section>
   </div>
 
   <!-- comparison result -->
@@ -256,6 +300,7 @@
 
 <script>
 const API = 'http://localhost:8000';
+const WS = 'ws://localhost:8000/ws';
 const $ = id => document.getElementById(id);
 
 const SRC_COLORS = {
@@ -298,7 +343,7 @@ async function loadCategories(){
     const j = await r.json();
     const cats = (j && j.categories) || [];
     const sel = $('cat');
-    sel.innerHTML = '<option value="">— libre —</option>' +
+    sel.innerHTML = '<option value="">— free —</option>' +
       cats.map(c=>`<option value="${esc(c)}">${esc(c)}</option>`).join('');
   }catch(e){
     const sel=$('cat');
@@ -324,10 +369,22 @@ async function fetchTrends({category, topic, geo='CO'}){
   return await r.json();
 }
 
+async function api(method, path, body){
+  const opts={method,headers:{}};
+  if(body){opts.headers['Content-Type']='application/json'; opts.body=JSON.stringify(body);}
+  const r=await fetch(API+path,opts);
+  if(!r.ok){
+    let msg='HTTP '+r.status;
+    try{const e=await r.json();msg=e.detail||msg;}catch(_){}
+    throw new Error(msg);
+  }
+  return r.status===204?null:await r.json();
+}
+
 /* ---------- Status helpers ---------- */
 function showLoading(msg){
   const s=$('status'); s.className='status show';
-  s.innerHTML=`<div class="loader"><div class="spinner"></div><div>${esc(msg||'Analizando tendencias…')}</div></div>`;
+  s.innerHTML=`<div class="loader"><div class="spinner"></div><div>${esc(msg||'Analyzing trends…')}</div></div>`;
 }
 function showError(msg){
   const s=$('status'); s.className='status show';
@@ -344,9 +401,9 @@ function renderStats(meta){
   const topScore = top!=null ? Math.round(top) : '—';
   const pos=ss.positive||0, neg=ss.negative||0, neu=ss.neutral||0;
   $('stats').innerHTML = `
-    <div class="stat"><div class="k">Total señales</div><div class="v" data-count="${total}">0</div></div>
-    <div class="stat"><div class="k">Fuentes activas</div><div class="v" data-count="${sources}">0</div></div>
-    <div class="stat"><div class="k">Sentimiento</div><div class="v" style="font-size:20px;line-height:1.3">
+    <div class="stat"><div class="k">Total signals</div><div class="v" data-count="${total}">0</div></div>
+    <div class="stat"><div class="k">Active sources</div><div class="v" data-count="${sources}">0</div></div>
+    <div class="stat"><div class="k">Sentiment</div><div class="v" style="font-size:20px;line-height:1.3">
         <span class="pill" style="color:#22c55e"><span class="dot" style="background:#22c55e"></span>${pos}+</span>
         <span class="pill" style="color:#ef4444"><span class="dot" style="background:#ef4444"></span>${neg}−</span>
         <span class="pill" style="color:#6b7a99"><span class="dot" style="background:#6b7a99"></span>${neu}~</span></div></div>
@@ -374,13 +431,11 @@ function renderGauge(meta){
   const pos=ss.positive||0, neg=ss.negative||0, neu=ss.neutral||0;
   const total=Math.max(pos+neg+neu,1);
   const pP=pos/total, pN=neg/total, pU=neu/total;
-  // donut segments via stroke-dasharray on three concentric arcs is messy;
-  // use a single circle with stacked dash segments.
   const R=70, C=2*Math.PI*R;
   const segs=[
-    {v:pP,col:'#22c55e',lbl:'Positivo'},
+    {v:pP,col:'#22c55e',lbl:'Positive'},
     {v:pU,col:'#6b7a99',lbl:'Neutral'},
-    {v:pN,col:'#ef4444',lbl:'Negativo'}
+    {v:pN,col:'#ef4444',lbl:'Negative'}
   ];
   let offset=0;
   const arcs = segs.map(s=>{
@@ -397,6 +452,7 @@ function renderGauge(meta){
     <svg viewBox="0 0 200 200" width="200" height="200">
       <circle cx="100" cy="100" r="${R}" fill="none" stroke="#1a2238" stroke-width="22"/>
       ${arcs}
+      <text x="100" y="86" text-anchor="middle" fill="#6b7a99" font-size="12" font-weight="700">OVERALL</text>
       <text x="100" y="96" text-anchor="middle" fill="#e0e6ed" font-size="30" font-weight="800">${total}</text>
       <text x="100" y="118" text-anchor="middle" fill="${oi.col}" font-size="12" font-weight="700" style="text-transform:uppercase">${esc(overall)} ${oi.sym}</text>
     </svg>
@@ -418,7 +474,7 @@ function renderSources(trends){
       <div class="src-name"><span class="dot" style="background:${srcColor(k)}"></span>${esc(srcLabel(k))}</div>
       <div class="src-track"><div class="src-fill" data-w="${(c/max*100).toFixed(1)}" style="background:${srcColor(k)}"></div></div>
       <div class="src-count">${c}</div>
-    </div>`).join('') || '<div class="empty">Sin datos</div>';
+    </div>`).join('') || '<div class="empty">No data</div>';
   requestAnimationFrame(()=>{
     document.querySelectorAll('#sources .src-fill').forEach(el=>{ el.style.width=el.getAttribute('data-w')+'%'; });
   });
@@ -426,7 +482,7 @@ function renderSources(trends){
 
 /* ---------- Render: histogram ---------- */
 function renderHistogram(trends){
-  const bins=[0,0,0,0,0]; // 0-19,20-39,40-59,60-79,80-100
+  const bins=[0,0,0,0,0];
   trends.forEach(t=>{
     let s=t.trend_score||0;
     let i = s>=80?4 : s>=60?3 : s>=40?2 : s>=20?1 : 0;
@@ -449,7 +505,7 @@ function renderHistogram(trends){
 /* ---------- Render: trends table ---------- */
 function trendsHTML(trends, maxShow){
   const list=(trends||[]).slice(0,maxShow||25);
-  if(!list.length) return '<div class="empty"><div class="big">∅</div>No se encontraron tendencias</div>';
+  if(!list.length) return '<div class="empty"><div class="big">∅</div>No trends found</div>';
   return list.map((t,i)=>{
     const s=sentiInfo(t.sentiment?.label);
     const sc=t.trend_score||0;
@@ -527,7 +583,7 @@ function renderComparison(d1,d2,t1,t2){
             <div class="scorebar-wrap"><div class="scorebar"><i data-w="${Math.min(sc,100)}" style="background:${col}"></i></div>
               <div class="score-num" style="color:${col}">${sc.toFixed?sc.toFixed(1):sc}</div></div>
           </div>`;
-        }).join('') || '<div class="empty"><div class="big">∅</div>Sin datos</div>'}
+        }).join('') || '<div class="empty"><div class="big">∅</div>No data</div>'}
       </div>
     </div>`;
   $('cmpPanels').innerHTML = panel(d1,t1)+panel(d2,t2);
@@ -536,13 +592,146 @@ function renderComparison(d1,d2,t1,t2){
   });
 }
 
+/* ---------- Watchlist ---------- */
+let watchlistItems=[];
+async function loadWatchlist(){
+  try{
+    const j=await api('GET','/watchlist');
+    watchlistItems=j.items||[];
+    renderWatchlist();
+  }catch(e){ console.error('loadWatchlist',e); }
+}
+function renderWatchlist(){
+  const el=$('watchlist');
+  if(!watchlistItems.length){ el.innerHTML='<div class="empty">No items yet</div>'; return; }
+  el.innerHTML=watchlistItems.map(item=>`
+    <div class="watch-item">
+      <div class="watch-info">
+        <div class="watch-topic">${esc(item.topic)}</div>
+        <div class="watch-meta">${esc(item.geo)} · every ${item.interval_minutes}m · ${item.active?'active':'paused'}</div>
+      </div>
+      <div class="watch-actions">
+        <button class="btn sm" onclick="runWatchItem(${item.id})">▶</button>
+        <button class="btn sm ghost" onclick="viewHistory('${esc(item.topic)}')">📈</button>
+        <button class="btn sm danger" onclick="deleteWatchItem(${item.id})">✕</button>
+      </div>
+    </div>`).join('');
+}
+async function addWatchItem(){
+  const topic=$('wlTopic').value.trim();
+  const interval=parseInt($('wlInterval').value,10)||60;
+  if(!topic){ showError('Enter a topic'); return; }
+  try{
+    await api('POST',`/watchlist?topic=${encodeURIComponent(topic)}&interval_minutes=${interval}`);
+    $('wlTopic').value='';
+    await loadWatchlist();
+  }catch(e){ showError(e.message); }
+}
+async function deleteWatchItem(id){
+  try{
+    await api('DELETE',`/watchlist/${id}`);
+    await loadWatchlist();
+  }catch(e){ showError(e.message); }
+}
+async function runWatchItem(id){
+  try{
+    await api('POST',`/watchlist/${id}/run`);
+    await loadWatchlist();
+    const item=watchlistItems.find(x=>x.id===id);
+    if(item) viewHistory(item.topic);
+  }catch(e){ showError(e.message); }
+}
+
+/* ---------- History chart ---------- */
+let historyChart=null;
+async function viewHistory(topic){
+  $('histTopic').textContent=topic;
+  try{
+    const j=await api('GET',`/history?topic=${encodeURIComponent(topic)}&days=7`);
+    const records=j.records||[];
+    $('histCount').textContent=records.length;
+    renderHistoryList(records);
+    renderHistoryChart(records);
+  }catch(e){ console.error('viewHistory',e); }
+}
+function renderHistoryList(records){
+  if(!records.length){ $('historyList').innerHTML='<div class="empty">No history</div>'; return; }
+  $('historyList').innerHTML=records.slice(0,20).map(r=>`
+    <div class="history-row">
+      <span>${new Date(r.analyzed_at).toLocaleString()}</span>
+      <span>score <b>${r.top_score.toFixed?r.top_score.toFixed(1):r.top_score}</b></span>
+      <span>signals <b>${r.total_signals}</b></span>
+      <span style="color:#22c55e">+${r.positive}</span>
+      <span style="color:#ef4444">−${r.negative}</span>
+    </div>`).join('');
+}
+function renderHistoryChart(records){
+  const ctx=$('historyChart').getContext('2d');
+  const labels=records.map(r=>new Date(r.analyzed_at).toLocaleDateString(undefined,{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}));
+  const scores=records.map(r=>r.top_score);
+  const volumes=records.map(r=>r.total_signals);
+  if(historyChart) historyChart.destroy();
+  historyChart=new Chart(ctx,{
+    type:'line',
+    data:{
+      labels,
+      datasets:[
+        {label:'Top score',data:scores,borderColor:'#00d4ff',backgroundColor:'rgba(0,212,255,.15)',fill:true,tension:.3,yAxisID:'y'},
+        {label:'Signals',data:volumes,borderColor:'#22c55e',backgroundColor:'rgba(34,197,94,.1)',fill:true,tension:.3,yAxisID:'y1',type:'bar'}
+      ]
+    },
+    options:{
+      responsive:true,maintainAspectRatio:false,
+      interaction:{mode:'index',intersect:false},
+      scales:{
+        x:{ticks:{color:'#6b7a99',font:{size:10}},grid:{color:'#1e2940'}},
+        y:{position:'left',ticks:{color:'#6b7a99'},grid:{color:'#1e2940'},title:{display:true,text:'Score',color:'#6b7a99'}},
+        y1:{position:'right',ticks:{color:'#6b7a99'},grid:{drawOnChartArea:false},title:{display:true,text:'Signals',color:'#6b7a99'}}
+      },
+      plugins:{legend:{labels:{color:'#e0e6ed'}}}
+    }
+  });
+}
+
+/* ---------- WebSocket ---------- */
+let ws=null;
+function connectWS(){
+  try{
+    ws=new WebSocket(WS);
+    ws.onopen=()=>{ setWsStatus(true); };
+    ws.onclose=()=>{ setWsStatus(false); setTimeout(connectWS,3000); };
+    ws.onerror=()=>{ setWsStatus(false); };
+    ws.onmessage=(ev)=>{
+      try{
+        const data=JSON.parse(ev.data);
+        if(data.error){ showError(data.error); return; }
+        $('singleView').classList.remove('hidden');
+        $('cmpView').classList.add('hidden');
+        clearStatus();
+        renderSingle(data);
+      }catch(e){ console.error('ws message',e); }
+    };
+  }catch(e){ setWsStatus(false); }
+}
+function setWsStatus(on){
+  $('wsDot').classList.toggle('on',on);
+  $('wsText').textContent=on?'WS live':'WS off';
+}
+function analyzeWS(){
+  const cat=$('cat').value, topic=$('topic').value.trim(), geo=$('geo').value.trim()||'CO';
+  if(!topic && !cat){ showError('Select a category or enter a free topic.'); return; }
+  if(!ws || ws.readyState!==WebSocket.OPEN){ showError('WebSocket not connected.'); return; }
+  showLoading('Analyzing via WebSocket…');
+  ws.send(JSON.stringify({topic:topic||undefined,category:cat||undefined,geo}));
+}
+
 /* ---------- Actions ---------- */
 let cmpMode=false;
 function setCompare(on){
   cmpMode=on;
   $('cmpToggle').classList.toggle('on',on);
   $('topic2Field').classList.toggle('hidden',!on);
-  $('topicField').querySelector('label').textContent = on? 'Tema 1 (libre/cat.)' : 'Tema libre (opcional)';
+  $('topicField').querySelector('label').textContent = on? 'Topic 1 (free/cat.)' : 'Free topic (optional)';
 }
 
 async function analyze(){
@@ -550,10 +739,10 @@ async function analyze(){
   const cat=$('cat').value, topic=$('topic').value.trim(), geo=$('geo').value.trim()||'CO';
   if(cmpMode){
     const t1=topic||cat, t2=($('topic2').value||'').trim();
-    if(!t1 || !t2){ showError('Modo comparación requiere dos temas.'); return; }
+    if(!t1 || !t2){ showError('Compare mode requires two topics.'); return; }
     $('singleView').classList.add('hidden');
     $('cmpView').classList.remove('hidden');
-    showLoading(`Comparando "${t1}" vs "${t2}"…`);
+    showLoading(`Comparing "${t1}" vs "${t2}"…`);
     try{
       const [d1,d2]=await Promise.all([
         fetchTrends({topic:t1, geo}),
@@ -561,19 +750,23 @@ async function analyze(){
       ]);
       clearStatus();
       renderComparison(d1,d2,t1,t2);
-    }catch(e){ showError(e.message+' (¿API corriendo en '+API+'?)'); }
+    }catch(e){ showError(e.message+' (Is API running at '+API+'?)'); }
+    return;
+  }
+  if(ws && ws.readyState===WebSocket.OPEN){
+    analyzeWS();
     return;
   }
   $('singleView').classList.remove('hidden');
   $('cmpView').classList.add('hidden');
-  if(!topic && !cat){ showError('Selecciona una categoría o escribe un tema libre.'); return; }
+  if(!topic && !cat){ showError('Select a category or enter a free topic.'); return; }
   showLoading();
   try{
     const data=await fetchTrends({category:cat||undefined, topic:topic||undefined, geo});
     clearStatus();
     renderSingle(data);
   }catch(e){
-    showError(e.message+' (¿API corriendo en '+API+'?)');
+    showError(e.message+' (Is API running at '+API+'?)');
     $('stats').innerHTML=''; $('gaugeWrap').innerHTML=''; $('sources').innerHTML='';
     $('hist').innerHTML=''; $('trends').innerHTML=''; $('meta').innerHTML='';
   }
@@ -585,7 +778,10 @@ $('topic').addEventListener('keydown',e=>{ if(e.key==='Enter') analyze(); });
 $('topic2').addEventListener('keydown',e=>{ if(e.key==='Enter') analyze(); });
 $('cat').addEventListener('change',e=>{ if(e.target.value) $('topic').value=''; });
 $('cmpToggle').addEventListener('click',()=>setCompare(!cmpMode));
+$('wlAdd').addEventListener('click', addWatchItem);
 loadCategories();
+loadWatchlist();
+connectWS();
 </script>
 </body>
 </html>
