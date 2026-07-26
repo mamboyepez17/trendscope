@@ -5,7 +5,7 @@
 from pathlib import Path
 
 from fastapi import FastAPI, Query as QParam, HTTPException
-from fastapi.responses import PlainTextResponse, HTMLResponse
+from fastapi.responses import PlainTextResponse, HTMLResponse, FileResponse
 import uvicorn
 
 from trendscope.config import API_HOST, API_PORT, CATEGORIES, DATA_DIR
@@ -13,6 +13,40 @@ from trendscope.core.query import TrendQuery
 from trendscope.core.pipeline import run as run_pipeline
 from trendscope.core import cache as result_cache
 from trendscope.narrator.engine import generate_summary, NARRATIVE_STYLES
+from trendscope.output.exporter import export_json, export_csv, export_excel
+
+
+def _run_pipeline_query(
+    topic: str | None,
+    category: str | None,
+    geo: str = "CO",
+    sentiment_engine: str = "local",
+    top_n: int = 25,
+) -> dict:
+    """Valida parámetros y ejecuta el pipeline."""
+    if not topic and not category:
+        raise HTTPException(
+            status_code=400,
+            detail="Debes pasar 'topic' o 'category'. Ejemplo: ?topic=crypto+Colombia",
+        )
+
+    if category and category not in CATEGORIES:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Categoria '{category}' no existe. Usa GET /categories para ver disponibles.",
+        )
+
+    query = TrendQuery(
+        mode="category" if category else "free",
+        category=category,
+        free_topic=topic,
+        geo=geo,
+        sentiment_engine=sentiment_engine,
+        top_n=top_n,
+    )
+    payload, _ = run_pipeline(query)
+    return payload
+
 
 app = FastAPI(
     title="TrendScope API",
@@ -49,16 +83,7 @@ def narrate(
             detail=f"Estilo '{style}' no valido. Opciones: {', '.join(NARRATIVE_STYLES.keys())}",
         )
 
-    query = TrendQuery(
-        mode="category" if category else "free",
-        category=category,
-        free_topic=topic,
-        geo=geo,
-        sentiment_engine=sentiment_engine,
-        top_n=top_n,
-    )
-
-    payload, _ = run_pipeline(query)
+    payload = _run_pipeline_query(topic, category, geo, sentiment_engine, top_n)
     result = generate_summary(payload, style=style)
     return {
         "topic": topic or category,
@@ -67,6 +92,52 @@ def narrate(
         "model": result["model"],
         "narrative": result["narrative"],
     }
+
+
+@app.get("/export/json")
+def export_json_endpoint(
+    topic: str | None = QParam(None, description="Tema libre"),
+    category: str | None = QParam(None, description="Categoria predefinida"),
+    geo: str = QParam("CO", description="Codigo ISO pais"),
+    sentiment_engine: str = QParam("local", description="local | claude"),
+    top_n: int = QParam(25, description="Numero de resultados"),
+):
+    """Exporta el análisis completo a JSON descargable."""
+    payload = _run_pipeline_query(topic, category, geo, sentiment_engine, top_n)
+    path = export_json(payload)
+    return FileResponse(path, filename=path.name, media_type="application/json")
+
+
+@app.get("/export/csv")
+def export_csv_endpoint(
+    topic: str | None = QParam(None, description="Tema libre"),
+    category: str | None = QParam(None, description="Categoria predefinida"),
+    geo: str = QParam("CO", description="Codigo ISO pais"),
+    sentiment_engine: str = QParam("local", description="local | claude"),
+    top_n: int = QParam(25, description="Numero de resultados"),
+):
+    """Exporta las tendencias top a CSV descargable."""
+    payload = _run_pipeline_query(topic, category, geo, sentiment_engine, top_n)
+    path = export_csv(payload)
+    return FileResponse(path, filename=path.name, media_type="text/csv")
+
+
+@app.get("/export/xlsx")
+def export_excel_endpoint(
+    topic: str | None = QParam(None, description="Tema libre"),
+    category: str | None = QParam(None, description="Categoria predefinida"),
+    geo: str = QParam("CO", description="Codigo ISO pais"),
+    sentiment_engine: str = QParam("local", description="local | claude"),
+    top_n: int = QParam(25, description="Numero de resultados"),
+):
+    """Exporta las tendencias top a Excel (.xlsx) descargable."""
+    payload = _run_pipeline_query(topic, category, geo, sentiment_engine, top_n)
+    path = export_excel(payload)
+    return FileResponse(
+        path,
+        filename=path.name,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    )
 
 
 @app.get("/health")
@@ -96,30 +167,7 @@ def get_trends(
     Analiza tendencias y retorna JSON estructurado.
     Usar ?topic=TEMA o ?category=CATEGORIA.
     """
-    if not topic and not category:
-        raise HTTPException(
-            status_code=400,
-            detail="Debes pasar 'topic' o 'category'. Ejemplo: ?topic=crypto+Colombia",
-        )
-
-    if category and category not in CATEGORIES:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Categoria '{category}' no existe. Usa GET /categories para ver disponibles.",
-        )
-
-    query = TrendQuery(
-        mode="category" if category else "free",
-        category=category,
-        free_topic=topic,
-        geo=geo,
-        sentiment_engine=sentiment_engine,
-        top_n=top_n,
-    )
-
-    # Pipeline sincronico (FastAPI corre en threadpool por defecto para sync endpoints)
-    payload, _ = run_pipeline(query)
-    return payload
+    return _run_pipeline_query(topic, category, geo, sentiment_engine, top_n)
 
 
 @app.get("/report", response_class=PlainTextResponse)
