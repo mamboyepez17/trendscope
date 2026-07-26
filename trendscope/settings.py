@@ -16,7 +16,7 @@ class Settings(BaseSettings):
     # Reddit
     reddit_client_id: str = ""
     reddit_client_secret: str = ""
-    reddit_user_agent: str = "TrendScope/1.4.0"
+    reddit_user_agent: str = "TrendScope/1.5.0"
 
     # Twitter/X
     twitter_auth_token: str = ""

@@ -4,7 +4,7 @@ from trendscope.settings import settings
 
 REDDIT_CLIENT_ID = settings.reddit_client_id
 REDDIT_CLIENT_SECRET = settings.reddit_client_secret
-REDDIT_USER_AGENT = settings.reddit_user_agent
+REDDIT_USER_AGENT = settings.reddit_user_agent  # TrendScope/1.5.0 default
 
 TWITTER_AUTH_TOKEN = settings.twitter_auth_token
 TWITTER_CT0 = settings.twitter_ct0
