@@ -4,11 +4,13 @@
 
 ## What is it?
 
-TrendScope aggregates trend signals from Reddit, Google Trends, Twitter/X, Hacker News, YouTube, TweetClaw, Amazon and TikTok. It scores each signal 0-100, analyzes sentiment in both Spanish and English (auto-detected), and generates actionable insights, correlations, emerging vs established trend detection, and recommendations — all locally, no external AI API needed. It also generates AI-powered narratives using OpenRouter (free models), Claude, or Ollama, and exports results to CSV, JSON, or Excel. Outputs structured JSON for agents, Markdown reports for humans, and serves a real-time web dashboard.
+TrendScope aggregates trend signals from Reddit, Google Trends, Twitter/X, Hacker News, YouTube, TweetClaw, Amazon and TikTok. It scores each signal 0-100, analyzes sentiment in both Spanish and English (auto-detected), and generates actionable insights, correlations, emerging vs established trend detection, and recommendations — all locally, no external AI API needed.
+
+It also generates AI-powered narratives using OpenRouter (free models), Claude, or Ollama, and exports results to CSV, JSON, or Excel. Outputs structured JSON for agents, Markdown reports for humans, and serves a real-time web dashboard.
 
 ## Installation (Windows)
 
-TrendScope requiere **Python 3.11 o 3.12**. Si tienes `uv` instalado (recomendado), el entorno se crea automáticamente:
+TrendScope requires **Python 3.11 or 3.12**. If you have `uv` installed (recommended), the environment is created automatically:
 
 ```cmd
 cd /d D:\Proyectos\TrendScope
@@ -16,11 +18,11 @@ uv venv --python 3.11 .venv
 uv pip install -e ".[dev]"
 ```
 
-> **Nota:** El comando `cd` en Windows requiere `/d` para cambiar de unidad (de `C:` a `D:`). Sin `/d` te quedas en la unidad anterior.
+> **Note:** On Windows CMD, `cd` requires `/d` to change drives (from `C:` to `D:`). Without `/d` you stay on the current drive.
 
-### Sin uv
+### Without uv
 
-Si no tienes `uv`, descarga Python 3.11 desde [python.org](https://www.python.org/downloads/release/python-31111/) y luego:
+If you don't have `uv`, download Python 3.11 from [python.org](https://www.python.org/downloads/release/python-31111/) and then:
 
 ```cmd
 cd /d D:\Proyectos\TrendScope
@@ -29,95 +31,114 @@ python311 -m venv .venv
 pip install -e ".[dev]"
 ```
 
-### Atajos incluidos
+### Included shortcuts
 
-En el proyecto dejé tres archivos `.bat` para que no escribas comandos:
+Three `.bat` files are included so you don't have to type commands:
 
-- `run_tests.bat` — corre todos los tests
-- `start_api.bat` — inicia la API en `http://localhost:8000`
-- `start_cli.bat` — inicia la interfaz interactiva
+- `run_tests.bat` — run all tests
+- `start_api.bat` — start the API at `http://localhost:8000`
+- `start_cli.bat` — start the interactive CLI
 
 > **Note:** `xactions-py` (Twitter/X toolkit) is included as a local module in the `trendscope/xactions/` folder — no separate install needed.
 
 ## Usage
 
 ### CLI (for humans)
+
 ```cmd
 .venv\Scripts\trendscope.exe
 ```
 
-O simplemente haz doble clic en `start_cli.bat`.
+Or simply double-click `start_cli.bat`.
 
 Or from source:
-```bash
-python -m trendscope
+
+```cmd
+.venv\Scripts\python.exe -m trendscope
 ```
+
 Interactive menu with category selector, sentiment engine picker, and rich-formatted results table with analysis panel.
 
-### Dashboard web
+### Web dashboard
+
 ```cmd
 .venv\Scripts\trendscope-api.exe
 ```
 
-O haz doble clic en `start_api.bat`.
+Or double-click `start_api.bat`.
 
 Then open **http://localhost:8000/dashboard** in your browser.
 
-Features: dark theme, stats cards, sentiment gauge (SVG donut), source distribution bars, score histogram, top trends table with engagement metrics (likes, RTs, comments, views, points), modo comparación (2 topics side by side), responsive.
+Features: dark theme, stats cards, sentiment gauge (SVG donut), source distribution bars, score histogram, top trends table with engagement metrics (likes, RTs, comments, views, points), comparison mode (2 topics side by side), responsive.
 
 ### Doctor (diagnose sources)
+
 Check which sources are working and how to fix the ones that aren't:
-```bash
-python -c "from trendscope.core.doctor import run_doctor; from rich.console import Console; Console().print(run_doctor())"
+
+```cmd
+.venv\Scripts\python.exe -c "from trendscope.core.doctor import run_doctor; from rich.console import Console; Console().print(run_doctor())"
 ```
+
 Or via API: `GET http://localhost:8000/doctor`
 
 The doctor performs real probes on each source (not just file existence) and reports status with actionable fix instructions.
 
 ### REST API (for HTTP agents)
-```bash
-trendscope-api
-# GET http://localhost:8000/trends?topic=crypto+Colombia
-# GET http://localhost:8000/trends?category=tecnologia&sentiment_engine=claude
-# GET http://localhost:8000/narrate?topic=crypto+Colombia&style=executive
-# GET http://localhost:8000/export/csv?topic=crypto+Colombia
-# GET http://localhost:8000/export/json?topic=crypto+Colombia
-# GET http://localhost:8000/export/xlsx?topic=crypto+Colombia
-# GET http://localhost:8000/report?topic=crypto
-# GET http://localhost:8000/categories
-# GET http://localhost:8000/health
-# GET http://localhost:8000/doctor              — diagnose all sources
-# GET http://localhost:8000/cache/stats
-# DELETE http://localhost:8000/cache
-# GET http://localhost:8000/dashboard            — web dashboard
-# GET http://localhost:8000/compare?topic1=crypto&topic2=IA  — side-by-side comparison
-# Interactive docs: http://localhost:8000/docs
+
+```cmd
+.venv\Scripts\trendscope-api.exe
 ```
 
+Available endpoints:
+
+```text
+GET    /trends?topic=crypto+Colombia
+GET    /trends?category=technology&sentiment_engine=claude
+GET    /narrate?topic=crypto+Colombia&style=executive
+GET    /export/csv?topic=crypto+Colombia
+GET    /export/json?topic=crypto+Colombia
+GET    /export/xlsx?topic=crypto+Colombia
+GET    /report?topic=crypto
+GET    /categories
+GET    /health
+GET    /doctor              — diagnose all sources
+GET    /cache/stats
+DELETE /cache
+GET    /dashboard            — web dashboard
+GET    /compare?topic1=crypto&topic2=AI  — side-by-side comparison
+```
+
+Interactive docs: **http://localhost:8000/docs**
+
 ### MCP Server (for MCP-compatible agents)
+
 ```cmd
 .venv\Scripts\trendscope-mcp.exe
 ```
 
 Or from source:
+
 ```cmd
 .venv\Scripts\python.exe -m trendscope.server_mcp
 ```
 
 Available tools:
+
 - `analyze_trends` — Analyze trends on any topic
 - `get_categories` — List predefined categories
 - `get_latest_report` — Get the latest generated report
 
 ### SKILL.md (for agent discovery)
+
 TrendScope includes a `SKILL.md` file that AI agents (Claude Code, OpenClaw, Hermes, Cursor) can discover automatically. It describes all available commands, endpoints, and configuration options.
 
 ### Run tests
+
 ```cmd
 .venv\Scripts\python.exe -m pytest trendscope/tests/ -v
 ```
 
-O haz doble clic en `run_tests.bat`.
+Or double-click `run_tests.bat`.
 
 ## AI-Powered Narrative Generation
 
@@ -130,7 +151,8 @@ curl "http://localhost:8000/narrate?topic=crypto+Colombia&style=executive"
 # Styles: executive, creative, technical, alert
 ```
 
-Providers supported:
+Supported providers:
+
 - **OpenRouter** (default) — uses free models like `deepseek/deepseek-chat-v3-0324:free`. Get a free key at [openrouter.ai/keys](https://openrouter.ai/keys).
 - **Claude** — via `ANTHROPIC_API_KEY`
 - **Ollama** — local models via `OLLAMA_ENABLED=true`
@@ -144,7 +166,7 @@ Every analysis can be exported to common formats:
 |---|---|---|
 | JSON | `/export/json?topic=...` | Structured data for agents / BI |
 | CSV | `/export/csv?topic=...` | Spreadsheets, data science |
-| Excel | `/export/xlsx?topic=...` | Reports with two sheets: Tendencias + Metadatos |
+| Excel | `/export/xlsx?topic=...` | Reports with two sheets: Trends + Metadata |
 
 ## API Protection
 
@@ -154,6 +176,7 @@ TrendScope includes built-in API protection for public deployments:
 - **Optional API keys** — enable with `API_KEY_REQUIRED=true` and `API_KEYS=key1,key2`
 
 Configure in `.env`:
+
 ```env
 API_RATE_LIMIT=60
 API_RATE_WINDOW=60
@@ -191,7 +214,7 @@ All analysis runs locally with pure logic — no API keys, no cost.
 | Engine | Technology | Cost |
 |---|---|---|
 | `local` | pysentimiento (Spanish + English, auto-detected) | Free |
-| `local` (fallback) | Keyword-based bilingüe (auto-activates if torch unavailable) | Free |
+| `local` (fallback) | Keyword-based bilingual (auto-activates if torch unavailable) | Free |
 | `claude` | Claude Haiku API (multilingual) | Low cost |
 
 Language is auto-detected per text — no configuration needed. Spanish content uses the Latin American Spanish model, English content uses the English model.
@@ -207,10 +230,12 @@ Also accepts **free topic** — any text you want to analyze.
 ## Output
 
 Each analysis generates two files in `data/`:
+
 - `trends_DATE_TOPIC.json` — Structured JSON for AI agents (includes `insights` and `agent_prompt`)
 - `report_DATE_TOPIC.md` — Human-readable Markdown report with analysis section
 
 Plus exported files via `/export/*`:
+
 - `export_TOPIC_DATE.json`
 - `export_TOPIC_DATE.csv`
 - `export_TOPIC_DATE.xlsx`
@@ -255,10 +280,10 @@ JSON    Markdown  Narrative
 Persistent SQLite cache (configurable TTL)
   |
   v
-  Dashboard (HTML + SVG, served at /dashboard)
+Dashboard (HTML + SVG, served at /dashboard)
   |
   v
-  Doctor (health check for all sources)
+Doctor (health check for all sources)
 ```
 
 ## Stack
@@ -286,7 +311,7 @@ Copy `.env.example` to `.env` and fill in your credentials:
 # Reddit (optional — TrendScope uses RSS by default)
 REDDIT_CLIENT_ID=your_client_id
 REDDIT_CLIENT_SECRET=your_client_secret
-REDDIT_USER_AGENT=TrendScope/1.0
+REDDIT_USER_AGENT=TrendScope/1.5.0
 
 # Twitter/X (DevTools > Application > Cookies on x.com)
 TWITTER_AUTH_TOKEN=your_auth_token
@@ -333,21 +358,27 @@ CACHE_TTL_SECONDS=300
 ## Troubleshooting
 
 ### Run the doctor first
+
 ```cmd
 .venv\Scripts\python.exe -c "from trendscope.core.doctor import run_doctor; from rich.console import Console; Console().print(run_doctor())"
 ```
+
 This will tell you exactly what's working, what's not, and how to fix it.
 
 ### pysentimiento / torch import error on Windows
+
 If you see `OSError: [WinError 4551]`, Windows WDAC is blocking PyTorch DLLs. TrendScope automatically falls back to keyword-based bilingual sentiment analysis — no action needed.
 
 ### Reddit returns 403
+
 Reddit blocked the public JSON endpoint. TrendScope uses RSS via `old.reddit.com` which is 100% free. PRAW credentials are optional for better data.
 
 ### Twitter returns 401 or 403
+
 Your cookies may have expired. Get fresh cookies from x.com → DevTools (F12) → Application → Cookies → x.com. Copy `auth_token` and `ct0` into your `.env`.
 
 ### OpenRouter returns 401
+
 Your API key may be invalid or missing. Get a free key at [openrouter.ai/keys](https://openrouter.ai/keys) and add it to `.env` as `OPENROUTER_API_KEY`.
 
 ## Tests
@@ -356,20 +387,20 @@ Your API key may be invalid or missing. Get a free key at [openrouter.ai/keys](h
 .venv\Scripts\python.exe -m pytest trendscope/tests/ -v
 ```
 
-O haz doble clic en `run_tests.bat`.
+Or double-click `run_tests.bat`.
 
 72 tests covering: cache, persistent cache, deduplicator, query, scorer (all sources), sentiment alignment, tweetclaw, settings, narrator, exporter, middleware.
 
 ## Roadmap
 
-- [x] Paquete instalable con pyproject.toml
-- [x] Configuración tipada con pydantic-settings
-- [x] Cache persistente en SQLite
-- [x] Narrador multi-proveedor (OpenRouter, Claude, Ollama)
-- [x] Exportación CSV / JSON / Excel
-- [x] Rate limiting y API keys
-- [ ] Watchlist + monitoreo recurrente
-- [ ] Dashboard con WebSockets e historial
+- [x] Installable package with pyproject.toml
+- [x] Typed configuration with pydantic-settings
+- [x] Persistent SQLite cache
+- [x] Multi-provider narrative generation (OpenRouter, Claude, Ollama)
+- [x] CSV / JSON / Excel export
+- [x] Rate limiting and API keys
+- [ ] Watchlist + recurring monitoring
+- [ ] Dashboard with WebSockets and history
 - [ ] Docker + CI/CD
 
 ## Related
