@@ -6,23 +6,47 @@
 
 TrendScope aggregates trend signals from Reddit, Google Trends, Twitter/X, Hacker News, YouTube, TweetClaw, Amazon and TikTok. It scores each signal 0-100, analyzes sentiment in both Spanish and English (auto-detected), and generates actionable insights, correlations, emerging vs established trend detection, and recommendations — all locally, no external AI API needed. It also generates AI-powered narratives using OpenRouter (free models), Claude, or Ollama, and exports results to CSV, JSON, or Excel. Outputs structured JSON for agents, Markdown reports for humans, and serves a real-time web dashboard.
 
-## Installation
+## Installation (Windows)
 
-```bash
-git clone https://github.com/mamboyepez17/trendscope
-cd trendscope
-pip install -e .
-cp .env.example .env  # fill in your credentials (all optional)
+TrendScope requiere **Python 3.11 o 3.12**. Si tienes `uv` instalado (recomendado), el entorno se crea automáticamente:
+
+```cmd
+cd /d D:\Proyectos\TrendScope
+uv venv --python 3.11 .venv
+uv pip install -e ".[dev]"
 ```
+
+> **Nota:** El comando `cd` en Windows requiere `/d` para cambiar de unidad (de `C:` a `D:`). Sin `/d` te quedas en la unidad anterior.
+
+### Sin uv
+
+Si no tienes `uv`, descarga Python 3.11 desde [python.org](https://www.python.org/downloads/release/python-31111/) y luego:
+
+```cmd
+cd /d D:\Proyectos\TrendScope
+python311 -m venv .venv
+.venv\Scripts\activate.bat
+pip install -e ".[dev]"
+```
+
+### Atajos incluidos
+
+En el proyecto dejé tres archivos `.bat` para que no escribas comandos:
+
+- `run_tests.bat` — corre todos los tests
+- `start_api.bat` — inicia la API en `http://localhost:8000`
+- `start_cli.bat` — inicia la interfaz interactiva
 
 > **Note:** `xactions-py` (Twitter/X toolkit) is included as a local module in the `trendscope/xactions/` folder — no separate install needed.
 
 ## Usage
 
 ### CLI (for humans)
-```bash
-trendscope
+```cmd
+.venv\Scripts\trendscope.exe
 ```
+
+O simplemente haz doble clic en `start_cli.bat`.
 
 Or from source:
 ```bash
@@ -31,9 +55,12 @@ python -m trendscope
 Interactive menu with category selector, sentiment engine picker, and rich-formatted results table with analysis panel.
 
 ### Dashboard web
-```bash
-trendscope-api
+```cmd
+.venv\Scripts\trendscope-api.exe
 ```
+
+O haz doble clic en `start_api.bat`.
+
 Then open **http://localhost:8000/dashboard** in your browser.
 
 Features: dark theme, stats cards, sentiment gauge (SVG donut), source distribution bars, score histogram, top trends table with engagement metrics (likes, RTs, comments, views, points), modo comparación (2 topics side by side), responsive.
@@ -68,13 +95,13 @@ trendscope-api
 ```
 
 ### MCP Server (for MCP-compatible agents)
-```bash
-trendscope-mcp
+```cmd
+.venv\Scripts\trendscope-mcp.exe
 ```
 
 Or from source:
-```bash
-python -m trendscope.server_mcp
+```cmd
+.venv\Scripts\python.exe -m trendscope.server_mcp
 ```
 
 Available tools:
@@ -86,9 +113,11 @@ Available tools:
 TrendScope includes a `SKILL.md` file that AI agents (Claude Code, OpenClaw, Hermes, Cursor) can discover automatically. It describes all available commands, endpoints, and configuration options.
 
 ### Run tests
-```bash
-python -m pytest trendscope/tests/ -v
+```cmd
+.venv\Scripts\python.exe -m pytest trendscope/tests/ -v
 ```
+
+O haz doble clic en `run_tests.bat`.
 
 ## AI-Powered Narrative Generation
 
@@ -304,8 +333,8 @@ CACHE_TTL_SECONDS=300
 ## Troubleshooting
 
 ### Run the doctor first
-```bash
-python -c "from trendscope.core.doctor import run_doctor; from rich.console import Console; Console().print(run_doctor())"
+```cmd
+.venv\Scripts\python.exe -c "from trendscope.core.doctor import run_doctor; from rich.console import Console; Console().print(run_doctor())"
 ```
 This will tell you exactly what's working, what's not, and how to fix it.
 
@@ -323,9 +352,11 @@ Your API key may be invalid or missing. Get a free key at [openrouter.ai/keys](h
 
 ## Tests
 
-```bash
-python -m pytest trendscope/tests/ -v
+```cmd
+.venv\Scripts\python.exe -m pytest trendscope/tests/ -v
 ```
+
+O haz doble clic en `run_tests.bat`.
 
 72 tests covering: cache, persistent cache, deduplicator, query, scorer (all sources), sentiment alignment, tweetclaw, settings, narrator, exporter, middleware.
 
