@@ -25,23 +25,29 @@
 | 1 | Paquete instalable | `pyproject.toml`, entry points, imports absolutos, tests pasando | Alto |
 | 2 | Configuración robusta | Reemplazar `config.py` plano por `pydantic-settings` | Alto |
 | 3 | Cache persistente | SQLite para cache de resultados con TTL | Alto |
-| 4 | Narrador con Ollama | Generar resúmenes ejecutivos y reportes narrativos con LLM local | Revolucionario |
-| 5 | Watchlist + monitoreo | Temas recurrentes, scheduler, historial, alertas básicas | Diferenciador |
-| 6 | Dashboard real-time | WebSockets, historial, comparación temporal | Diferenciador |
-| 7 | Docker + CI/CD | Dockerfile, docker-compose, GitHub Actions tests | Escalabilidad |
+| 4 | Narrador multi-proveedor | OpenRouter, Claude, Ollama + fallback estadístico | Revolucionario |
+| 5 | Exportación CSV/JSON/Excel | Endpoints descargables para análisis externo | Diferenciador |
+| 6 | Rate limiting + API keys | Protección de API para deployments públicos | Diferenciador |
+| 7 | Logging estructurado | loguru con consola + archivo rotativo | Robustez |
+| 8 | Watchlist + monitoreo | Temas recurrentes, scheduler, historial, alertas básicas | Diferenciador |
+| 9 | Dashboard real-time | WebSockets, historial, comparación temporal | Diferenciador |
+| 10 | Docker + CI/CD | Dockerfile, docker-compose, GitHub Actions tests | Escalabilidad |
 
 ---
 
 ## Estado
 
-- [ ] Bloque 0 — Fundamentos del repo
-- [ ] Bloque 1 — Paquete instalable
-- [ ] Bloque 2 — Configuración robusta
-- [ ] Bloque 3 — Cache persistente
-- [ ] Bloque 4 — Narrador con Ollama
-- [ ] Bloque 5 — Watchlist + monitoreo
-- [ ] Bloque 6 — Dashboard real-time
-- [ ] Bloque 7 — Docker + CI/CD
+- [x] Bloque 0 — Fundamentos del repo
+- [x] Bloque 1 — Paquete instalable
+- [x] Bloque 2 — Configuración robusta
+- [x] Bloque 3 — Cache persistente
+- [x] Bloque 4 — Narrador multi-proveedor
+- [x] Bloque 5 — Exportación CSV/JSON/Excel
+- [x] Bloque 6 — Rate limiting + API keys
+- [x] Bloque 7 — Logging estructurado
+- [ ] Bloque 8 — Watchlist + monitoreo
+- [ ] Bloque 9 — Dashboard real-time
+- [ ] Bloque 10 — Docker + CI/CD
 
 ---
 
