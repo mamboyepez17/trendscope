@@ -82,9 +82,8 @@ def _check_twitter() -> dict:
 
     # Verificar que xactions importa
     try:
-        from xactions.scraper.scrapers import search_tweets_sync
-        from xactions.scraper.client import TwitterError
-        return {"status": "ok", "message": f"xactions-py listo (auth_token={token_len} chars, ct0={ct0_len} chars)"}
+        from xactions import TwitterError, search_tweets_sync  # noqa: F401
+        return {"status": "ok", "message": f"xactions-py v1.5+ listo (auth_token={token_len} chars, ct0={ct0_len} chars)"}
     except ImportError:
         return {"status": "error", "message": "Modulo xactions/ no encontrado. El directorio xactions/ debe estar en la raiz del proyecto"}
     except Exception as e:

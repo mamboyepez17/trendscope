@@ -16,6 +16,22 @@ Cuando un modelo complete un bloque, agrega una entrada así:
 - descripción
 ---
 
+## [1.1.0] — 2026-09-10 — MiMo
+
+### Cambiado
+- **xactions-py actualizado a v1.5.0** (módulo local `trendscope/xactions/`):
+  - Paquete `src/xactions` (API: `from xactions import search_tweets_sync, TwitterError`)
+  - GraphQL query ID auto-refresh multi-fuente
+  - Rate-limit proactivo, seguridad de cookies, search operators, threads, compare
+  - Compatible MCP 2.x
+- `scrapers/twitter.py` y `core/doctor.py`: imports a la API pública de xactions v1.5
+
+### Notas
+- Upstream: https://github.com/mamboyepez17/xactions-py (tag v1.5.0, PR #1 mergeado)
+- 78 tests en xactions-py; live smoke validate/post/delete OK
+
+---
+
 ## [0.1.0] — 2026-06-01 — Claude Opus 4
 
 ### Añadido
