@@ -16,6 +16,36 @@ Cuando un modelo complete un bloque, agrega una entrada así:
 - descripción
 ---
 
+## [1.6.0] — 2026-02-12 — MiMo
+
+### Corregido
+- **Sentimiento**: imports `from sentiment.…` → `from trendscope.sentiment.…` (motor dejaba todo en `failed`)
+- **Seguridad de paths**: `safe_slug`/`safe_data_path`; cierra path traversal en exports y glob injection en `/report`
+- **API**: auth en WebSocket, constant-time API keys, validación `top_n`/`interval_minutes`, security headers, default bind `127.0.0.1`
+- **Pipeline**: no muta sinks de loguru; cache key incluye `top_n` y keywords; `source_errors` en meta
+- **SQLite**: WAL + `busy_timeout` en cache y watchlist; cache lazy singleton
+- **Config**: keywords dinámicas por geo/año (sin Colombia/2026 hardcodeados); `TWITTER_COOKIES` parseado
+- **Doctor**: no expone longitudes de cookies
+
+### Añadido
+- Plan V2 (`Implementation_Plan/TRENDSCOPE_V2_PLAN.md`) bloques 11–20
+- Middleware `SecurityHeadersMiddleware`
+- Session HTTP compartida (`core/http.py`)
+- Tests: sentimiento, path safety, API security, pipeline logging, SQLite concurrency, docker hardening, pipeline unit, perf, geo
+- CI: ruff (críticos) + pytest 3.11/3.12
+
+### Cambiado
+- Docker multi-stage sin `[dev]`; compose endurecido (read_only, cap_drop, healthcheck)
+- Rate limit con purge de IPs, `X-Forwarded-For` opcional, headers `X-RateLimit-*`
+- Dedup/insights más rápidos; HN top stories en paralelo; Amazon con timeout 45s; pytrends solo si RSS vacío
+- `requirements.txt` sincronizado con pyproject (+ `requests`)
+
+### Pendiente
+- Bloques 21–26 (alertas, jobs, MCP, observabilidad, forecasting, multi-tenant)
+- Verificación live de Docker (sin daemon en el entorno de ejecución)
+
+---
+
 ## [1.1.0] — 2026-09-10 — MiMo
 
 ### Cambiado

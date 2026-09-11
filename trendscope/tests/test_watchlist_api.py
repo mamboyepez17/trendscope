@@ -1,19 +1,39 @@
-"""Tests for watchlist API endpoints."""
+"""Tests for watchlist API endpoints (isolated to tmp DB)."""
+
 import unittest
+from pathlib import Path
 from unittest.mock import patch
 
 from fastapi.testclient import TestClient
 
-from trendscope.server_api import app
+from trendscope.watchlist.store import WatchlistStore
 
 
 class WatchlistAPITest(unittest.TestCase):
     def setUp(self):
-        self.client = TestClient(app)
+        # DB aislada por test — no toca data/watchlist.db del dev
+        import tempfile
+
+        self._tmp = tempfile.TemporaryDirectory(ignore_cleanup_errors=True)
+        self.store = WatchlistStore(db_path=Path(self._tmp.name) / "wl.db")
+
+        import trendscope.server_api as api
+
+        self._orig_store = api.watchlist_store
+        api.watchlist_store = self.store
+        self.client = TestClient(api.app)
+
+    def tearDown(self):
+        import trendscope.server_api as api
+
+        api.watchlist_store = self._orig_store
+        self._tmp.cleanup()
 
     def test_create_watch_item(self):
         with patch("trendscope.server_api.watchlist_scheduler"):
-            resp = self.client.post("/watchlist?topic=crypto+Colombia&interval_minutes=30")
+            resp = self.client.post(
+                "/watchlist?topic=crypto+Colombia&interval_minutes=30"
+            )
         self.assertEqual(resp.status_code, 200)
         data = resp.json()
         self.assertEqual(data["topic"], "crypto Colombia")
@@ -40,6 +60,11 @@ class WatchlistAPITest(unittest.TestCase):
         resp = self.client.get("/watchlist/stats")
         self.assertEqual(resp.status_code, 200)
         self.assertIn("total_watchlist", resp.json())
+
+    def test_interval_too_small_rejected(self):
+        with patch("trendscope.server_api.watchlist_scheduler"):
+            resp = self.client.post("/watchlist?topic=x&interval_minutes=1")
+        self.assertEqual(resp.status_code, 422)
 
 
 if __name__ == "__main__":
