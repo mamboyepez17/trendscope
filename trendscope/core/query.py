@@ -27,11 +27,14 @@ class TrendQuery:
     @property
     def keywords(self) -> list[str]:
         """Keywords para buscar en todas las fuentes."""
+        from datetime import datetime
+
         if self.mode == "category" and self.category in CATEGORIES:
             return CATEGORIES[self.category]
         elif self.mode == "free" and self.free_topic:
             t = self.free_topic.strip()
-            return [t, f"{t} Colombia", f"{t} 2026", f"tendencias {t}"]
+            year = datetime.now().year
+            return [t, f"{t} {self.geo}", f"{t} {year}", f"tendencias {t}"]
         return []
 
     @property
