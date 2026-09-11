@@ -320,6 +320,9 @@ def create_watch_item(
         le=1440,
         description="Analysis interval in minutes",
     ),
+    alert_webhook: str | None = QParam(None, description="HTTPS webhook URL for alerts"),
+    alert_min_score: float | None = QParam(None, ge=0, le=100, description="Alert if top_score >= this"),
+    alert_sentiment_flip: bool = QParam(False, description="Alert on sentiment flip"),
 ):
     """Add a topic to the watchlist."""
     if category and category not in CATEGORIES:
@@ -335,6 +338,9 @@ def create_watch_item(
         sentiment_engine=sentiment_engine,
         interval_minutes=interval_minutes,
         active=True,
+        alert_webhook=alert_webhook,
+        alert_min_score=alert_min_score,
+        alert_sentiment_flip=alert_sentiment_flip,
     )
     item = watchlist_store.add(item)
     watchlist_scheduler.refresh()

@@ -17,8 +17,14 @@ class WatchlistScheduler:
         self.scheduler: BackgroundScheduler | None = None
 
     def _analyze_item(self, item):
-        """Run pipeline for a single watch item and save history."""
+        """Run pipeline for a single watch item, save history and evaluate alerts."""
         try:
+            # Re-fetch por id: el snapshot del job puede estar desactualizado
+            fresh = self.store.get(item.id) if item.id is not None else item
+            if fresh is None:
+                fresh = item
+            item = fresh
+
             query = TrendQuery(
                 mode="category" if item.category else "free",
                 category=item.category,
@@ -27,10 +33,60 @@ class WatchlistScheduler:
                 sentiment_engine=item.sentiment_engine,
             )
             payload, _ = run_pipeline(query)
-            self.store.save_history(payload)
+            record = self.store.save_history(payload)
             logger.info(f"Scheduled analysis done: {item.topic}")
+
+            self._maybe_alert(item, record)
         except Exception as e:
             logger.error(f"Scheduled analysis failed for {item.topic}: {e}")
+
+    def _maybe_alert(self, item, record) -> None:
+        """Evalúa reglas de alerta y envía webhook si corresponde."""
+        if not item.alert_webhook:
+            return
+
+        from trendscope.watchlist.alerts import (
+            build_alert_payload,
+            evaluate_triggers,
+            send_webhook,
+        )
+
+        history = self.store.get_history(topic=item.topic, days=30, limit=2)
+        previous = None
+        if len(history) >= 2:
+            prev = history[1]
+            previous = {
+                "top_score": prev.top_score,
+                "positive": prev.positive,
+                "negative": prev.negative,
+                "neutral": prev.neutral,
+                "total_signals": prev.total_signals,
+            }
+
+        current = {
+            "top_score": record.top_score,
+            "positive": record.positive,
+            "negative": record.negative,
+            "neutral": record.neutral,
+            "total_signals": record.total_signals,
+            "analyzed_at": record.analyzed_at.isoformat(),
+        }
+
+        triggered = evaluate_triggers(
+            current,
+            previous,
+            min_score=item.alert_min_score,
+            sentiment_flip=item.alert_sentiment_flip,
+        )
+        if not triggered:
+            return
+
+        payload = build_alert_payload(
+            item.topic, item.geo, current, previous, triggered
+        )
+        ok = send_webhook(item.alert_webhook, payload)
+        if ok:
+            logger.info(f"Alert sent for {item.topic}: {triggered}")
 
     def tick(self):
         """Immediate tick: analyze all active items now."""

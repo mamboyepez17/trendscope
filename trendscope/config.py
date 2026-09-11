@@ -44,7 +44,7 @@ DATA_DIR = settings.data_dir
 API_HOST = settings.api_host
 API_PORT = settings.api_port
 
-CACHET_TTL_SECONDS = settings.cache_ttl_seconds
+CACHE_TTL_SECONDS = settings.cache_ttl_seconds
 
 CATEGORIES: dict[str, list[str]] = {
     "tecnologia": ["tech news", "gadgets 2026", "inteligencia artificial", "startups"],

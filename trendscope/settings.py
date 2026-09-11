@@ -63,6 +63,10 @@ class Settings(BaseSettings):
     watchlist_enabled: bool = True
     watchlist_default_interval_minutes: int = 60
 
+    # Alerts
+    alerts_enabled: bool = True
+    alerts_timeout_seconds: int = 5
+
     # Cache
     cache_ttl_seconds: int = 300
 

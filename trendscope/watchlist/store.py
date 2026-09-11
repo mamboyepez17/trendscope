@@ -38,10 +38,23 @@ class WatchlistStore:
                     interval_minutes INTEGER NOT NULL DEFAULT 60,
                     sentiment_engine TEXT NOT NULL DEFAULT 'local',
                     active INTEGER NOT NULL DEFAULT 1,
-                    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+                    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+                    alert_webhook TEXT,
+                    alert_min_score REAL,
+                    alert_sentiment_flip INTEGER NOT NULL DEFAULT 0
                 )
                 """
             )
+            # Migración simple para DBs existentes
+            for col_def in (
+                "ALTER TABLE watchlist ADD COLUMN alert_webhook TEXT",
+                "ALTER TABLE watchlist ADD COLUMN alert_min_score REAL",
+                "ALTER TABLE watchlist ADD COLUMN alert_sentiment_flip INTEGER NOT NULL DEFAULT 0",
+            ):
+                try:
+                    conn.execute(col_def)
+                except sqlite3.OperationalError:
+                    pass
             conn.execute(
                 """
                 CREATE TABLE IF NOT EXISTS history (
@@ -67,8 +80,11 @@ class WatchlistStore:
         with _connect(self.path) as conn:
             cur = conn.execute(
                 """
-                INSERT INTO watchlist (topic, category, geo, interval_minutes, sentiment_engine, active)
-                VALUES (?, ?, ?, ?, ?, ?)
+                INSERT INTO watchlist (
+                    topic, category, geo, interval_minutes, sentiment_engine, active,
+                    alert_webhook, alert_min_score, alert_sentiment_flip
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     item.topic,
@@ -77,6 +93,9 @@ class WatchlistStore:
                     item.interval_minutes,
                     item.sentiment_engine,
                     int(item.active),
+                    item.alert_webhook,
+                    item.alert_min_score,
+                    int(item.alert_sentiment_flip),
                 ),
             )
             item.id = cur.lastrowid
@@ -113,7 +132,8 @@ class WatchlistStore:
                 """
                 UPDATE watchlist
                 SET topic = ?, category = ?, geo = ?, interval_minutes = ?,
-                    sentiment_engine = ?, active = ?
+                    sentiment_engine = ?, active = ?,
+                    alert_webhook = ?, alert_min_score = ?, alert_sentiment_flip = ?
                 WHERE id = ?
                 """,
                 (
@@ -123,6 +143,9 @@ class WatchlistStore:
                     item.interval_minutes,
                     item.sentiment_engine,
                     int(item.active),
+                    item.alert_webhook,
+                    item.alert_min_score,
+                    int(item.alert_sentiment_flip),
                     item.id,
                 ),
             )
@@ -204,6 +227,7 @@ class WatchlistStore:
         return [self._row_to_record(r) for r in rows]
 
     def _row_to_watchitem(self, row: sqlite3.Row) -> WatchItem:
+        keys = row.keys()
         return WatchItem(
             id=row["id"],
             topic=row["topic"],
@@ -215,6 +239,11 @@ class WatchlistStore:
             created_at=datetime.fromisoformat(row["created_at"])
             if row["created_at"]
             else None,
+            alert_webhook=row["alert_webhook"] if "alert_webhook" in keys else None,
+            alert_min_score=row["alert_min_score"] if "alert_min_score" in keys else None,
+            alert_sentiment_flip=bool(row["alert_sentiment_flip"])
+            if "alert_sentiment_flip" in keys
+            else False,
         )
 
     def _row_to_record(self, row: sqlite3.Row) -> AnalysisRecord:

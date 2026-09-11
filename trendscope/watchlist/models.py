@@ -17,6 +17,9 @@ class WatchItem:
     interval_minutes: int
     active: bool = True
     created_at: Optional[datetime] = None
+    alert_webhook: Optional[str] = None
+    alert_min_score: Optional[float] = None
+    alert_sentiment_flip: bool = False
 
 
 @dataclass
