@@ -1,6 +1,8 @@
 # core/pipeline.py
+import hashlib
 import sys
 import io
+import threading
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from loguru import logger
@@ -33,6 +35,9 @@ if sys.platform == "win32" and not isinstance(sys.stdout, io.TextIOWrapper):
 
 console = Console(force_terminal=True)
 
+# Límite global de pipelines concurrentes (API + scheduler)
+_PIPELINE_SEMAPHORE = threading.Semaphore(2)
+
 SOURCES = [
     ("Reddit", reddit.run),
     ("Google Trends", gtrends.run),
@@ -50,27 +55,48 @@ _PARALLEL_SOURCES = {"Reddit", "Google Trends", "Amazon", "TikTok", "Hacker News
 _SERIAL_SOURCES = {"Twitter/X", "TweetClaw JSON"}
 
 
+def _cache_key(query: TrendQuery) -> str:
+    kw_hash = hashlib.sha1("|".join(query.keywords).encode("utf-8")).hexdigest()[:10]
+    return (
+        f"{query.mode}:{query.category or query.free_topic}:"
+        f"{query.geo}:{query.sentiment_engine}:{query.top_n}:{kw_hash}"
+    )
+
+
 def run(query: TrendQuery) -> tuple[dict, str]:
     """
     Pipeline completo: scraping -> dedup -> sentimiento -> scoring -> output.
     Ejecuta scrapers en paralelo cuando es seguro (ThreadPoolExecutor).
     Retorna (json_payload, markdown_report).
     """
+    acquired = _PIPELINE_SEMAPHORE.acquire(blocking=False)
+    if not acquired:
+        raise RuntimeError("Pipeline saturado: demasiados análisis en curso. Reintenta en unos segundos.")
+    try:
+        return _run_unlocked(query)
+    finally:
+        _PIPELINE_SEMAPHORE.release()
+
+
+def _run_unlocked(query: TrendQuery) -> tuple[dict, str]:
     console.print(f"\n[bold cyan]TrendScope - {query.display_name}[/bold cyan]")
     console.print(f"[dim]Geo: {query.geo} | Sentimiento: {query.sentiment_engine}[/dim]\n")
 
     # Cache: si ya se consulto lo mismo recientemente, usar resultado cacheado
-    cache_key = f"{query.mode}:{query.category or query.free_topic}:{query.geo}:{query.sentiment_engine}"
+    cache_key = _cache_key(query)
     cached = cache_get(cache_key)
     if cached:
         console.print("[dim green](resultado desde cache)[/dim green]")
+        # Cache almacena lista [payload, report] tras json.loads
+        if isinstance(cached, (list, tuple)) and len(cached) == 2:
+            return cached[0], cached[1]
         return cached
 
     all_items: list[dict] = []
+    source_errors: dict[str, str] = {}
 
-    # Silenciar logs INFO durante recoleccion paralela (evita interleaving)
-    logger.remove()
-    logger.add(lambda msg: None, level="ERROR")
+    # NO mutar sinks globales de loguru: el logging a fichero debe sobrevivir
+    # a cada run del pipeline. Solo reportamos resultados al final.
 
     # Dividir fuentes en paralelas y seriales
     parallel_sources = [(n, f) for n, f in SOURCES if n in _PARALLEL_SOURCES]
@@ -78,27 +104,30 @@ def run(query: TrendQuery) -> tuple[dict, str]:
 
     # --- Fuentes paralelas ---
     if parallel_sources:
-        with ThreadPoolExecutor(max_workers=4) as pool:
+        with ThreadPoolExecutor(max_workers=6) as pool:
             futures = {
                 pool.submit(fn, query): name
                 for name, fn in parallel_sources
             }
-            results_parallel: list[tuple[str, list[dict]]] = []
+            results_parallel: list[tuple[str, list[dict], str | None]] = []
             for future in as_completed(futures):
                 name = futures[future]
                 try:
                     items = future.result()
-                    results_parallel.append((name, items))
+                    results_parallel.append((name, items, None))
                 except Exception as e:
                     logger.error(f"Pipeline - {name}: {e}")
-                    results_parallel.append((name, []))
+                    source_errors[name] = str(e)
+                    results_parallel.append((name, [], str(e)))
 
             # Imprimir resultados DESPUES de que todos terminen (sin interleaving)
-            for name, items in results_parallel:
+            for name, items, err in results_parallel:
                 if items:
                     console.print(f"  [cyan]>[/cyan] {name}... [green]OK ({len(items)} items)[/green]")
                 else:
                     console.print(f"  [cyan]>[/cyan] {name}... [red]FAIL[/red]")
+                    if err:
+                        source_errors.setdefault(name, err)
                 all_items.extend(items)
 
     # --- Fuentes seriales ---
@@ -110,13 +139,10 @@ def run(query: TrendQuery) -> tuple[dict, str]:
             console.print(f"[green]OK ({len(items)} items)[/green]")
         except Exception as e:
             logger.error(f"Pipeline - {name}: {e}")
+            source_errors[name] = str(e)
             console.print(f"[red]FAIL[/red]")
 
     console.print(f"\n[yellow]Recolectado: {len(all_items)} senales[/yellow]")
-
-    # Restaurar logs normales
-    logger.remove()
-    logger.add(lambda msg: print(msg, end=""), level="INFO", colorize=True)
 
     # Deduplicacion
     all_items = deduplicate(all_items)
@@ -131,12 +157,13 @@ def run(query: TrendQuery) -> tuple[dict, str]:
 
     # Insights — el "cerebro" de TrendScope
     console.print(f"[yellow]Generando analisis...[/yellow]")
+    labels = [i.get("sentiment_label", "neutral") for i in scored]
     sentiment_summary = {
-        "positive": sum(1 for i in scored if i.get("sentiment_label") == "positive"),
-        "negative": sum(1 for i in scored if i.get("sentiment_label") == "negative"),
-        "neutral": sum(1 for i in scored if i.get("sentiment_label") == "neutral"),
+        "positive": labels.count("positive"),
+        "negative": labels.count("negative"),
+        "neutral": labels.count("neutral"),
         "engine": query.sentiment_engine,
-        "overall": max(set(i.get("sentiment_label", "neutral") for i in scored), key=list(i.get("sentiment_label", "neutral") for i in scored).count) if scored else "neutral",
+        "overall": max(set(labels), key=labels.count) if labels else "neutral",
     }
     insights = generate_insights(scored, query, sentiment_summary)
 
@@ -144,7 +171,10 @@ def run(query: TrendQuery) -> tuple[dict, str]:
     json_payload = export_json(scored, query, insights)
     report = export_report(json_payload, query, insights)
 
-    # Guardar en cache para futuras consultas
-    cache_set(cache_key, (json_payload, report))
+    if source_errors:
+        json_payload.setdefault("meta", {})["source_errors"] = source_errors
+
+    # Guardar en cache para futuras consultas (lista, no tuple, por JSON)
+    cache_set(cache_key, [json_payload, report])
 
     return json_payload, report

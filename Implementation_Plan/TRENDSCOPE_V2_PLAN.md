@@ -66,7 +66,7 @@ Antes de marcar un bloque como `[x]`:
 - [x] Bloque 11 — Corrección crítica de sentimiento + deps
 - [x] Bloque 12 — Seguridad de paths y ficheros
 - [x] Bloque 13 — Superficie de API segura
-- [ ] Bloque 14 — Pipeline y logging robustos
+- [x] Bloque 14 — Pipeline y logging robustos
 - [ ] Bloque 15 — SQLite concurrente
 - [ ] Bloque 16 — Docker endurecido
 - [ ] Bloque 17 — Rate limit y middleware

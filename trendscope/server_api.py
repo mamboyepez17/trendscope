@@ -74,7 +74,12 @@ def _run_pipeline_query(
         sentiment_engine=sentiment_engine,
         top_n=top_n,
     )
-    payload, _ = run_pipeline(query)
+    try:
+        payload, _ = run_pipeline(query)
+    except RuntimeError as e:
+        if "saturado" in str(e).lower() or "saturated" in str(e).lower():
+            raise HTTPException(status_code=503, detail=str(e)) from e
+        raise
     return payload
 
 
