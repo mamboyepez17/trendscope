@@ -499,6 +499,20 @@ def get_history(
     }
 
 
+@app.get("/forecast")
+def get_forecast(
+    topic: str = QParam(..., description="Topic to forecast"),
+    days: int = QParam(30, ge=1, le=365, description="Lookback window in days"),
+):
+    """EMA, velocity y detección de breakout sobre el historial de un tema."""
+    from trendscope.analyzer.forecast import forecast_topic
+
+    result = forecast_topic(watchlist_store, topic, days=days)
+    if not result:
+        raise HTTPException(status_code=404, detail=f"No history for topic '{topic}'")
+    return result
+
+
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
     """Real-time analysis via WebSocket.

@@ -77,7 +77,7 @@ Antes de marcar un bloque como `[x]`:
 - [x] Bloque 22 — Cola de trabajos asíncrona
 - [x] Bloque 23 — Paridad MCP ↔ REST
 - [x] Bloque 24 — Observabilidad
-- [ ] Bloque 25 — Forecasting básico
+- [x] Bloque 25 — Forecasting básico
 - [ ] Bloque 26 — Multi-tenant y auth de verdad
 
 ---
