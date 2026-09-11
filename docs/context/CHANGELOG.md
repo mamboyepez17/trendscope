@@ -46,6 +46,21 @@ Cuando un modelo complete un bloque, agrega una entrada así:
 
 ---
 
+## [1.7.0] — 2026-02-12 — MiMo
+
+### Añadido
+- **Alertas webhook** en watchlist (`alert_webhook`, `alert_min_score`, `alert_sentiment_flip`) con protección anti-SSRF
+- **Jobs asíncronos**: `GET /trends?async=true` → 202 + `job_id`; `GET /jobs/{id}`
+- **MCP 2.x** (MCPServer): 10 tools (analyze, narrate, compare, doctor, watchlist_*, history)
+- **Observabilidad**: `/metrics`, `/metrics.json`, `prune_history`, `source_errors` en pipeline
+- **Forecasting**: EMA, velocity, breakout — `GET /forecast?topic=`
+- **Multi-tenant**: API keys con `org|scopes` (`trends:read`, `watchlist:write`, `admin`)
+
+### Estado Fase 1+2 del plan V2
+- Bloques 11–26 completados con tests (208 en verde)
+
+---
+
 ## [1.1.0] — 2026-09-10 — MiMo
 
 ### Cambiado

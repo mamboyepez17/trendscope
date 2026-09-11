@@ -26,16 +26,25 @@ def _client_ip(request: Request) -> str:
 def _parsed_api_keys() -> set[str]:
     if not settings.api_keys:
         return set()
-    return {k.strip() for k in settings.api_keys.split(",") if k.strip()}
+    from trendscope.api.auth_keys import parse_api_keys
+
+    return {k.key for k in parse_api_keys(settings.api_keys)}
 
 
 def api_key_is_valid(api_key: str | None) -> bool:
     if not api_key:
         return False
-    keys = _parsed_api_keys()
-    if not keys:
-        return False
-    return any(hmac.compare_digest(api_key, k) for k in keys)
+    from trendscope.api.auth_keys import match_key
+
+    return match_key(settings.api_keys, api_key) is not None
+
+
+def resolve_api_key(api_key: str | None):
+    from trendscope.api.auth_keys import match_key
+
+    if not api_key:
+        return None
+    return match_key(settings.api_keys, api_key)
 
 
 class RateLimitMiddleware(BaseHTTPMiddleware):
@@ -98,23 +107,38 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
 
 
 class APIKeyMiddleware(BaseHTTPMiddleware):
-    """Validación opcional de API key por header X-API-Key."""
+    """Validación opcional de API key por header X-API-Key (con org/scopes)."""
 
     async def dispatch(self, request: Request, call_next: Callable) -> Response:
         if not settings.api_key_required:
             return await call_next(request)
 
         # Permitir health check y docs sin key
-        if request.url.path in {"/health", "/docs", "/openapi.json", "/redoc"}:
+        if request.url.path in {"/health", "/docs", "/openapi.json", "/redoc", "/metrics"}:
             return await call_next(request)
 
         api_key = request.headers.get("X-API-Key")
-        if not api_key_is_valid(api_key):
+        matched = resolve_api_key(api_key)
+        if matched is None:
             return Response(
                 content='{"detail":"Invalid or missing API key. Use header X-API-Key."}',
                 status_code=401,
                 media_type="application/json",
             )
+
+        request.state.org_id = matched.org_id
+        request.state.scopes = matched.scopes
+
+        # Scope check para mutaciones de watchlist
+        path = request.url.path
+        method = request.method.upper()
+        if path.startswith("/watchlist") and method in {"POST", "PUT", "DELETE"}:
+            if not matched.allows("watchlist:write"):
+                return Response(
+                    content='{"detail":"API key lacks watchlist:write scope"}',
+                    status_code=403,
+                    media_type="application/json",
+                )
 
         return await call_next(request)
 
