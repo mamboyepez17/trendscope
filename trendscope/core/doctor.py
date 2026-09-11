@@ -179,7 +179,7 @@ def _check_sentiment() -> dict:
         return {"status": "warn", "message": "pysentimiento cargado pero torch bloqueado por WDAC — fallback por keywords activo (funciona, menos preciso)"}
     except ImportError:
         try:
-            from sentiment.local_engine import _analyze_fallback
+            from trendscope.sentiment.local_engine import _analyze_fallback
             return {"status": "ok", "message": "Fallback por keywords bilingue activo (funciona sin torch)"}
         except Exception:
             return {"status": "error", "message": "Motor local no disponible"}

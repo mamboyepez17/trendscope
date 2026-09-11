@@ -37,6 +37,8 @@
 
 ## Estado
 
+> **COMPLETADO.** Continuación en [`TRENDSCOPE_V2_PLAN.md`](./TRENDSCOPE_V2_PLAN.md) (bloques 11–26: hardening, alertas, jobs, escalado).
+
 - [x] Bloque 0 — Fundamentos del repo
 - [x] Bloque 1 — Paquete instalable
 - [x] Bloque 2 — Configuración robusta

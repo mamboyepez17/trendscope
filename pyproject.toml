@@ -23,6 +23,7 @@ classifiers = [
 ]
 dependencies = [
     "scrapling",
+    "requests>=2.31.0",
     "praw>=7.8.1",
     "pytrends>=4.9.2",
     "pysentimiento>=0.7.3",

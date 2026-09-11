@@ -21,9 +21,9 @@ def analyze_items(items: list[dict], query: TrendQuery) -> list[dict]:
 
     try:
         if engine == "claude":
-            from sentiment.claude_engine import analyze
+            from trendscope.sentiment.claude_engine import analyze
         else:
-            from sentiment.local_engine import analyze
+            from trendscope.sentiment.local_engine import analyze
 
         results = analyze(texts)
 
