@@ -278,6 +278,27 @@ class WatchlistStore:
             "unique_topics_analyzed": unique_topics,
         }
 
+    def prune_history(self, keep_days: int = 90, keep_payload_days: int = 14) -> dict:
+        """
+        Retención: borra filas muy viejas y limpia payload_json de las más antiguas
+        (conserva el resumen numérico para gráficas).
+        """
+        with _connect(self.path) as conn:
+            deleted = conn.execute(
+                "DELETE FROM history WHERE analyzed_at < datetime('now', '-' || ? || ' days')",
+                (int(keep_days),),
+            ).rowcount
+            trimmed = conn.execute(
+                """
+                UPDATE history
+                SET payload_json = NULL
+                WHERE payload_json IS NOT NULL
+                  AND analyzed_at < datetime('now', '-' || ? || ' days')
+                """,
+                (int(keep_payload_days),),
+            ).rowcount
+        return {"deleted_rows": deleted, "trimmed_payloads": trimmed}
+
 
 def get_store() -> WatchlistStore:
     """Factory for the default watchlist store."""

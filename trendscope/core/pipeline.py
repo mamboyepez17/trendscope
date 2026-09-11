@@ -69,11 +69,23 @@ def run(query: TrendQuery) -> tuple[dict, str]:
     Ejecuta scrapers en paralelo cuando es seguro (ThreadPoolExecutor).
     Retorna (json_payload, markdown_report).
     """
+    import time
+
+    from trendscope.core import metrics as metrics_mod
+
     acquired = _PIPELINE_SEMAPHORE.acquire(blocking=False)
     if not acquired:
+        metrics_mod.incr("pipeline_saturated")
         raise RuntimeError("Pipeline saturado: demasiados análisis en curso. Reintenta en unos segundos.")
+    start = time.perf_counter()
     try:
-        return _run_unlocked(query)
+        result = _run_unlocked(query)
+        metrics_mod.incr("pipeline_runs")
+        metrics_mod.observe("pipeline", time.perf_counter() - start)
+        return result
+    except Exception:
+        metrics_mod.incr("pipeline_errors")
+        raise
     finally:
         _PIPELINE_SEMAPHORE.release()
 

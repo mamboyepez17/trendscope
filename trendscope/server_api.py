@@ -204,6 +204,30 @@ def health():
     }
 
 
+@app.get("/metrics")
+def metrics():
+    """Métricas ligeras en texto Prometheus-compatible."""
+    from trendscope.core.metrics import render_prometheus
+
+    return PlainTextResponse(render_prometheus(), media_type="text/plain")
+
+
+@app.get("/metrics.json")
+def metrics_json():
+    from trendscope.core.metrics import snapshot
+
+    return snapshot()
+
+
+@app.post("/admin/prune-history")
+def prune_history(
+    keep_days: int = QParam(90, ge=1, le=3650),
+    keep_payload_days: int = QParam(14, ge=1, le=3650),
+):
+    """Retención de history: borra filas viejas y limpia payloads antiguos."""
+    return watchlist_store.prune_history(keep_days=keep_days, keep_payload_days=keep_payload_days)
+
+
 @app.get("/categories")
 def get_categories():
     """Lista de categorias predefinidas disponibles."""
