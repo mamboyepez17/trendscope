@@ -10,6 +10,14 @@ from trendscope.settings import settings
 from trendscope.watchlist.models import AnalysisRecord, WatchItem
 
 
+def _connect(path: Path) -> sqlite3.Connection:
+    conn = sqlite3.connect(path)
+    conn.execute("PRAGMA journal_mode=WAL")
+    conn.execute("PRAGMA busy_timeout=10000")
+    conn.execute("PRAGMA synchronous=NORMAL")
+    return conn
+
+
 class WatchlistStore:
     """SQLite store for watchlist and historical analysis records."""
 
@@ -19,7 +27,7 @@ class WatchlistStore:
         self._init_db()
 
     def _init_db(self) -> None:
-        with sqlite3.connect(self.path) as conn:
+        with _connect(self.path) as conn:
             conn.execute(
                 """
                 CREATE TABLE IF NOT EXISTS watchlist (
@@ -56,7 +64,7 @@ class WatchlistStore:
 
     def add(self, item: WatchItem) -> WatchItem:
         """Add a watch item."""
-        with sqlite3.connect(self.path) as conn:
+        with _connect(self.path) as conn:
             cur = conn.execute(
                 """
                 INSERT INTO watchlist (topic, category, geo, interval_minutes, sentiment_engine, active)
@@ -77,14 +85,14 @@ class WatchlistStore:
 
     def list_all(self) -> list[WatchItem]:
         """Return all watch items."""
-        with sqlite3.connect(self.path) as conn:
+        with _connect(self.path) as conn:
             conn.row_factory = sqlite3.Row
             rows = conn.execute("SELECT * FROM watchlist ORDER BY created_at DESC").fetchall()
         return [self._row_to_watchitem(r) for r in rows]
 
     def list_active(self) -> list[WatchItem]:
         """Return active watch items."""
-        with sqlite3.connect(self.path) as conn:
+        with _connect(self.path) as conn:
             conn.row_factory = sqlite3.Row
             rows = conn.execute(
                 "SELECT * FROM watchlist WHERE active = 1 ORDER BY created_at DESC"
@@ -93,14 +101,14 @@ class WatchlistStore:
 
     def get(self, item_id: int) -> Optional[WatchItem]:
         """Return a single watch item by id."""
-        with sqlite3.connect(self.path) as conn:
+        with _connect(self.path) as conn:
             conn.row_factory = sqlite3.Row
             row = conn.execute("SELECT * FROM watchlist WHERE id = ?", (item_id,)).fetchone()
         return self._row_to_watchitem(row) if row else None
 
     def update(self, item: WatchItem) -> WatchItem:
         """Update an existing watch item."""
-        with sqlite3.connect(self.path) as conn:
+        with _connect(self.path) as conn:
             conn.execute(
                 """
                 UPDATE watchlist
@@ -122,7 +130,7 @@ class WatchlistStore:
 
     def delete(self, item_id: int) -> bool:
         """Delete a watch item."""
-        with sqlite3.connect(self.path) as conn:
+        with _connect(self.path) as conn:
             cur = conn.execute("DELETE FROM watchlist WHERE id = ?", (item_id,))
             return cur.rowcount > 0
 
@@ -145,7 +153,7 @@ class WatchlistStore:
             neutral=sentiment.get("neutral", 0) or 0,
             payload_json=json.dumps(payload, ensure_ascii=False),
         )
-        with sqlite3.connect(self.path) as conn:
+        with _connect(self.path) as conn:
             cur = conn.execute(
                 """
                 INSERT INTO history
@@ -171,7 +179,7 @@ class WatchlistStore:
         self, topic: Optional[str] = None, days: int = 7, limit: int = 100
     ) -> list[AnalysisRecord]:
         """Return historical analysis records."""
-        with sqlite3.connect(self.path) as conn:
+        with _connect(self.path) as conn:
             conn.row_factory = sqlite3.Row
             if topic:
                 rows = conn.execute(
@@ -225,7 +233,7 @@ class WatchlistStore:
 
     def get_stats(self) -> dict:
         """Return aggregate stats for the dashboard."""
-        with sqlite3.connect(self.path) as conn:
+        with _connect(self.path) as conn:
             total_watch = conn.execute("SELECT COUNT(*) FROM watchlist").fetchone()[0]
             active_watch = conn.execute(
                 "SELECT COUNT(*) FROM watchlist WHERE active = 1"
