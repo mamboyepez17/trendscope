@@ -75,7 +75,7 @@ Antes de marcar un bloque como `[x]`:
 - [x] Bloque 20 — Tests de regresión e integración
 - [x] Bloque 21 — Alertas de watchlist (webhooks)
 - [x] Bloque 22 — Cola de trabajos asíncrona
-- [ ] Bloque 23 — Paridad MCP ↔ REST
+- [x] Bloque 23 — Paridad MCP ↔ REST
 - [ ] Bloque 24 — Observabilidad
 - [ ] Bloque 25 — Forecasting básico
 - [ ] Bloque 26 — Multi-tenant y auth de verdad

@@ -1,138 +1,189 @@
 # server_mcp.py
 # Servidor MCP — TrendScope como herramienta para agentes MCP
 # Uso: python server_mcp.py
-import json
+# Compatible con MCP SDK 2.x (MCPServer)
 import asyncio
 
-from mcp.server import Server
-from mcp.server.stdio import stdio_server
-from mcp.types import Tool, TextContent
+from mcp.server.mcpserver import MCPServer
 
 from trendscope.config import CATEGORIES
-from trendscope.core.query import TrendQuery
 from trendscope.core.pipeline import run as run_pipeline
+from trendscope.core.query import TrendQuery
 
-app = Server("trendscope")
-
-
-@app.list_tools()
-async def list_tools() -> list[Tool]:
-    return [
-        Tool(
-            name="analyze_trends",
-            description=(
-                "Analiza tendencias sobre cualquier tema desde multiples fuentes "
-                "gratuitas (Reddit, Google Trends, Twitter/X, Amazon, TikTok) "
-                "con analisis de sentimiento incluido. "
-                "Retorna JSON con top tendencias, scores y resumen de sentimiento."
-            ),
-            inputSchema={
-                "type": "object",
-                "properties": {
-                    "topic": {
-                        "type": "string",
-                        "description": "Tema libre a analizar. Ej: 'crypto Colombia', 'salud mental 2026'",
-                    },
-                    "category": {
-                        "type": "string",
-                        "description": "Categoria predefinida: " + ", ".join(CATEGORIES.keys()),
-                    },
-                    "geo": {
-                        "type": "string",
-                        "description": "Codigo pais ISO (default: CO)",
-                        "default": "CO",
-                    },
-                    "sentiment_engine": {
-                        "type": "string",
-                        "enum": ["local", "claude"],
-                        "description": "Motor de sentimiento (default: local)",
-                        "default": "local",
-                    },
-                    "top_n": {
-                        "type": "integer",
-                        "description": "Numero de tendencias a retornar (default: 25)",
-                        "default": 25,
-                    },
-                },
-            },
-        ),
-        Tool(
-            name="get_categories",
-            description="Lista las categorias predefinidas disponibles en TrendScope.",
-            inputSchema={"type": "object", "properties": {}},
-        ),
-        Tool(
-            name="get_latest_report",
-            description="Obtiene el ultimo reporte Markdown generado para un tema.",
-            inputSchema={
-                "type": "object",
-                "properties": {
-                    "topic": {
-                        "type": "string",
-                        "description": "Tema del reporte a buscar",
-                    }
-                },
-                "required": ["topic"],
-            },
-        ),
-    ]
+app = MCPServer("trendscope")
 
 
-@app.call_tool()
-async def call_tool(name: str, arguments: dict) -> list[TextContent]:
+@app.tool()
+async def analyze_trends(
+    topic: str | None = None,
+    category: str | None = None,
+    geo: str = "CO",
+    sentiment_engine: str = "local",
+    top_n: int = 25,
+) -> dict:
+    """Analiza tendencias multi-fuente con sentimiento. topic o category."""
+    query = TrendQuery(
+        mode="category" if category else "free",
+        category=category,
+        free_topic=topic,
+        geo=geo,
+        sentiment_engine=sentiment_engine,
+        top_n=max(1, min(100, int(top_n))),
+    )
+    loop = asyncio.get_running_loop()
+    payload, _ = await loop.run_in_executor(None, run_pipeline, query)
+    return payload
 
-    if name == "analyze_trends":
-        topic = arguments.get("topic")
-        category = arguments.get("category")
 
-        query = TrendQuery(
-            mode="category" if category else "free",
-            category=category,
-            free_topic=topic,
-            geo=arguments.get("geo", "CO"),
-            sentiment_engine=arguments.get("sentiment_engine", "local"),
-            top_n=arguments.get("top_n", 25),
-        )
+@app.tool()
+def get_categories() -> dict:
+    """Lista las categorias predefinidas disponibles."""
+    return {"categories": list(CATEGORIES.keys())}
 
-        loop = asyncio.get_event_loop()
-        payload, _ = await loop.run_in_executor(None, run_pipeline, query)
 
-        return [TextContent(
-            type="text",
-            text=json.dumps(payload, ensure_ascii=False, indent=2),
-        )]
+@app.tool()
+def get_latest_report(topic: str) -> str:
+    """Obtiene el ultimo reporte Markdown generado para un tema."""
+    from pathlib import Path
 
-    elif name == "get_categories":
-        return [TextContent(
-            type="text",
-            text=json.dumps(
-                {"categories": list(CATEGORIES.keys())},
-                ensure_ascii=False,
-                indent=2,
-            ),
-        )]
+    from trendscope.config import DATA_DIR
+    from trendscope.core.paths import safe_slug
 
-    elif name == "get_latest_report":
-        from pathlib import Path
+    slug = safe_slug(topic)
+    reports = sorted(
+        (p for p in Path(DATA_DIR).glob("report_*.md") if slug in p.name),
+        reverse=True,
+    )
+    if reports:
+        return reports[0].read_text(encoding="utf-8")
+    return f"No hay reportes para '{slug}'"
 
-        from trendscope.config import DATA_DIR
-        from trendscope.core.paths import safe_slug
 
-        slug = safe_slug(arguments.get("topic", ""))
-        reports = sorted(
-            (p for p in Path(DATA_DIR).glob("report_*.md") if slug in p.name),
-            reverse=True,
-        )
-        if reports:
-            return [TextContent(type="text", text=reports[0].read_text(encoding="utf-8"))]
-        return [TextContent(type="text", text=f"No hay reportes para '{slug}'")]
+@app.tool()
+async def narrate_trends(
+    topic: str | None = None,
+    category: str | None = None,
+    style: str = "executive",
+    geo: str = "CO",
+) -> dict:
+    """Genera una narrativa inteligente sobre un tema."""
+    query = TrendQuery(
+        mode="category" if category else "free",
+        category=category,
+        free_topic=topic,
+        geo=geo,
+    )
+    loop = asyncio.get_running_loop()
+    payload, _ = await loop.run_in_executor(None, run_pipeline, query)
+    from trendscope.narrator.engine import generate_summary
 
-    return [TextContent(type="text", text="Herramienta no encontrada")]
+    return generate_summary(payload, style=style)
+
+
+@app.tool()
+async def compare_topics(topic1: str, topic2: str) -> dict:
+    """Compara dos temas lado a lado."""
+    loop = asyncio.get_running_loop()
+
+    def _run_both():
+        q1 = TrendQuery(mode="free", free_topic=topic1)
+        q2 = TrendQuery(mode="free", free_topic=topic2)
+        p1, _ = run_pipeline(q1)
+        p2, _ = run_pipeline(q2)
+        return {
+            "topic1": {"name": topic1, "data": p1},
+            "topic2": {"name": topic2, "data": p2},
+        }
+
+    return await loop.run_in_executor(None, _run_both)
+
+
+@app.tool()
+def doctor() -> dict:
+    """Diagnostica el estado de todas las fuentes de datos."""
+    from trendscope.core.doctor import check_all
+
+    return check_all()
+
+
+@app.tool()
+def watchlist_add(
+    topic: str,
+    category: str | None = None,
+    geo: str = "CO",
+    interval_minutes: int = 60,
+    alert_webhook: str | None = None,
+    alert_min_score: float | None = None,
+    alert_sentiment_flip: bool = False,
+) -> dict:
+    """Agrega un tema a la watchlist de monitoreo recurrente."""
+    from dataclasses import asdict
+
+    from trendscope.watchlist.models import WatchItem
+    from trendscope.watchlist.store import get_store
+
+    store = get_store()
+    item = WatchItem(
+        id=None,
+        topic=topic,
+        category=category,
+        geo=geo,
+        sentiment_engine="local",
+        interval_minutes=max(5, min(1440, int(interval_minutes))),
+        active=True,
+        alert_webhook=alert_webhook,
+        alert_min_score=alert_min_score,
+        alert_sentiment_flip=alert_sentiment_flip,
+    )
+    item = store.add(item)
+    return asdict(item)
+
+
+@app.tool()
+def watchlist_list() -> dict:
+    """Lista los temas monitorizados en la watchlist."""
+    from dataclasses import asdict
+
+    from trendscope.watchlist.store import get_store
+
+    items = get_store().list_all()
+    return {"items": [asdict(i) for i in items]}
+
+
+@app.tool()
+def watchlist_run(item_id: int) -> dict:
+    """Ejecuta el análisis de un item de la watchlist ahora mismo."""
+    from trendscope.watchlist.scheduler import get_scheduler
+    from trendscope.watchlist.store import get_store
+
+    store = get_store()
+    item = store.get(int(item_id))
+    if not item:
+        return {"error": f"Watch item {item_id} not found"}
+    get_scheduler()._analyze_item(item)
+    return {"status": "ok", "topic": item.topic}
+
+
+@app.tool()
+def history_get(
+    topic: str | None = None,
+    days: int = 7,
+    limit: int = 20,
+) -> dict:
+    """Obtiene el historial de análisis (sin payload completo)."""
+    from dataclasses import asdict
+
+    from trendscope.watchlist.store import get_store
+
+    records = get_store().get_history(topic=topic, days=int(days), limit=int(limit))
+    return {
+        "count": len(records),
+        "records": [{**asdict(r), "payload_json": None} for r in records],
+    }
 
 
 async def main_async() -> None:
-    async with stdio_server() as (read_stream, write_stream):
-        await app.run(read_stream, write_stream, app.create_initialization_options())
+    await app.run_stdio_async()
 
 
 def main():
