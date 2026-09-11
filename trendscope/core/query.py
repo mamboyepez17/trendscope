@@ -50,6 +50,7 @@ class TrendQuery:
 
     @property
     def topic_slug(self) -> str:
-        """Slug para nombres de archivos de output."""
-        topic = self.free_topic or self.category or "general"
-        return topic.strip().replace(" ", "_")[:30]
+        """Slug seguro para nombres de archivos de output."""
+        from trendscope.core.paths import safe_slug
+
+        return safe_slug(self.free_topic or self.category or "general")

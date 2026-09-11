@@ -5,6 +5,7 @@ import json
 from pathlib import Path
 from typing import Any
 
+from trendscope.core.paths import safe_data_path, safe_slug
 from trendscope.settings import settings
 
 
@@ -45,8 +46,8 @@ def export_json(payload: dict, filename: str | None = None, output_dir: Path | N
     data_dir = output_dir or _ensure_data_dir()
     data_dir.mkdir(parents=True, exist_ok=True)
     topic = payload.get("meta", {}).get("query", {}).get("topic", "trend")
-    filename = filename or f"export_{topic.replace(' ', '_')[:30]}_{_now()}.json"
-    path = data_dir / filename
+    filename = filename or f"export_{safe_slug(topic)}_{_now()}.json"
+    path = safe_data_path(data_dir, filename)
     path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
     return path
 
@@ -56,8 +57,8 @@ def export_csv(payload: dict, filename: str | None = None, output_dir: Path | No
     data_dir = output_dir or _ensure_data_dir()
     data_dir.mkdir(parents=True, exist_ok=True)
     topic = payload.get("meta", {}).get("query", {}).get("topic", "trend")
-    filename = filename or f"export_{topic.replace(' ', '_')[:30]}_{_now()}.csv"
-    path = data_dir / filename
+    filename = filename or f"export_{safe_slug(topic)}_{_now()}.csv"
+    path = safe_data_path(data_dir, filename)
 
     rows = [_flatten_trend(t) for t in payload.get("top_trends", [])]
     if not rows:
@@ -82,8 +83,8 @@ def export_excel(payload: dict, filename: str | None = None, output_dir: Path | 
     data_dir = output_dir or _ensure_data_dir()
     data_dir.mkdir(parents=True, exist_ok=True)
     topic = payload.get("meta", {}).get("query", {}).get("topic", "trend")
-    filename = filename or f"export_{topic.replace(' ', '_')[:30]}_{_now()}.xlsx"
-    path = data_dir / filename
+    filename = filename or f"export_{safe_slug(topic)}_{_now()}.xlsx"
+    path = safe_data_path(data_dir, filename)
 
     wb = openpyxl.Workbook()
     ws = wb.active

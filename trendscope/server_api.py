@@ -214,7 +214,9 @@ def get_report(
     category: str | None = QParam(None, description="Categoria del reporte"),
 ):
     """Retorna el ultimo reporte Markdown generado para un tema."""
-    slug = (topic or category or "").replace(" ", "_")[:30]
+    from trendscope.core.paths import safe_slug
+
+    slug = safe_slug(topic or category or "")
     data_path = Path(DATA_DIR)
 
     if not data_path.exists():
@@ -223,7 +225,11 @@ def get_report(
             detail="No hay reportes generados aun. Genera uno primero con GET /trends",
         )
 
-    reports = sorted(data_path.glob(f"report_*{slug}*.md"), reverse=True)
+    # Filtrar por substring sobre nombres ya existentes (sin glob con input del usuario)
+    reports = sorted(
+        (p for p in data_path.glob("report_*.md") if slug in p.name),
+        reverse=True,
+    )
     if not reports:
         raise HTTPException(
             status_code=404,

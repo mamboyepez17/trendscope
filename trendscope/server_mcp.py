@@ -114,9 +114,15 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
 
     elif name == "get_latest_report":
         from pathlib import Path
+
         from trendscope.config import DATA_DIR
-        slug = arguments.get("topic", "").replace(" ", "_")[:30]
-        reports = sorted(Path(DATA_DIR).glob(f"report_*{slug}*.md"), reverse=True)
+        from trendscope.core.paths import safe_slug
+
+        slug = safe_slug(arguments.get("topic", ""))
+        reports = sorted(
+            (p for p in Path(DATA_DIR).glob("report_*.md") if slug in p.name),
+            reverse=True,
+        )
         if reports:
             return [TextContent(type="text", text=reports[0].read_text(encoding="utf-8"))]
         return [TextContent(type="text", text=f"No hay reportes para '{slug}'")]

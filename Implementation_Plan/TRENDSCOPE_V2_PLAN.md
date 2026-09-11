@@ -64,7 +64,7 @@ Antes de marcar un bloque como `[x]`:
 ## Estado
 
 - [x] Bloque 11 — Corrección crítica de sentimiento + deps
-- [ ] Bloque 12 — Seguridad de paths y ficheros
+- [x] Bloque 12 — Seguridad de paths y ficheros
 - [ ] Bloque 13 — Superficie de API segura
 - [ ] Bloque 14 — Pipeline y logging robustos
 - [ ] Bloque 15 — SQLite concurrente
