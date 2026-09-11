@@ -2,12 +2,35 @@
 
 from trendscope.settings import settings
 
+
+def _parse_twitter_cookies(raw: str) -> tuple[str, str]:
+    """Extrae auth_token y ct0 de un cookie string (o varias cookies separadas por |||)."""
+    auth, ct0 = "", ""
+    if not raw:
+        return auth, ct0
+    # xactions permite varias cuentas con |||; usamos la primera
+    first = raw.split("|||")[0]
+    for part in first.split(";"):
+        part = part.strip()
+        if "=" not in part:
+            continue
+        name, value = part.split("=", 1)
+        name = name.strip().lower()
+        if name == "auth_token" and not auth:
+            auth = value.strip()
+        elif name == "ct0" and not ct0:
+            ct0 = value.strip()
+    return auth, ct0
+
+
+_COOKIE_AUTH, _COOKIE_CT0 = _parse_twitter_cookies(settings.twitter_cookies)
+
 REDDIT_CLIENT_ID = settings.reddit_client_id
 REDDIT_CLIENT_SECRET = settings.reddit_client_secret
 REDDIT_USER_AGENT = settings.reddit_user_agent  # TrendScope/1.5.0 default
 
-TWITTER_AUTH_TOKEN = settings.twitter_auth_token
-TWITTER_CT0 = settings.twitter_ct0
+TWITTER_AUTH_TOKEN = settings.twitter_auth_token or _COOKIE_AUTH
+TWITTER_CT0 = settings.twitter_ct0 or _COOKIE_CT0
 TWEETCLAW_RESULTS_FILE = settings.tweetclaw_results_file
 
 ANTHROPIC_API_KEY = settings.anthropic_api_key

@@ -17,7 +17,12 @@ from trendscope.core.pipeline import run as run_pipeline
 from trendscope.core import cache as result_cache
 from trendscope.narrator.engine import generate_summary, NARRATIVE_STYLES
 from trendscope.output.exporter import export_json, export_csv, export_excel
-from trendscope.api.middleware import RateLimitMiddleware, APIKeyMiddleware
+from trendscope.api.middleware import (
+    APIKeyMiddleware,
+    RateLimitMiddleware,
+    SecurityHeadersMiddleware,
+    api_key_is_valid,
+)
 from trendscope.logging_config import setup_logging
 from trendscope.watchlist.models import WatchItem
 from trendscope.watchlist.store import get_store
@@ -25,10 +30,20 @@ from trendscope.watchlist.scheduler import WatchlistScheduler
 from trendscope import __version__
 
 
+from loguru import logger
+
 setup_logging()
 
 watchlist_store = get_store()
 watchlist_scheduler = WatchlistScheduler(watchlist_store)
+
+
+def _warn_if_exposed() -> None:
+    if settings.api_host not in {"127.0.0.1", "localhost", "::1"} and not settings.api_key_required:
+        logger.warning(
+            "API expuesta en {} SIN API key. Configura API_KEY_REQUIRED=true y API_KEYS.",
+            settings.api_host,
+        )
 
 
 def _run_pipeline_query(
@@ -69,12 +84,14 @@ app = FastAPI(
     version=__version__,
 )
 
+app.add_middleware(SecurityHeadersMiddleware)
 app.add_middleware(RateLimitMiddleware)
 app.add_middleware(APIKeyMiddleware)
 
 
 @app.on_event("startup")
 def start_watchlist_scheduler():
+    _warn_if_exposed()
     if settings.watchlist_enabled:
         watchlist_scheduler.start()
 
@@ -91,7 +108,7 @@ def narrate(
     style: str = QParam("executive", description="executive | creative | technical | alert"),
     geo: str = QParam("CO", description="Codigo ISO pais"),
     sentiment_engine: str = QParam("local", description="local | claude"),
-    top_n: int = QParam(25, description="Numero de resultados"),
+    top_n: int = QParam(25, ge=1, le=100, description="Numero de resultados"),
 ):
     """Genera una narrativa inteligente sobre un tema usando el proveedor configurado."""
     if not topic and not category:
@@ -129,7 +146,7 @@ def export_json_endpoint(
     category: str | None = QParam(None, description="Categoria predefinida"),
     geo: str = QParam("CO", description="Codigo ISO pais"),
     sentiment_engine: str = QParam("local", description="local | claude"),
-    top_n: int = QParam(25, description="Numero de resultados"),
+    top_n: int = QParam(25, ge=1, le=100, description="Numero de resultados"),
 ):
     """Exporta el análisis completo a JSON descargable."""
     payload = _run_pipeline_query(topic, category, geo, sentiment_engine, top_n)
@@ -143,7 +160,7 @@ def export_csv_endpoint(
     category: str | None = QParam(None, description="Categoria predefinida"),
     geo: str = QParam("CO", description="Codigo ISO pais"),
     sentiment_engine: str = QParam("local", description="local | claude"),
-    top_n: int = QParam(25, description="Numero de resultados"),
+    top_n: int = QParam(25, ge=1, le=100, description="Numero de resultados"),
 ):
     """Exporta las tendencias top a CSV descargable."""
     payload = _run_pipeline_query(topic, category, geo, sentiment_engine, top_n)
@@ -157,7 +174,7 @@ def export_excel_endpoint(
     category: str | None = QParam(None, description="Categoria predefinida"),
     geo: str = QParam("CO", description="Codigo ISO pais"),
     sentiment_engine: str = QParam("local", description="local | claude"),
-    top_n: int = QParam(25, description="Numero de resultados"),
+    top_n: int = QParam(25, ge=1, le=100, description="Numero de resultados"),
 ):
     """Exporta las tendencias top a Excel (.xlsx) descargable."""
     payload = _run_pipeline_query(topic, category, geo, sentiment_engine, top_n)
@@ -179,8 +196,6 @@ def health():
         "narrator_provider": settings.narrator_provider,
         "narrative_enabled": settings.narrative_enabled,
         "sentiment_engine_default": settings.sentiment_engine,
-        "rate_limit": f"{settings.api_rate_limit}/{settings.api_rate_window}s",
-        "api_key_required": settings.api_key_required,
     }
 
 
@@ -199,7 +214,7 @@ def get_trends(
     category: str | None = QParam(None, description="Categoria predefinida"),
     geo: str = QParam("CO", description="Codigo ISO pais"),
     sentiment_engine: str = QParam("local", description="local | claude"),
-    top_n: int = QParam(25, description="Numero de resultados"),
+    top_n: int = QParam(25, ge=1, le=100, description="Numero de resultados"),
 ):
     """
     Analiza tendencias y retorna JSON estructurado.
@@ -296,6 +311,8 @@ def create_watch_item(
     sentiment_engine: str = QParam("local", description="local | claude"),
     interval_minutes: int = QParam(
         settings.watchlist_default_interval_minutes,
+        ge=5,
+        le=1440,
         description="Analysis interval in minutes",
     ),
 ):
@@ -348,7 +365,7 @@ def update_watch_item(
     category: str | None = QParam(None, description="Predefined category (optional)"),
     geo: str = QParam("CO", description="ISO country code"),
     sentiment_engine: str = QParam("local", description="local | claude"),
-    interval_minutes: int = QParam(60, description="Analysis interval in minutes"),
+    interval_minutes: int = QParam(60, ge=5, le=1440, description="Analysis interval in minutes"),
     active: bool = QParam(True, description="Whether the item is active"),
 ):
     """Update a watchlist item."""
@@ -409,8 +426,14 @@ async def websocket_endpoint(websocket: WebSocket):
     """Real-time analysis via WebSocket.
 
     Send a JSON message with {topic, category?, geo?, sentiment_engine?, top_n?}.
-    The server runs the pipeline and returns the full payload.
+    If API keys are required, pass ?api_key=... on the WS URL or X-API-Key header.
     """
+    if settings.api_key_required:
+        token = websocket.query_params.get("api_key") or websocket.headers.get("x-api-key")
+        if not api_key_is_valid(token):
+            await websocket.close(code=1008)
+            return
+
     await websocket.accept()
     try:
         while True:
@@ -423,9 +446,26 @@ async def websocket_endpoint(websocket: WebSocket):
 
             topic = params.get("topic")
             category = params.get("category")
-            geo = params.get("geo", "CO")
+            geo = str(params.get("geo", "CO") or "CO").upper()
             sentiment_engine = params.get("sentiment_engine", "local")
-            top_n = int(params.get("top_n", 25))
+
+            try:
+                top_n = int(params.get("top_n", 25))
+            except (TypeError, ValueError):
+                await websocket.send_json({"error": "top_n must be an integer"})
+                continue
+
+            if not 1 <= top_n <= 100:
+                await websocket.send_json({"error": "top_n must be between 1 and 100"})
+                continue
+
+            if sentiment_engine not in {"local", "claude"}:
+                await websocket.send_json({"error": "sentiment_engine must be local or claude"})
+                continue
+
+            if not (len(geo) == 2 and geo.isalpha()):
+                await websocket.send_json({"error": "geo must be a 2-letter ISO code"})
+                continue
 
             if not topic and not category:
                 await websocket.send_json({"error": "topic or category required"})
@@ -444,10 +484,17 @@ async def websocket_endpoint(websocket: WebSocket):
                 top_n=top_n,
             )
 
-            # Run sync pipeline in threadpool to avoid blocking the event loop
-            loop = asyncio.get_event_loop()
-            payload, _ = await loop.run_in_executor(None, run_pipeline, query)
-            await websocket.send_json(payload)
+            try:
+                loop = asyncio.get_running_loop()
+                payload, _ = await asyncio.wait_for(
+                    loop.run_in_executor(None, run_pipeline, query),
+                    timeout=120,
+                )
+                await websocket.send_json(payload)
+            except TimeoutError:
+                await websocket.send_json({"error": "Pipeline timeout (120s)"})
+            except Exception as e:
+                await websocket.send_json({"error": f"Pipeline error: {e}"})
     except WebSocketDisconnect:
         pass
 

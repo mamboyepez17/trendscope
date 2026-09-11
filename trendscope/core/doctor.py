@@ -78,12 +78,15 @@ def _check_twitter() -> dict:
     ct0_len = len(TWITTER_CT0)
 
     if token_len < 10 or ct0_len < 20:
-        return {"status": "error", "message": f"Credenciales incompletas (auth_token={token_len} chars, ct0={ct0_len} chars). Revisar .env"}
+        return {
+            "status": "error",
+            "message": "Credenciales incompletas o invalidas. Revisar TWITTER_AUTH_TOKEN y TWITTER_CT0 en .env",
+        }
 
     # Verificar que xactions importa
     try:
         from xactions import TwitterError, search_tweets_sync  # noqa: F401
-        return {"status": "ok", "message": f"xactions-py v1.5+ listo (auth_token={token_len} chars, ct0={ct0_len} chars)"}
+        return {"status": "ok", "message": "xactions-py v1.5+ listo (credenciales configuradas)"}
     except ImportError:
         return {"status": "error", "message": "Modulo xactions/ no encontrado. El directorio xactions/ debe estar en la raiz del proyecto"}
     except Exception as e:

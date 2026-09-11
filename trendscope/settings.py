@@ -21,6 +21,8 @@ class Settings(BaseSettings):
     # Twitter/X
     twitter_auth_token: str = ""
     twitter_ct0: str = ""
+    # Alternativa: cookie string completa (auth_token=...; ct0=...)
+    twitter_cookies: str = ""
     tweetclaw_results_file: str = ""
 
     # Claude
@@ -40,12 +42,13 @@ class Settings(BaseSettings):
     data_dir: str = "data"
 
     # API
-    api_host: str = "0.0.0.0"
+    api_host: str = "127.0.0.1"
     api_port: int = 8000
     api_rate_limit: int = 60
     api_rate_window: int = 60
     api_key_required: bool = False
     api_keys: str = ""
+    trust_proxy_headers: bool = False
 
     # Ollama local
     ollama_enabled: bool = False
