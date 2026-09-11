@@ -70,7 +70,7 @@ Antes de marcar un bloque como `[x]`:
 - [x] Bloque 15 — SQLite concurrente
 - [x] Bloque 16 — Docker endurecido
 - [x] Bloque 17 — Rate limit y middleware
-- [ ] Bloque 18 — Rendimiento del pipeline
+- [x] Bloque 18 — Rendimiento del pipeline
 - [ ] Bloque 19 — Config coherente y geo dinámico
 - [ ] Bloque 20 — Tests de regresión e integración
 - [ ] Bloque 21 — Alertas de watchlist (webhooks)

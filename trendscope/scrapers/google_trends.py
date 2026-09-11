@@ -113,14 +113,13 @@ def _score_relevance(keyword: str, query_keywords: list[str]) -> int:
 
 def run(query: TrendQuery) -> list[dict]:
     """Entry point del scraper de Google Trends."""
-    # Intentar RSS primero, pytrends como fallback
+    # Intentar RSS primero; pytrends solo como fallback (es lento y 429-prone)
     results = _fetch_rss(query.geo)
 
-    # Si el RSS da resultados, intentar pytrends para keywords especificas
-    # (combinar ambas fuentes para mayor cobertura)
-    pt_results = _fetch_pytrends(query.keywords, query.geo) if query.keywords else []
-    if pt_results:
-        results.extend(pt_results)
+    if not results and query.keywords:
+        pt_results = _fetch_pytrends(query.keywords, query.geo)
+        if pt_results:
+            results.extend(pt_results)
 
     # Si no hay nada de RSS ni pytrends, devolver vacio
     if not results:

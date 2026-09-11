@@ -22,7 +22,7 @@ def run(query: TrendQuery) -> list[dict]:
         cookie_str = f"auth_token={TWITTER_AUTH_TOKEN}; ct0={TWITTER_CT0}"
         results: list[dict] = []
 
-        for keyword in query.keywords[:4]:
+        for idx, keyword in enumerate(query.keywords[:4]):
             try:
                 # Buscar en modo Top (tweets con mas engagement) primero
                 tweets = search_tweets_sync(
@@ -51,8 +51,16 @@ def run(query: TrendQuery) -> list[dict]:
 
             except TwitterError as e:
                 logger.warning(f"Twitter busqueda '{keyword}': {e}")
+                if "rate" in str(e).lower():
+                    break
             except Exception as e:
                 logger.warning(f"Twitter busqueda '{keyword}': {e}")
+
+            # Backoff entre keywords para no saturar rate limits
+            if idx < len(query.keywords[:4]) - 1:
+                import time
+
+                time.sleep(1.5)
 
         logger.info(f"Twitter total: {len(results)} tweets")
         return results

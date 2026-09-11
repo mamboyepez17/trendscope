@@ -40,22 +40,36 @@ def _source_breakdown(items: list[dict]) -> dict:
 def _detect_emerging_vs_established(items: list[dict]) -> dict:
     """
     Clasifica tendencias en emergentes vs establecidas.
-    Emergente: score alto pero pocas fuentes (<2) = está empezando a sonar.
-    Establecido: score alto + muchas fuentes (>=2) = ya es mainstream.
-    Fugaz: score medio + 1 fuente = puede ser ruido temporal.
+    Emergente: score alto pero pocas fuentes (<2).
+    Establecido: score alto + muchas fuentes (>=2).
+    Fugaz: score bajo.
+    Usa indice invertido palabra->items para evitar O(n^2) de texto.
     """
     emerging = []
     established = []
     fading = []
 
-    for item in items:
+    word_index: dict[str, set[int]] = {}
+    texts: list[str] = []
+    for idx, item in enumerate(items):
+        title = (
+            item.get("title") or item.get("keyword") or item.get("text") or ""
+        ).lower()
+        texts.append(title)
+        words = {w for w in title.split() if len(w) > 3}
+        for w in words:
+            word_index.setdefault(w, set()).add(idx)
+
+    for i, item in enumerate(items):
         score = item.get("trend_score", 0)
-        # Contar en cuántas fuentes aparece algo similar
-        title = (item.get("title") or item.get("keyword") or item.get("text") or "").lower()
+        words = {w for w in texts[i].split() if len(w) > 3}
+        neighbors: set[int] = set()
+        for w in words:
+            neighbors |= word_index.get(w, set())
         source_count = sum(
-            1 for other in items
-            if other.get("source") != item.get("source")
-            and _text_overlap(title, (other.get("title") or other.get("keyword") or other.get("text") or "").lower())
+            1
+            for j in neighbors
+            if j != i and items[j].get("source") != item.get("source")
         )
         total_sources = 1 + source_count
 

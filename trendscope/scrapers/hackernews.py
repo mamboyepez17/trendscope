@@ -50,25 +50,31 @@ def _search_stories(keyword: str, limit: int = 15) -> list[dict]:
 def _fetch_top_stories(limit: int = 15) -> list[dict]:
     """
     Top stories de Hacker News via Firebase API.
-    https://hacker-news.firebaseio.com/v0/topstories.json
+    Fetch de items en paralelo (ThreadPool) en vez de 15 GETs secuenciales.
     """
     try:
-        resp = requests.get(
+        from concurrent.futures import ThreadPoolExecutor, as_completed
+
+        from trendscope.core.http import get_session
+
+        session = get_session()
+        resp = session.get(
             "https://hacker-news.firebaseio.com/v0/topstories.json",
             timeout=10,
         )
         resp.raise_for_status()
         story_ids = resp.json()[:limit]
         results = []
-        for sid in story_ids:
+
+        def _fetch_one(sid: int) -> dict | None:
             try:
-                story_resp = requests.get(
+                story_resp = session.get(
                     f"https://hacker-news.firebaseio.com/v0/item/{sid}.json",
                     timeout=5,
                 )
                 story = story_resp.json()
                 if story and story.get("type") == "story":
-                    results.append({
+                    return {
                         "source": "hackernews",
                         "title": story.get("title", ""),
                         "url": story.get("url") or f"https://news.ycombinator.com/item?id={sid}",
@@ -78,9 +84,18 @@ def _fetch_top_stories(limit: int = 15) -> list[dict]:
                         "author": story.get("by", ""),
                         "created_utc": story.get("time", 0),
                         "hn_id": str(sid),
-                    })
-            except Exception:
-                continue
+                    }
+            except Exception as e:
+                logger.debug(f"HN item {sid}: {e}")
+            return None
+
+        with ThreadPoolExecutor(max_workers=8) as pool:
+            futures = [pool.submit(_fetch_one, sid) for sid in story_ids]
+            for fut in as_completed(futures):
+                item = fut.result()
+                if item:
+                    results.append(item)
+
         logger.info(f"HackerNews top stories: {len(results)}")
         return results
     except Exception as e:
