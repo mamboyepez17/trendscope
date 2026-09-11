@@ -7,7 +7,7 @@ import json
 from pathlib import Path
 
 from fastapi import FastAPI, Query as QParam, HTTPException, WebSocket, WebSocketDisconnect
-from fastapi.responses import PlainTextResponse, HTMLResponse, FileResponse
+from fastapi.responses import PlainTextResponse, HTMLResponse, FileResponse, JSONResponse
 import uvicorn
 
 from trendscope.config import API_HOST, API_PORT, CATEGORIES, DATA_DIR
@@ -220,12 +220,42 @@ def get_trends(
     geo: str = QParam("CO", description="Codigo ISO pais"),
     sentiment_engine: str = QParam("local", description="local | claude"),
     top_n: int = QParam(25, ge=1, le=100, description="Numero de resultados"),
+    async_mode: bool = QParam(False, alias="async", description="Si true, devuelve 202 + job_id"),
 ):
     """
     Analiza tendencias y retorna JSON estructurado.
     Usar ?topic=TEMA o ?category=CATEGORIA.
+    Con ?async=true se encola un job y se responde 202.
     """
+    if async_mode:
+        if not topic and not category:
+            raise HTTPException(status_code=400, detail="topic o category requerido")
+        from trendscope.jobs.store import submit_analysis_job
+
+        job_id = submit_analysis_job(
+            "trends",
+            topic,
+            category,
+            geo=geo,
+            sentiment_engine=sentiment_engine,
+            top_n=top_n,
+        )
+        return JSONResponse(
+            status_code=202,
+            content={"job_id": job_id, "status": "pending", "poll": f"/jobs/{job_id}"},
+        )
     return _run_pipeline_query(topic, category, geo, sentiment_engine, top_n)
+
+
+@app.get("/jobs/{job_id}")
+def get_job(job_id: str):
+    """Consulta el estado de un job asíncrono."""
+    from trendscope.jobs.store import get_job_store, job_to_public
+
+    job = get_job_store().get(job_id)
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+    return job_to_public(job)
 
 
 @app.get("/report", response_class=PlainTextResponse)
@@ -407,11 +437,24 @@ def delete_watch_item(item_id: int):
 
 
 @app.post("/watchlist/{item_id}/run")
-def run_watch_item_now(item_id: int):
+def run_watch_item_now(
+    item_id: int,
+    background: bool = QParam(False, description="Run as background job"),
+):
     """Run analysis for a watchlist item immediately."""
     item = watchlist_store.get(item_id)
     if not item:
         raise HTTPException(status_code=404, detail="Watch item not found")
+    if background:
+        from concurrent.futures import ThreadPoolExecutor
+
+        def _bg():
+            watchlist_scheduler._analyze_item(item)
+
+        ThreadPoolExecutor(max_workers=1, thread_name_prefix="wl-run").submit(_bg)
+        return JSONResponse(
+            status_code=202, content={"status": "accepted", "topic": item.topic}
+        )
     watchlist_scheduler._analyze_item(item)
     return {"status": "ok", "topic": item.topic}
 
