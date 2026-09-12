@@ -24,6 +24,7 @@ import trendscope.scrapers.amazon as amazon
 import trendscope.scrapers.tiktok as tiktok
 import trendscope.scrapers.hackernews as hackernews
 import trendscope.scrapers.youtube as youtube
+import trendscope.scrapers.gdelt as gdelt
 
 # Forzar UTF-8 en Windows para evitar encoding errors con rich
 if sys.platform == "win32" and not isinstance(sys.stdout, io.TextIOWrapper):
@@ -47,10 +48,11 @@ SOURCES = [
     ("TikTok", tiktok.run),
     ("Hacker News", hackernews.run),
     ("YouTube", youtube.run),
+    ("GDELT", gdelt.run),
 ]
 
 # Scrapers que requieren I/O de red pesado (benefician mas de paralelismo)
-_PARALLEL_SOURCES = {"Reddit", "Google Trends", "Amazon", "TikTok", "Hacker News", "YouTube"}
+_PARALLEL_SOURCES = {"Reddit", "Google Trends", "Amazon", "TikTok", "Hacker News", "YouTube", "GDELT"}
 # Scrapers que pueden saturar rate limits o dependen de auth frágil (mejor secuencial)
 _SERIAL_SOURCES = {"Twitter/X", "TweetClaw JSON"}
 

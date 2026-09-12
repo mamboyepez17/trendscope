@@ -50,9 +50,9 @@
 - [x] Bloque 29 — Rate limit por org + key
 - [x] Bloque 30 — Source health runtime
 - [x] Bloque 31 — Dashboard endurecido
-- [ ] Bloque 32 — Modelos tipados de payload
+- [x] Bloque 32 — Modelos tipados de payload
 - [ ] Bloque 33 — SSE / progreso de jobs
-- [ ] Bloque 34 — Adaptador de datos GDELT
+- [x] Bloque 34 — Adaptador de datos GDELT
 - [ ] Bloque 35 — Digest de exportaciones
 - [ ] Bloque 36 — Interfaz repository Postgres-ready
 - [ ] Bloque 37 — Observabilidad OpenAPI mejorada
