@@ -26,6 +26,9 @@ import trendscope.scrapers.hackernews as hackernews
 import trendscope.scrapers.youtube as youtube
 import trendscope.scrapers.gdelt as gdelt
 import trendscope.scrapers.google_news as google_news
+import trendscope.scrapers.bing_news as bing_news
+import trendscope.scrapers.wikipedia as wikipedia
+import trendscope.scrapers.bluesky as bluesky
 
 # Forzar UTF-8 en Windows para evitar encoding errors con rich
 if sys.platform == "win32" and not isinstance(sys.stdout, io.TextIOWrapper):
@@ -51,6 +54,9 @@ SOURCES = [
     ("YouTube", youtube.run),
     ("GDELT", gdelt.run),
     ("Google News", google_news.run),
+    ("Bing News", bing_news.run),
+    ("Wikipedia", wikipedia.run),
+    ("Bluesky", bluesky.run),
 ]
 
 # Scrapers que requieren I/O de red pesado (benefician mas de paralelismo)
@@ -63,13 +69,16 @@ _PARALLEL_SOURCES = {
     "YouTube",
     "GDELT",
     "Google News",
+    "Bing News",
+    "Wikipedia",
+    "Bluesky",
 }
 # Scrapers que pueden saturar rate limits o dependen de auth frágil (mejor secuencial)
 _SERIAL_SOURCES = {"Twitter/X", "TweetClaw JSON"}
 
 
 # Bump when scraper logic changes so stale cache entries are ignored
-_CACHE_VERSION = "v5-google-news-relevance"
+_CACHE_VERSION = "v6-free-sources"
 
 
 def _cache_key(query: TrendQuery) -> str:

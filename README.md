@@ -9,13 +9,13 @@
   <a href="https://github.com/mamboyepez17/trendscope/actions"><img src="https://img.shields.io/badge/tests-250%2B-brightgreen" alt="tests"></a>
   <a href="https://www.python.org/downloads/"><img src="https://img.shields.io/badge/python-3.11%20%7C%203.12-blue" alt="python"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-lightgrey" alt="license"></a>
-  <img src="https://img.shields.io/badge/sources-9-orange" alt="sources">
+  <img src="https://img.shields.io/badge/sources-12-orange" alt="sources">
   <img src="https://img.shields.io/badge/version-1.8.x-informational" alt="version">
 </p>
 
 ---
 
-TrendScope pulls signals from Reddit, Google Trends, Twitter/X, Hacker News, YouTube, Amazon, TikTok, GDELT, and TweetClaw. Each signal is scored 0–100, sentiment is analyzed in Spanish and English (auto-detected), and you get insights, correlations, emerging vs established trends, and recommendations — **locally**, without a paid AI API for the core path.
+TrendScope pulls signals from Reddit, Google Trends, Twitter/X, Hacker News, YouTube, Amazon, TikTok, GDELT, Google News, Bing News, Wikipedia, Bluesky, and TweetClaw. Each signal is scored 0–100, sentiment is analyzed in Spanish and English (auto-detected), and you get insights, correlations, emerging vs established trends, and recommendations — **locally**, without a paid AI API for the core path.
 
 On top of that: AI narratives (OpenRouter / Claude / Ollama), CSV/JSON/Excel exports, a watchlist with webhook alerts and digests, trend forecasting, and a real-time dashboard with WebSocket + SSE.
 
@@ -355,6 +355,10 @@ All local logic — no API keys required for this path.
 | Amazon Best Sellers | Scrapling StealthyFetcher | Free | No |
 | TikTok Creative Center | API JSON + Scrapling fallback | Free | No |
 | GDELT | DOC API 2.0 (global news) | Free | No |
+| Google News | RSS search by topic | Free | No |
+| Bing News | RSS search by topic | Free | No |
+| Wikipedia (es) | Search API | Free | No |
+| Bluesky | Public AppView search | Free | No |
 
 ## Sentiment Analysis
 
