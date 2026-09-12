@@ -12,10 +12,16 @@ def analyze_items(items: list[dict], query: TrendQuery) -> list[dict]:
     Si el engine falla, marca todos como neutral y continua.
     """
     engine = query.sentiment_engine
-    texts = [
-        (item.get("title") or item.get("keyword") or item.get("text") or "")[:300]
-        for item in items
-    ]
+    texts = []
+    for item in items:
+        # Preferir texto completo si el title es corto (mejor sentimiento)
+        title = (item.get("title") or "").strip()
+        extra = (item.get("text") or "").strip()
+        if len(title) < 40 and extra and extra != title:
+            raw = f"{title} {extra}".strip()
+        else:
+            raw = title or extra or (item.get("keyword") or "")
+        texts.append(raw[:300])
 
     logger.info(f"Analizando sentimiento: {len(texts)} items con motor '{engine}'")
 

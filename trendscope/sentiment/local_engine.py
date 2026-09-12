@@ -54,20 +54,50 @@ _SPANISH_INDICATORS = {
     "que", "por", "para", "con", "como", "pero", "mas", "este", "esta",
     "son", "fue", "ser", "tiene", "han", "hay", "muy", "tambien", "sobre",
     "nuevo", "nueva", "mejor", "puede", "todos", "todo", "entre", "desde",
+    "qué", "cuál", "cómo", "quién", "dónde", "cuándo", "porque", "aunque",
+    "después", "antes", "mismo", "otra", "otro", "cada", "toda", "todo",
+    "gobierno", "presidente", "país", "ciudad", "semana", "mañana", "ayer",
+    "odio", "amor", "bueno", "buena", "malo", "mala", "grande", "pequeño",
 }
+
+
+def _strip_accents(s: str) -> str:
+    import unicodedata
+
+    return "".join(
+        c for c in unicodedata.normalize("NFD", s.lower()) if unicodedata.category(c) != "Mn"
+    )
 
 
 def _detect_language(text: str) -> str:
     """
-    Detecta idioma basado en palabras comunes.
-    Retorna 'es' o 'en'.
+    Detecta idioma basado en stopwords, acentos y pistas léxicas.
+    Retorna 'es' o 'en'. Por defecto 'es' (proyecto LatAm-first).
     """
-    words = set(text.lower().split())
-    spanish_count = len(words & _SPANISH_INDICATORS)
-    # Si tiene 2+ palabras tipicas del espanol, es espanol
-    if spanish_count >= 2:
+    if not text or len(text.strip()) < 3:
         return "es"
-    return "en"
+    raw = text.lower()
+    # Acentos del español (áéíóúñü) son señal fuerte
+    if any(ch in raw for ch in "áéíóúñ¿¡"):
+        return "es"
+    words = set(_strip_accents(text).split())
+    words_raw = set(raw.split())
+    # Unir stopwords normalizadas y crudas
+    pool = words | words_raw
+    spanish_count = len(pool & _SPANISH_INDICATORS)
+    english_markers = {
+        "the", "and", "is", "are", "was", "were", "this", "that",
+        "with", "for", "from", "have", "has", "will", "can", "about",
+    }
+    english_count = len(pool & english_markers)
+    if spanish_count >= 1 and spanish_count >= english_count:
+        return "es"
+    if english_count >= 2:
+        return "en"
+    if spanish_count >= 1:
+        return "es"
+    # Default LatAm-first
+    return "es"
 
 
 def _load() -> None:
