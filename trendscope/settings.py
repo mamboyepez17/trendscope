@@ -39,7 +39,7 @@ class Settings(BaseSettings):
     # Preferido: DeepSeek-V4.1-Flash. Fallback automático a flash/v4-pro/chat.
     deepseek_api_key: str = ""
     deepseek_base_url: str = "https://api.deepseek.com"
-    deepseek_model: str = "deepseek-v4.1-flash"
+    deepseek_model: str = "deepseek-flash"
 
     sentiment_engine: str = "local"
 

@@ -157,11 +157,25 @@ def _call_ollama(prompt: str) -> str:
 
 
 _DEEPSEEK_MODEL_FALLBACKS = (
-    "deepseek-v4.1-flash",
+    # Preferir modelos chat (rápidos, texto completo). Los *-pro son reasoners
+    # y suelen dejar el narrative corto o quemar tokens en reasoning.
     "deepseek-flash",
-    "deepseek-v4-pro",
     "deepseek-chat",
+    "deepseek-v4.1-flash",
+    "deepseek-v4-pro",
 )
+
+_DEEPSEEK_MAX_TOKENS = 2000
+
+
+def _extract_deepseek_text(data: dict) -> tuple[str, str]:
+    """Devuelve (texto, finish_reason)."""
+    choice = (data.get("choices") or [{}])[0]
+    msg = choice.get("message") or {}
+    content = (msg.get("content") or "").strip()
+    if not content:
+        content = (msg.get("reasoning_content") or "").strip()
+    return content, str(choice.get("finish_reason") or "")
 
 
 def _post_deepseek(url: str, headers: dict, body: dict):
@@ -169,7 +183,7 @@ def _post_deepseek(url: str, headers: dict, body: dict):
     import httpx
 
     try:
-        with httpx.Client(timeout=90.0, verify=True) as client:
+        with httpx.Client(timeout=120.0, verify=True) as client:
             return client.post(url, headers=headers, json=body)
     except httpx.HTTPError as e:
         msg = str(e)
@@ -179,7 +193,7 @@ def _post_deepseek(url: str, headers: dict, body: dict):
                 "Reintentando sin verificar certificado. "
                 "Mejor: excluye api.deepseek.com en el antivirus."
             )
-            with httpx.Client(timeout=90.0, verify=False) as client:
+            with httpx.Client(timeout=120.0, verify=False) as client:
                 return client.post(url, headers=headers, json=body)
         raise
 
@@ -217,28 +231,31 @@ def _call_deepseek(prompt: str) -> str:
                     "content": (
                         "Eres un analista senior de tendencias en español. "
                         "Responde SIEMPRE en español de España/Latinoamérica, "
-                        "nunca en inglés, salvo citas técnicas inevitables."
+                        "nunca en inglés. Entrega un análisis COMPLETO y cerrado "
+                        "(no lo dejes a medias)."
                     ),
                 },
                 {"role": "user", "content": prompt},
             ],
             "temperature": 0.7,
-            "max_tokens": 800,
+            "max_tokens": _DEEPSEEK_MAX_TOKENS,
+            "stream": False,
         }
         try:
             resp = _post_deepseek(url, headers, body)
             if resp.status_code >= 400:
-                last_err = f"{model}: HTTP {resp.status_code} {resp.text[:200]}"
+                last_err = f"{model}: HTTP {resp.status_code} {resp.text[:180]}"
                 logger.warning(f"DeepSeek {last_err}")
                 continue
             data = resp.json()
-            msg = (data.get("choices") or [{}])[0].get("message") or {}
-            content = (msg.get("content") or "").strip()
+            content, finish = _extract_deepseek_text(data)
             if not content:
-                content = (msg.get("reasoning_content") or "").strip()
-            if content:
-                return content
-            last_err = f"{model}: empty completion"
+                last_err = f"{model}: empty completion"
+                continue
+            if finish == "length":
+                content += "\n\n*(Análisis truncado por límite de tokens del modelo.)*"
+                logger.warning(f"DeepSeek {model}: finish_reason=length, texto cortado")
+            return content
         except Exception as e:
             last_err = f"{model}: {e}"
             logger.warning(f"DeepSeek {last_err}")
@@ -248,8 +265,7 @@ def _call_deepseek(prompt: str) -> str:
     if "CERTIFICATE" in last_err or "SSL" in last_err.upper():
         hint = (
             " | TLS interceptado (Kaspersky/proxy). "
-            "Excluye api.deepseek.com en el antivirus o desactiva "
-            "el análisis de conexiones cifradas."
+            "Excluye api.deepseek.com en el antivirus."
         )
     return f"Error DeepSeek: {last_err}{hint}"
 

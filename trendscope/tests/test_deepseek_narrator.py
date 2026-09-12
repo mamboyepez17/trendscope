@@ -11,11 +11,27 @@ def test_deepseek_missing_key_message():
     assert "DEEPSEEK_API_KEY" in msg
 
 
-def test_deepseek_default_model_is_v41_flash():
+def test_deepseek_default_model_is_flash():
     from trendscope.settings import Settings
 
     s = Settings(_env_file=None)
-    assert s.deepseek_model == "deepseek-v4.1-flash"
+    assert s.deepseek_model == "deepseek-flash"
+
+
+def test_deepseek_max_tokens_high():
+    from trendscope.narrator.engine import _DEEPSEEK_MAX_TOKENS
+
+    assert _DEEPSEEK_MAX_TOKENS >= 1600
+
+
+def test_deepseek_truncation_flagged():
+    from trendscope.narrator.engine import _extract_deepseek_text
+
+    content, finish = _extract_deepseek_text(
+        {"choices": [{"finish_reason": "length", "message": {"content": "texto"}}]}
+    )
+    assert content == "texto"
+    assert finish == "length"
 
 
 def test_deepseek_fallback_when_400():
@@ -113,11 +129,12 @@ def test_generate_summary_dispatch_deepseek():
     }
     with patch("trendscope.narrator.engine.settings.narrative_enabled", True):
         with patch("trendscope.narrator.engine.settings.narrator_provider", "deepseek"):
-            with patch(
-                "trendscope.narrator.engine._call_deepseek",
-                return_value="ok deepseek",
-            ):
-                result = generate_summary(payload, style="executive")
+            with patch("trendscope.narrator.engine.settings.deepseek_model", "deepseek-flash"):
+                with patch(
+                    "trendscope.narrator.engine._call_deepseek",
+                    return_value="ok deepseek",
+                ):
+                    result = generate_summary(payload, style="executive")
     assert result["provider"] == "deepseek"
-    assert result["model"] == "deepseek-v4.1-flash"
+    assert result["model"] == "deepseek-flash"
     assert result["narrative"] == "ok deepseek"
