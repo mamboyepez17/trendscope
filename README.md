@@ -1,14 +1,39 @@
 # TrendScope
 
-> Universal trend intelligence infrastructure — analyze any topic from 9 free sources with sentiment analysis, AI insights, multi-provider narratives, watchlist alerts, forecasting, async jobs, multi-tenant API keys, and a live dashboard.
+<p align="center">
+  <strong>Universal trend intelligence — nine free sources, one pipeline.</strong><br>
+  Sentiment · Insights · Watchlist alerts · Forecasting · Async jobs · Live dashboard
+</p>
 
-## What is it?
+<p align="center">
+  <a href="https://github.com/mamboyepez17/trendscope/actions"><img src="https://img.shields.io/badge/tests-250%2B-brightgreen" alt="tests"></a>
+  <a href="https://www.python.org/downloads/"><img src="https://img.shields.io/badge/python-3.11%20%7C%203.12-blue" alt="python"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-lightgrey" alt="license"></a>
+  <img src="https://img.shields.io/badge/sources-9-orange" alt="sources">
+  <img src="https://img.shields.io/badge/version-1.8.x-informational" alt="version">
+</p>
 
-TrendScope aggregates trend signals from Reddit, Google Trends, Twitter/X, Hacker News, YouTube, TweetClaw, Amazon, TikTok, and GDELT. It scores each signal 0–100, analyzes sentiment in Spanish and English (auto-detected), and generates actionable insights, correlations, emerging vs established detection, and recommendations — all locally, no paid AI API required for the core path.
+---
 
-It also generates AI narratives via OpenRouter (free models), Claude, or Ollama; exports to CSV/JSON/Excel; runs a watchlist with webhook alerts and periodic digests; forecasts trend velocity (EMA, breakout); and serves a real-time dashboard with WebSocket + SSE.
+TrendScope pulls signals from Reddit, Google Trends, Twitter/X, Hacker News, YouTube, Amazon, TikTok, GDELT, and TweetClaw. Each signal is scored 0–100, sentiment is analyzed in Spanish and English (auto-detected), and you get insights, correlations, emerging vs established trends, and recommendations — **locally**, without a paid AI API for the core path.
 
-**Version:** 1.8.x · **Python:** 3.11–3.12 · **License:** MIT
+On top of that: AI narratives (OpenRouter / Claude / Ollama), CSV/JSON/Excel exports, a watchlist with webhook alerts and digests, trend forecasting, and a real-time dashboard with WebSocket + SSE.
+
+**Why it exists:** expensive social-listening suites lock you into their data and pricing. TrendScope is free-source-first, agent-friendly (REST + MCP), and meant to run on your machine or a single VPS.
+
+## Table of contents
+
+- [Quick start](#quick-start)
+- [Usage](#usage)
+- [REST API](#rest-api-for-http-agents)
+- [Watchlist, alerts & digests](#watchlist--alerts--digests)
+- [Multi-tenant API keys](#multi-tenant-api-keys)
+- [Security defaults](#api-protection--security-defaults)
+- [Data sources](#data-sources)
+- [Architecture](#architecture)
+- [Configuration](#configuration)
+- [Tests](#tests)
+- [Roadmap](#roadmap)
 
 ## Quick start
 
@@ -45,9 +70,9 @@ Start the API and open the dashboard:
 # Windows: .venv\Scripts\python.exe -m trendscope.server_api
 ```
 
-Open **http://localhost:8000/dashboard**.
+Then open **http://localhost:8000/dashboard**.
 
-Included shortcuts (Windows): `run_tests.bat`, `start_api.bat`, `start_cli.bat`.
+Windows shortcuts included: `run_tests.bat`, `start_api.bat`, `start_cli.bat`.
 
 > `xactions-py` (Twitter/X toolkit) is vendored under `trendscope/xactions/`.
 
@@ -334,74 +359,53 @@ Plus exported files via `/export/*`:
 
 ## Architecture
 
+```mermaid
+flowchart TD
+  U[User / Agent] --> Q[TrendQuery]
+  Q --> P[Pipeline]
+  subgraph scrapers [Scrapers]
+    R[Reddit]
+    G[Google Trends]
+    H[Hacker News]
+    Y[YouTube]
+    A[Amazon]
+    T[TikTok]
+    GD[GDELT]
+    X[Twitter/X serial]
+    TC[TweetClaw serial]
+  end
+  P --> scrapers
+  scrapers --> D[Dedup]
+  D --> S[Sentiment]
+  S --> SC[Scoring 0-100]
+  SC --> I[Insights engine]
+  I --> OUT[JSON + Markdown + Narrative]
+  OUT --> CACHE[(SQLite cache)]
+  CACHE --> API[REST / WS / SSE]
+  CACHE --> W[Watchlist scheduler]
+  W --> AL[Alerts + digests webhooks]
+  W --> HIST[(History)]
+  HIST --> F[Forecast EMA / breakout]
+  API --> DASH[Dashboard]
+  API --> MCP[MCP tools]
 ```
-User / Agent
-      |
-      v
-TrendQuery (category or free topic)
-      |
-      v
-Pipeline (concurrent execution)
-  ├── Reddit        → items[]    ─┐
-  ├── Google Trends → items[]    ─┤
-  ├── Hacker News   → items[]    ─┤  ThreadPoolExecutor
-  ├── YouTube       → items[]    ─┤  (6 parallel workers)
-  ├── Amazon        → items[]    ─┤
-  ├── TikTok        → items[]    ─┘
-  ├── Twitter/X     → items[]    ───  serial (rate-limit safe)
-  └── TweetClaw     → items[]    ───  serial
-      |
-      v
-Deduplicator (MD5 hash + 72% similarity threshold)
-      |
-      v
-Sentiment Analysis (local or Claude, 1:1 aligned)
-      |
-      v
-Scorer (0-100 per source + keyword bonus + sentiment bonus)
-      |
-      v
-Insights Engine (summary, actionable, correlations, emerging, recommendations)
-      |
-      v
-  ┌───┴───┐
-  v       v       v
-JSON    Markdown  Narrative
-  |
-  v
-Persistent SQLite cache (configurable TTL)
-  |
-  v
-  ┌─────────────┴─────────────┐
-  v                           v
-Dashboard (HTML + Chart.js)  Watchlist + Scheduler
-  |                            |
-  |                            v
-  |                         History (SQLite)
-  |                            |
-  v                            v
-WebSocket /ws                 REST API /watchlist /history
-  |
-  v
-Doctor (health check for all sources)
-```
+
+High-level flow: scrape → dedup → sentiment → score → insights → cache → surfaces (REST, WS, MCP, dashboard). Source health scores live in memory and can skip unhealthy sources automatically.
 
 ## Stack
 
-- Python 3.10+
-- xactions-py (Twitter/X — included locally)
-- Scrapling (replaces Playwright + requests + BeautifulSoup)
-- PRAW (Reddit API — optional)
-- pytrends (Google Trends fallback)
-- pysentimiento (bilingual sentiment: Spanish + English)
-- anthropic (Claude Haiku API — optional)
-- FastAPI + uvicorn (REST API + dashboard)
-- mcp (MCP server)
-- rich (CLI)
-- loguru (structured logging)
-- pydantic-settings (typed config)
-- openpyxl (Excel export)
-- httpx (OpenRouter client)
+| Layer | Choice |
+|---|---|
+| Runtime | Python 3.11–3.12 |
+| API | FastAPI + uvicorn |
+| Scraping | Scrapling · requests · xactions-py (vendored) |
+| Sentiment | pysentimiento (ES/EN) · Claude optional · keyword fallback |
+| Narrative | OpenRouter · Claude · Ollama · statistical fallback |
+| Persistence | SQLite (WAL) — cache, watchlist, history, jobs |
+| Scheduling | APScheduler |
+| Agents | REST · WebSocket · SSE · MCP SDK 2.x |
+| UI | Single-page dashboard + local Chart.js (CSP `script-src 'self'`) |
+| Ops | loguru · lightweight `/metrics` · Docker multi-stage |
 
 ## Configuration
 
@@ -509,7 +513,27 @@ Windows: use `.venv\Scripts\python.exe` instead of `.venv/bin/python`.
 - Prefer `trendscope.settings.Settings` over ad-hoc env reads.
 - Repository interface: `trendscope/watchlist/repository.py` (`WatchlistRepository` / `SqliteWatchlistRepository`) — ready for a Postgres adapter later.
 
+### Project layout (simplified)
+
+```text
+trendscope/
+  scrapers/          # one file per source (run(query) -> list[dict])
+  analyzer/          # dedup, scoring, insights, forecast
+  sentiment/         # local + claude engines
+  narrator/          # OpenRouter / Claude / Ollama
+  core/              # pipeline, cache, paths, metrics, source health
+  watchlist/         # store, scheduler, alerts, digest, repository
+  jobs/              # async job queue (SQLite-backed)
+  api/               # factory, routes, middleware, auth keys
+  models/            # typed payload helpers
+  xactions/          # vendored Twitter/X toolkit
+  dashboard.html     # single-page UI
+  static/            # local Chart.js
+```
+
 ## Roadmap
+
+Done ·
 
 - [x] Installable package + pyproject
 - [x] Typed settings (pydantic-settings)
@@ -523,6 +547,9 @@ Windows: use `.venv\Scripts\python.exe` instead of `.venv/bin/python`.
 - [x] Source health runtime
 - [x] GDELT source
 - [x] Docker multi-stage + CI (pytest + ruff)
+
+Next ·
+
 - [ ] Postgres adapter / Redis queue (optional scale-out)
 - [ ] Official/licensed data partners
 
@@ -532,4 +559,4 @@ Windows: use `.venv\Scripts\python.exe` instead of `.venv/bin/python`.
 
 ## License
 
-MIT
+[MIT](LICENSE) — built for people who want trend intel without the enterprise invoice.
