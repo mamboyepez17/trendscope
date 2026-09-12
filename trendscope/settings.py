@@ -46,6 +46,7 @@ class Settings(BaseSettings):
     api_port: int = 8000
     api_rate_limit: int = 60
     api_rate_window: int = 60
+    org_rate_limit: int = 120
     api_key_required: bool = False
     api_keys: str = ""
     trust_proxy_headers: bool = False

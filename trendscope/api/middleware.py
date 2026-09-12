@@ -48,7 +48,7 @@ def resolve_api_key(api_key: str | None):
 
 
 class RateLimitMiddleware(BaseHTTPMiddleware):
-    """Rate limiting simple por IP: configurable desde settings."""
+    """Rate limiting por IP y, si hay API key, también por org."""
 
     def __init__(self, app: ASGIApp):
         super().__init__(app)
@@ -56,7 +56,6 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         self._last_prune = time.time()
 
     def _prune_stale(self, now: float) -> None:
-        # Evitar memory leak: purgar IPs cuya ventana esté vacía
         if now - self._last_prune < 30:
             return
         window_seconds = settings.api_rate_window
@@ -69,6 +68,22 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
             del self._requests[ip]
         self._last_prune = now
 
+    def _check_bucket(
+        self, key: str, now: float, max_requests: int, window_seconds: int
+    ) -> tuple[bool, int, int]:
+        """Devuelve (allowed, remaining, retry_after)."""
+        window = self._requests.get(key)
+        if window is None:
+            window = deque()
+            self._requests[key] = window
+        while window and now - window[0] >= window_seconds:
+            window.popleft()
+        if len(window) >= max_requests:
+            retry_after = int(max(1, window_seconds - (now - window[0]))) if window else window_seconds
+            return False, 0, retry_after
+        window.append(now)
+        return True, max(0, max_requests - len(window)), 0
+
     async def dispatch(self, request: Request, call_next: Callable) -> Response:
         max_requests = settings.api_rate_limit
         window_seconds = settings.api_rate_window
@@ -77,31 +92,35 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
 
         self._prune_stale(now)
 
-        window = self._requests.get(client_ip)
-        if window is None:
-            window = deque()
-            self._requests[client_ip] = window
+        # Si la API key middleware ya identificó la org, aplicar cuota por org además de IP
+        org_id = getattr(request.state, "org_id", None)
+        api_key = request.headers.get("X-API-Key")
+        org_limit = settings.org_rate_limit or max_requests
 
-        while window and now - window[0] >= window_seconds:
-            window.popleft()
+        allowed, remaining, retry_after = self._check_bucket(
+            f"ip:{client_ip}", now, max_requests, window_seconds
+        )
+        limit_shown = max_requests
+        if allowed and org_id and api_key:
+            allowed, remaining, retry_after = self._check_bucket(
+                f"org:{org_id}", now, org_limit, window_seconds
+            )
+            limit_shown = org_limit
 
-        if len(window) >= max_requests:
-            retry_after = int(max(1, window_seconds - (now - window[0]))) if window else window_seconds
+        if not allowed:
             return Response(
                 content='{"detail":"Rate limit exceeded. Try again later."}',
                 status_code=429,
                 media_type="application/json",
                 headers={
                     "Retry-After": str(retry_after),
-                    "X-RateLimit-Limit": str(max_requests),
+                    "X-RateLimit-Limit": str(limit_shown),
                     "X-RateLimit-Remaining": "0",
                 },
             )
 
-        window.append(now)
         response = await call_next(request)
-        remaining = max(0, max_requests - len(window))
-        response.headers["X-RateLimit-Limit"] = str(max_requests)
+        response.headers["X-RateLimit-Limit"] = str(limit_shown)
         response.headers["X-RateLimit-Remaining"] = str(remaining)
         return response
 
