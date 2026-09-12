@@ -162,6 +162,9 @@
   .error{background:rgba(239,68,68,.1);border:1px solid var(--neg);border-radius:12px;padding:16px;color:#ffb4b4;display:flex;align-items:flex-start;gap:10px}
   .error b{color:#fff}
   .empty{text-align:center;color:var(--muted);padding:50px 20px}
+  .narrative .narr-meta{font-size:11px;color:var(--muted);margin-bottom:8px;letter-spacing:.04em;text-transform:uppercase}
+  .narrative .narr-text{color:var(--text);line-height:1.65;font-size:14px}
+  .narrative .error{color:var(--red)}
   .empty .big{font-size:40px;margin-bottom:10px;opacity:.5}
 
   .meta-line{color:var(--muted);font-size:12px;margin-bottom:16px;flex-wrap:wrap;display:flex;gap:14px}
@@ -289,6 +292,10 @@
       <section class="card"><h2>Source distribution</h2><div id="sources"></div></section>
     </div>
     <section class="card" style="margin-top:18px"><h2>Score distribution</h2><div class="hist" id="hist"></div></section>
+    <section class="card" style="margin-top:18px">
+      <h2>AI narrative</h2>
+      <div id="narrativeBox" class="narrative"><div class="empty">Run Analyze to generate a narrative</div></div>
+    </section>
     <section class="card" style="margin-top:18px"><h2>Top trends</h2><div class="meta-line" id="meta"></div><ul class="trends" id="trends"></ul></section>
   </div>
 

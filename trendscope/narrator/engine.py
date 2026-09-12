@@ -155,6 +155,13 @@ def _call_ollama(prompt: str) -> str:
         return f"Error al contactar Ollama: {e}"
 
 
+_DEEPSEEK_MODEL_FALLBACKS = (
+    "deepseek-chat",
+    "deepseek-flash",
+    "deepseek-v4-pro",
+)
+
+
 def _call_deepseek(prompt: str) -> str:
     """DeepSeek Chat — API oficial compatible con OpenAI."""
     try:
@@ -172,25 +179,48 @@ def _call_deepseek(prompt: str) -> str:
         "Authorization": f"Bearer {settings.deepseek_api_key}",
         "Content-Type": "application/json",
     }
-    body = {
-        "model": settings.deepseek_model,
-        "messages": [
-            {"role": "system", "content": "Eres un experto en análisis de tendencias."},
-            {"role": "user", "content": prompt},
-        ],
-        "temperature": 0.7,
-        "max_tokens": 800,
-    }
+    models = []
+    for m in (settings.deepseek_model, *_DEEPSEEK_MODEL_FALLBACKS):
+        if m and m not in models:
+            models.append(m)
+
     url = f"{settings.deepseek_base_url.rstrip('/')}/chat/completions"
-    try:
-        with httpx.Client(timeout=90.0) as client:
-            resp = client.post(url, headers=headers, json=body)
-            resp.raise_for_status()
-            data = resp.json()
-            return data["choices"][0]["message"]["content"].strip()
-    except Exception as e:
-        logger.error(f"DeepSeek error: {e}")
-        return f"Error al contactar DeepSeek: {e}"
+    last_err = ""
+    with httpx.Client(timeout=90.0) as client:
+        for model in models:
+            body = {
+                "model": model,
+                "messages": [
+                    {
+                        "role": "system",
+                        "content": "Eres un experto en análisis de tendencias.",
+                    },
+                    {"role": "user", "content": prompt},
+                ],
+                "temperature": 0.7,
+                "max_tokens": 800,
+            }
+            try:
+                resp = client.post(url, headers=headers, json=body)
+                if resp.status_code >= 400:
+                    last_err = f"{model}: HTTP {resp.status_code} {resp.text[:200]}"
+                    logger.warning(f"DeepSeek {last_err}")
+                    continue
+                data = resp.json()
+                msg = (data.get("choices") or [{}])[0].get("message") or {}
+                content = (msg.get("content") or "").strip()
+                # Modelos reasoner pueden dejar content vacío y volcar en reasoning
+                if not content:
+                    content = (msg.get("reasoning_content") or "").strip()
+                if content:
+                    return content
+                last_err = f"{model}: empty completion"
+            except Exception as e:
+                last_err = f"{model}: {e}"
+                logger.warning(f"DeepSeek {last_err}")
+
+    logger.error(f"DeepSeek agotó modelos: {last_err}")
+    return f"Error DeepSeek: {last_err}"
 
 
 def _statistical_summary(payload: dict) -> str:

@@ -36,10 +36,11 @@ class Settings(BaseSettings):
     openrouter_site_name: str = "TrendScope"
 
     # DeepSeek (API oficial, compatible OpenAI)
-    # deepseek-chat se retiró; default actual: DeepSeek-V4.1-Flash
+    # IDs reales del API (2026-09): deepseek-chat | deepseek-flash | deepseek-v4-pro
+    # (DeepSeek-V4.1-Flash es nombre de producto, NO id de API)
     deepseek_api_key: str = ""
     deepseek_base_url: str = "https://api.deepseek.com"
-    deepseek_model: str = "deepseek-v4.1-flash"
+    deepseek_model: str = "deepseek-chat"
 
     sentiment_engine: str = "local"
 

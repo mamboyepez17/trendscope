@@ -1,4 +1,4 @@
-"""DeepSeek narrator provider."""
+"""DeepSeek narrator provider + model fallback."""
 
 from unittest.mock import MagicMock, patch
 
@@ -11,32 +11,46 @@ def test_deepseek_missing_key_message():
     assert "DEEPSEEK_API_KEY" in msg
 
 
-def test_deepseek_default_model_is_v4_flash():
+def test_deepseek_default_model_is_chat():
     from trendscope.settings import Settings
 
     s = Settings(_env_file=None)
-    assert s.deepseek_model == "deepseek-v4.1-flash"
-    assert s.deepseek_model != "deepseek-chat"
+    assert s.deepseek_model == "deepseek-chat"
 
 
-def test_deepseek_http_call():
+def test_deepseek_fallback_when_400():
+    """Modelo inválido → intenta deepseek-chat."""
+    bad = MagicMock(status_code=400)
+    bad.text = "invalid model"
+    good = MagicMock(status_code=200)
+    good.json = lambda: {
+        "choices": [{"message": {"content": "ok fallback chat"}}]
+    }
     with patch("trendscope.narrator.engine.settings.deepseek_api_key", "sk-test"):
-        with patch(
-            "trendscope.narrator.engine.settings.deepseek_model",
-            "deepseek-v4.1-flash",
-        ):
-            resp = MagicMock()
-            resp.raise_for_status = lambda: None
-            resp.json = lambda: {
-                "choices": [{"message": {"content": "Narrativa DeepSeek OK"}}]
-            }
+        with patch("trendscope.narrator.engine.settings.deepseek_model", "no-such-model"):
+            with patch("httpx.Client") as client_cls:
+                client = client_cls.return_value.__enter__.return_value
+                client.post.side_effect = [bad, good]
+                out = _call_deepseek("hola")
+    assert "ok fallback chat" in out
+    assert client.post.call_count == 2
+
+
+def test_deepseek_reasoner_content_fallback():
+    """Si content vacío, usa reasoning_content."""
+    resp = MagicMock(status_code=200)
+    resp.json = lambda: {
+        "choices": [
+            {"message": {"content": "", "reasoning_content": "pensando... resultado"}}
+        ]
+    }
+    with patch("trendscope.narrator.engine.settings.deepseek_api_key", "sk-test"):
+        with patch("trendscope.narrator.engine.settings.deepseek_model", "deepseek-v4-pro"):
             with patch("httpx.Client") as client_cls:
                 client = client_cls.return_value.__enter__.return_value
                 client.post.return_value = resp
-                out = _call_deepseek("analiza esto")
-            _, kwargs = client.post.call_args
-            assert kwargs["json"]["model"] == "deepseek-v4.1-flash"
-    assert "DeepSeek OK" in out
+                out = _call_deepseek("hola")
+    assert "resultado" in out
 
 
 def test_generate_summary_dispatch_deepseek():
@@ -56,5 +70,5 @@ def test_generate_summary_dispatch_deepseek():
             ):
                 result = generate_summary(payload, style="executive")
     assert result["provider"] == "deepseek"
-    assert result["model"] == "deepseek-v4.1-flash"
+    assert result["model"] == "deepseek-chat"
     assert result["narrative"] == "ok deepseek"

@@ -316,6 +316,7 @@ async function loadWatchlist(){
 function renderWatchlist(){
   const el=$('watchlist');
   if(!watchlistItems.length){ el.innerHTML='<div class="empty">No items yet</div>'; return; }
+  // Sin onclick inline: el CSP script-src 'self' los bloquea
   el.innerHTML=watchlistItems.map(item=>`
     <div class="watch-item">
       <div class="watch-info">
@@ -323,9 +324,9 @@ function renderWatchlist(){
         <div class="watch-meta">${esc(item.geo)} · every ${item.interval_minutes}m · ${item.active?'active':'paused'}</div>
       </div>
       <div class="watch-actions">
-        <button class="btn sm" onclick="runWatchItem(${item.id})">▶</button>
-        <button class="btn sm ghost" onclick="viewHistory('${esc(item.topic)}')">📈</button>
-        <button class="btn sm danger" onclick="deleteWatchItem(${item.id})">✕</button>
+        <button type="button" class="btn sm" data-action="run" data-id="${item.id}">▶</button>
+        <button type="button" class="btn sm ghost" data-action="history" data-topic="${esc(item.topic)}">📈</button>
+        <button type="button" class="btn sm danger" data-action="delete" data-id="${item.id}">✕</button>
       </div>
     </div>`).join('');
 }
@@ -421,6 +422,8 @@ function connectWS(){
         $('cmpView').classList.add('hidden');
         clearStatus();
         renderSingle(data);
+        const cat=$('cat').value, topic=$('topic').value.trim(), geo=$('geo').value.trim()||'CO';
+        loadNarrative(topic||undefined, cat||undefined, geo);
       }catch(e){ console.error('ws message',e); }
     };
   }catch(e){ setWsStatus(false); }
@@ -477,10 +480,37 @@ async function analyze(){
     const data=await fetchTrends({category:cat||undefined, topic:topic||undefined, geo});
     clearStatus();
     renderSingle(data);
+    // Narrativa IA en background (no bloquea el panel de trends)
+    loadNarrative(topic||undefined, cat||undefined, geo);
   }catch(e){
     showError(e.message+' (Is API running at '+API+'?)');
     $('stats').innerHTML=''; $('gaugeWrap').innerHTML=''; $('sources').innerHTML='';
     $('hist').innerHTML=''; $('trends').innerHTML=''; $('meta').innerHTML='';
+  }
+}
+
+/* ---------- Narrative (DeepSeek / OpenRouter / etc.) ---------- */
+async function loadNarrative(topic, category, geo){
+  const box=$('narrativeBox');
+  if(!box) return;
+  box.innerHTML='<div class="empty">Generating narrative…</div>';
+  try{
+    const p=new URLSearchParams();
+    if(topic) p.set('topic', topic);
+    else if(category) p.set('category', category);
+    if(geo) p.set('geo', geo);
+    p.set('style','executive');
+    const r=await fetch(API+'/narrate?'+p.toString(), {headers: apiHeaders()});
+    const j=await r.json();
+    if(j.error || (j.narrative||'').startsWith('Error')){
+      box.innerHTML=`<div class="error">${esc(j.narrative||'Narrative failed')}<br><small>provider: ${esc(j.provider||'')}</small></div>`;
+      return;
+    }
+    box.innerHTML=`
+      <div class="narr-meta">${esc(j.provider||'')} · ${esc(j.model||'')} · ${esc(j.style||'')}</div>
+      <div class="narr-text">${esc(j.narrative||'').replace(/\n/g,'<br>')}</div>`;
+  }catch(e){
+    box.innerHTML=`<div class="error">${esc(e.message)}</div>`;
   }
 }
 
@@ -491,6 +521,22 @@ $('topic2').addEventListener('keydown',e=>{ if(e.key==='Enter') analyze(); });
 $('cat').addEventListener('change',e=>{ if(e.target.value) $('topic').value=''; });
 $('cmpToggle').addEventListener('click',()=>setCompare(!cmpMode));
 $('wlAdd').addEventListener('click', addWatchItem);
+
+// Delegación de clicks del watchlist (CSP prohíbe onclick inline)
+const _wl = $('watchlist');
+if(_wl){
+  _wl.addEventListener('click', (ev)=>{
+    const btn = ev.target.closest('button[data-action]');
+    if(!btn) return;
+    const action = btn.getAttribute('data-action');
+    const id = parseInt(btn.getAttribute('data-id'), 10);
+    const topic = btn.getAttribute('data-topic') || '';
+    if(action==='run' && id) runWatchItem(id);
+    else if(action==='history' && topic) viewHistory(topic);
+    else if(action==='delete' && id) deleteWatchItem(id);
+  });
+}
+
 loadCategories();
 loadWatchlist();
 connectWS();
