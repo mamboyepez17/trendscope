@@ -34,6 +34,12 @@ class Settings(BaseSettings):
     openrouter_model: str = "deepseek/deepseek-chat-v3-0324:free"
     openrouter_site_url: str = "https://github.com/mamboyepez17/trendscope"
     openrouter_site_name: str = "TrendScope"
+
+    # DeepSeek (API oficial, compatible OpenAI)
+    deepseek_api_key: str = ""
+    deepseek_base_url: str = "https://api.deepseek.com"
+    deepseek_model: str = "deepseek-chat"
+
     sentiment_engine: str = "local"
 
     # General

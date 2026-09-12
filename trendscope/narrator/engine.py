@@ -155,6 +155,44 @@ def _call_ollama(prompt: str) -> str:
         return f"Error al contactar Ollama: {e}"
 
 
+def _call_deepseek(prompt: str) -> str:
+    """DeepSeek Chat — API oficial compatible con OpenAI."""
+    try:
+        import httpx
+    except ImportError:
+        return "Error: httpx no instalado."
+
+    if not settings.deepseek_api_key:
+        return (
+            "DeepSeek API key no configurada. "
+            "Añade DEEPSEEK_API_KEY a .env (https://platform.deepseek.com)."
+        )
+
+    headers = {
+        "Authorization": f"Bearer {settings.deepseek_api_key}",
+        "Content-Type": "application/json",
+    }
+    body = {
+        "model": settings.deepseek_model,
+        "messages": [
+            {"role": "system", "content": "Eres un experto en análisis de tendencias."},
+            {"role": "user", "content": prompt},
+        ],
+        "temperature": 0.7,
+        "max_tokens": 800,
+    }
+    url = f"{settings.deepseek_base_url.rstrip('/')}/chat/completions"
+    try:
+        with httpx.Client(timeout=90.0) as client:
+            resp = client.post(url, headers=headers, json=body)
+            resp.raise_for_status()
+            data = resp.json()
+            return data["choices"][0]["message"]["content"].strip()
+    except Exception as e:
+        logger.error(f"DeepSeek error: {e}")
+        return f"Error al contactar DeepSeek: {e}"
+
+
 def _statistical_summary(payload: dict) -> str:
     """Fallback 100% local cuando no hay proveedor configurado."""
     meta = payload.get("meta", {})
@@ -209,6 +247,8 @@ def generate_summary(
                 "error": True,
             }
         narrative = _call_openrouter(prompt)
+    elif provider == "deepseek":
+        narrative = _call_deepseek(prompt)
     elif provider == "claude":
         narrative = _call_claude(prompt)
     elif provider == "ollama":
@@ -216,16 +256,24 @@ def generate_summary(
     elif provider == "none":
         narrative = _statistical_summary(payload)
     else:
-        narrative = f"Proveedor '{provider}' no soportado. Usa openrouter, claude, ollama o none."
+        narrative = (
+            f"Proveedor '{provider}' no soportado. "
+            "Usa openrouter, deepseek, claude, ollama o none."
+        )
 
     return {
         "narrative": narrative,
         "provider": provider,
         "style": style,
         "model": (
-            settings.openrouter_model if provider == "openrouter"
-            else settings.ollama_model if provider == "ollama"
-            else "claude-3-haiku" if provider == "claude"
+            settings.openrouter_model
+            if provider == "openrouter"
+            else settings.deepseek_model
+            if provider == "deepseek"
+            else settings.ollama_model
+            if provider == "ollama"
+            else "claude-3-haiku"
+            if provider == "claude"
             else "local"
         ),
     }
