@@ -112,8 +112,9 @@ def run(query: TrendQuery) -> list[dict]:
         stories = _search_stories(kw, limit=15)
         all_stories.extend(stories)
 
-    # Si hay pocos resultados, traer top stories para contexto tech
-    if len(all_stories) < 10:
+    # Top stories solo en modo categoría (tech/general).
+    # En tema libre si no hubo hits, no rellenar con genéricos del día.
+    if not all_stories and query.mode == "category":
         top = _fetch_top_stories(limit=15)
         all_stories.extend(top)
 

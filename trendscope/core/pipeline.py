@@ -25,6 +25,7 @@ import trendscope.scrapers.tiktok as tiktok
 import trendscope.scrapers.hackernews as hackernews
 import trendscope.scrapers.youtube as youtube
 import trendscope.scrapers.gdelt as gdelt
+import trendscope.scrapers.google_news as google_news
 
 # Forzar UTF-8 en Windows para evitar encoding errors con rich
 if sys.platform == "win32" and not isinstance(sys.stdout, io.TextIOWrapper):
@@ -49,16 +50,26 @@ SOURCES = [
     ("Hacker News", hackernews.run),
     ("YouTube", youtube.run),
     ("GDELT", gdelt.run),
+    ("Google News", google_news.run),
 ]
 
 # Scrapers que requieren I/O de red pesado (benefician mas de paralelismo)
-_PARALLEL_SOURCES = {"Reddit", "Google Trends", "Amazon", "TikTok", "Hacker News", "YouTube", "GDELT"}
+_PARALLEL_SOURCES = {
+    "Reddit",
+    "Google Trends",
+    "Amazon",
+    "TikTok",
+    "Hacker News",
+    "YouTube",
+    "GDELT",
+    "Google News",
+}
 # Scrapers que pueden saturar rate limits o dependen de auth frágil (mejor secuencial)
 _SERIAL_SOURCES = {"Twitter/X", "TweetClaw JSON"}
 
 
 # Bump when scraper logic changes so stale cache entries are ignored
-_CACHE_VERSION = "v4-recency"
+_CACHE_VERSION = "v5-google-news-relevance"
 
 
 def _cache_key(query: TrendQuery) -> str:
@@ -94,6 +105,24 @@ def run(query: TrendQuery) -> tuple[dict, str]:
         raise
     finally:
         _PIPELINE_SEMAPHORE.release()
+
+
+def _filter_topic_relevant(items: list[dict], topic: str) -> list[dict]:
+    """Mantiene items que mencionan al menos un token significativo del tema."""
+    tokens = [t.lower() for t in topic.split() if len(t) > 3]
+    if not tokens:
+        tokens = [topic.lower()]
+    kept = []
+    for item in items:
+        text = (
+            item.get("title")
+            or item.get("keyword")
+            or item.get("text")
+            or ""
+        ).lower()
+        if any(tok in text for tok in tokens):
+            kept.append(item)
+    return kept
 
 
 def _timed_scrape(name: str, fn, query) -> tuple[list[dict], str | None]:
@@ -193,6 +222,16 @@ def _run_unlocked(query: TrendQuery) -> tuple[dict, str]:
             console.print(f"[red]FAIL[/red]")
 
     console.print(f"\n[yellow]Recolectado: {len(all_items)} senales[/yellow]")
+
+    # Tema libre: descartar ruido que no menciona el tema
+    if query.mode == "free" and query.free_topic:
+        before = len(all_items)
+        all_items = _filter_topic_relevant(all_items, query.free_topic)
+        dropped = before - len(all_items)
+        if dropped:
+            console.print(
+                f"[yellow]Filtrados {dropped} items sin relación con el tema[/yellow]"
+            )
 
     # Deduplicacion
     all_items = deduplicate(all_items)

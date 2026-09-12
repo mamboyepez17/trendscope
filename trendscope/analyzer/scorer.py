@@ -53,6 +53,10 @@ def _score_by_source(item: dict) -> float:
             base += min(20, math.log10(max(1, views)) * 4)
         return base
 
+    elif source == "google_news":
+        # Noticias Google: prioriza keywords + frescura (recency abajo)
+        return 45.0
+
     elif source == "amazon_bestsellers":
         rank_str = item.get("rank", "#99")
         rank_num = int(re.sub(r"[^0-9]", "", rank_str) or "99")

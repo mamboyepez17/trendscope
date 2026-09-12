@@ -112,40 +112,39 @@ def _score_relevance(keyword: str, query_keywords: list[str]) -> int:
 
 
 def run(query: TrendQuery) -> list[dict]:
-    """Entry point del scraper de Google Trends."""
-    # Intentar RSS primero; pytrends solo como fallback (es lento y 429-prone)
-    results = _fetch_rss(query.geo)
+    """Entry point del scraper de Google Trends.
 
-    if not results and query.keywords:
+    - category: trends del país (RSS geo) — tiene sentido.
+    - free topic: el RSS geo NO busca el tema; solo pytrends/related o vacío.
+      (Google News cubre noticias del tema.)
+    """
+    results: list[dict] = []
+
+    if query.mode == "category":
+        results = _fetch_rss(query.geo)
+
+    if query.keywords:
         pt_results = _fetch_pytrends(query.keywords, query.geo)
         if pt_results:
             results.extend(pt_results)
 
-    # Si no hay nada de RSS ni pytrends, devolver vacio
     if not results:
         return []
 
-    # Filtrar y rankear por relevancia con las keywords de la query
     if query.keywords and results:
-        # Asignar score de relevancia a cada resultado
         for r in results:
             r["_relevance"] = _score_relevance(r.get("keyword", ""), query.keywords)
-
-        # Ordenar por relevancia (descendente)
         results.sort(key=lambda x: x.get("_relevance", 0), reverse=True)
-
-        # Si hay resultados con relevancia > 0, priorizar esos
         relevant = [r for r in results if r.get("_relevance", 0) > 0]
         if relevant:
-            # Tomar los relevantes + algunos generales para contexto
             top_relevant = relevant[:20]
             general = [r for r in results if r.get("_relevance", 0) == 0][:5]
             results = top_relevant + general
         else:
-            # Si ninguno es relevante, devolver los top generales
+            # Tema libre sin match → no inventar contexto genérico
+            if query.mode == "free":
+                return []
             results = results[:25]
-
-        # Limpiar campo temporal
         for r in results:
             r.pop("_relevance", None)
 
