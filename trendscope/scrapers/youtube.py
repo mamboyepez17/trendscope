@@ -11,6 +11,48 @@ from loguru import logger
 from trendscope.core.query import TrendQuery
 
 
+def _parse_published_utc(published: str) -> float | None:
+    """Convierte 'Hace 2 días' / '2 days ago' / 'Streamed 3 hours ago' a unix ts."""
+    import re
+    import time
+
+    if not published:
+        return None
+    s = published.lower()
+    m = re.search(
+        r"(\d+)\s*(second|minute|hour|day|week|month|year|segundo|minuto|hora|d[ií]a|semana|mes|a[nñ]o)s?",
+        s,
+    )
+    if not m:
+        return None
+    n = int(m.group(1))
+    unit = m.group(2)
+    # Normalizar español → inglés
+    unit = {
+        "segundo": "second",
+        "minuto": "minute",
+        "hora": "hour",
+        "día": "day",
+        "dia": "day",
+        "semana": "week",
+        "mes": "month",
+        "año": "year",
+        "ano": "year",
+    }.get(unit, unit)
+    mult = {
+        "second": 1,
+        "minute": 60,
+        "hour": 3600,
+        "day": 86400,
+        "week": 604800,
+        "month": 2592000,
+        "year": 31536000,
+    }.get(unit, 0)
+    if not mult:
+        return None
+    return time.time() - n * mult
+
+
 def _search_youtube(keyword: str, limit: int = 15) -> list[dict]:
     """
     Busca videos en YouTube usando el endpoint interno publico.
@@ -81,6 +123,7 @@ def _search_youtube(keyword: str, limit: int = 15) -> list[dict]:
                 )
 
                 video_id = video.get("videoId", "")
+                created = _parse_published_utc(published)
                 results.append({
                     "source": "youtube",
                     "keyword": keyword,
@@ -88,6 +131,7 @@ def _search_youtube(keyword: str, limit: int = 15) -> list[dict]:
                     "channel": channel,
                     "views": views,
                     "published": published,
+                    "created_utc": created,
                     "url": f"https://www.youtube.com/watch?v={video_id}",
                     "video_id": video_id,
                 })

@@ -46,8 +46,12 @@ def _score_by_source(item: dict) -> float:
     elif source in {"twitter", "tweetclaw"}:
         likes = min(item.get("likes", 0), 10000)
         retweets = min(item.get("retweets", 0), 5000)
+        views = min(item.get("views", 0) or 0, 5_000_000)
         followers = min(item.get("user_followers", 0), 1000000)
-        return (likes / 10000 * 40) + (retweets / 5000 * 35) + (followers / 1000000 * 25)
+        base = (likes / 10000 * 35) + (retweets / 5000 * 25) + (followers / 1000000 * 15)
+        if views:
+            base += min(20, math.log10(max(1, views)) * 4)
+        return base
 
     elif source == "amazon_bestsellers":
         rank_str = item.get("rank", "#99")
@@ -79,6 +83,25 @@ def _score_by_source(item: dict) -> float:
     return 0.0
 
 
+def _recency_bonus(item: dict) -> float:
+    """Bonus fuerte por frescura (todas las fuentes con created_utc)."""
+    created = item.get("created_utc") or 0
+    if not created:
+        return 0.0
+    hours_old = (datetime.now(timezone.utc).timestamp() - created) / 3600
+    if hours_old < 6:
+        return 18.0
+    if hours_old < 24:
+        return 14.0
+    if hours_old < 72:
+        return 10.0
+    if hours_old < 24 * 7:
+        return 5.0
+    if hours_old > 24 * 30:
+        return -8.0  # penaliza contenido muy viejo
+    return 0.0
+
+
 def score_item(item: dict, query: TrendQuery) -> float:
     """Calcula trend_score para un item individual."""
     score = _score_by_source(item)
@@ -96,6 +119,9 @@ def score_item(item: dict, query: TrendQuery) -> float:
         score = min(100, score + 5)
     elif sentiment == "negative":
         score = max(0, score - 3)
+
+    # Frescura: prioriza lo reciente sobre lo antiguo con engagement alto
+    score = max(0.0, min(100.0, score + _recency_bonus(item)))
 
     return round(score, 2)
 

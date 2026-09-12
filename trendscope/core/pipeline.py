@@ -58,7 +58,7 @@ _SERIAL_SOURCES = {"Twitter/X", "TweetClaw JSON"}
 
 
 # Bump when scraper logic changes so stale cache entries are ignored
-_CACHE_VERSION = "v3-twitter-fixed"
+_CACHE_VERSION = "v4-recency"
 
 
 def _cache_key(query: TrendQuery) -> str:

@@ -36,6 +36,26 @@ def _is_relevant(text: str, keyword: str, min_hits: int = 1) -> bool:
     return hits >= min(min_hits, len(tokens))
 
 
+def _parse_twitter_date(raw: str | None) -> float | None:
+    """Parsea 'Wed Oct 10 20:19:24 +0000 2018' → unix timestamp."""
+    if not raw:
+        return None
+    from datetime import datetime, timezone
+
+    try:
+        # Formato estándar de Twitter/X
+        dt = datetime.strptime(raw, "%a %b %d %H:%M:%S %z %Y")
+        return dt.timestamp()
+    except Exception:
+        try:
+            dt = datetime.fromisoformat(raw.replace("Z", "+00:00"))
+            if dt.tzinfo is None:
+                dt = dt.replace(tzinfo=timezone.utc)
+            return dt.timestamp()
+        except Exception:
+            return None
+
+
 def run(query: TrendQuery) -> list[dict]:
     """Entry point del scraper de Twitter/X."""
     if not TWITTER_AUTH_TOKEN or not TWITTER_CT0:
@@ -68,6 +88,7 @@ def run(query: TrendQuery) -> list[dict]:
                     if not _is_relevant(text, keyword):
                         continue
                     author = tweet.get("author", {})
+                    ts = _parse_twitter_date(tweet.get("created_at"))
                     results.append(
                         {
                             "source": "twitter",
@@ -77,8 +98,12 @@ def run(query: TrendQuery) -> list[dict]:
                             "likes": tweet.get("likes", 0),
                             "retweets": tweet.get("retweets", 0),
                             "replies": tweet.get("replies", 0),
+                            "views": tweet.get("views", 0),
                             "user_followers": author.get("followers", 0),
                             "url": tweet.get("url", ""),
+                            "created_at": tweet.get("created_at"),
+                            "created_utc": ts,
+                            "published_at": tweet.get("created_at"),
                         }
                     )
                     kept += 1
