@@ -53,7 +53,7 @@ class WebSocketTest(unittest.TestCase):
             ],
         }
         with patch("trendscope.server_api.settings.api_key_required", False):
-            with patch("trendscope.server_api.run_pipeline", return_value=(payload, None)):
+            with patch("trendscope.api.routes.run_pipeline", return_value=(payload, None)):
                 with self._ws_client() as ws:
                     ws.send_json({"topic": "crypto", "top_n": 10})
                     resp = ws.receive_json()

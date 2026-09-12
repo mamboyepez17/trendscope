@@ -83,14 +83,14 @@ def test_forecast_topic_from_store(tmp_path):
     assert "breakout" in result
 
 
-def test_forecast_endpoint(tmp_path):
+def test_forecast_endpoint(tmp_path, isolated_app):
     from unittest.mock import patch
 
     from fastapi.testclient import TestClient
 
-    from trendscope.server_api import app
+    from trendscope.api.factory import get_app_state
 
-    store = WatchlistStore(db_path=Path(tmp_path) / "api.db")
+    store = get_app_state(isolated_app).store
     store.save_history(
         {
             "meta": {
@@ -112,10 +112,9 @@ def test_forecast_endpoint(tmp_path):
         }
     )
 
-    client = TestClient(app)
-    with patch("trendscope.server_api.watchlist_store", store):
-        with patch("trendscope.server_api.settings.api_key_required", False):
-            resp = client.get("/forecast", params={"topic": "ai"})
+    client = TestClient(isolated_app)
+    with patch("trendscope.api.middleware.settings.api_key_required", False):
+        resp = client.get("/forecast", params={"topic": "ai"})
     assert resp.status_code == 200
     data = resp.json()
     assert data["topic"] == "ai"
