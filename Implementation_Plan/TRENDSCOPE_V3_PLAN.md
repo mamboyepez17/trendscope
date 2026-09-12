@@ -51,7 +51,7 @@
 - [x] Bloque 30 — Source health runtime
 - [x] Bloque 31 — Dashboard endurecido
 - [x] Bloque 32 — Modelos tipados de payload
-- [ ] Bloque 33 — SSE / progreso de jobs
+- [x] Bloque 33 — SSE / progreso de jobs
 - [x] Bloque 34 — Adaptador de datos GDELT
 - [ ] Bloque 35 — Digest de exportaciones
 - [ ] Bloque 36 — Interfaz repository Postgres-ready

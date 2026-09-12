@@ -246,6 +246,37 @@ def register_routes(app: FastAPI, state) -> None:
             raise HTTPException(status_code=404, detail="Job not found")
         return job_to_public(job)
 
+    @app.get("/jobs/{job_id}/events")
+    async def job_events(request: Request, job_id: str):
+        """Server-Sent Events: emite el estado del job hasta done/error."""
+        import asyncio
+        import json as json_mod
+
+        from fastapi.responses import StreamingResponse
+
+        from trendscope.jobs.store import get_job_store, job_to_public
+
+        store = get_job_store()
+
+        async def gen():
+            last_status = None
+            for _ in range(240):  # ~2 min max
+                job = store.get(job_id, org_id=_org_id(request))
+                if not job:
+                    yield f"event: error\ndata: {json_mod.dumps({'error': 'Job not found'})}\n\n"
+                    return
+                pub = job_to_public(job)
+                if pub["status"] != last_status:
+                    last_status = pub["status"]
+                    yield f"event: status\ndata: {json_mod.dumps(pub)}\n\n"
+                if pub["status"] in {"done", "error"}:
+                    yield f"event: final\ndata: {json_mod.dumps(pub)}\n\n"
+                    return
+                await asyncio.sleep(0.5)
+            yield f"event: timeout\ndata: {json_mod.dumps({'error': 'timeout'})}\n\n"
+
+        return StreamingResponse(gen(), media_type="text/event-stream")
+
     @app.get("/report", response_class=PlainTextResponse)
     def get_report(
         topic: str | None = QParam(None, description="Tema del reporte"),
