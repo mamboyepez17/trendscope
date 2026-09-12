@@ -57,10 +57,14 @@ _PARALLEL_SOURCES = {"Reddit", "Google Trends", "Amazon", "TikTok", "Hacker News
 _SERIAL_SOURCES = {"Twitter/X", "TweetClaw JSON"}
 
 
+# Bump when scraper logic changes so stale cache entries are ignored
+_CACHE_VERSION = "v3-twitter-fixed"
+
+
 def _cache_key(query: TrendQuery) -> str:
     kw_hash = hashlib.sha1("|".join(query.keywords).encode("utf-8")).hexdigest()[:10]
     return (
-        f"{query.mode}:{query.category or query.free_topic}:"
+        f"{_CACHE_VERSION}:{query.mode}:{query.category or query.free_topic}:"
         f"{query.geo}:{query.sentiment_engine}:{query.top_n}:{kw_hash}"
     )
 
