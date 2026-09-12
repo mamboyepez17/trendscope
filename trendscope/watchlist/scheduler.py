@@ -88,6 +88,21 @@ class WatchlistScheduler:
         if ok:
             logger.info(f"Alert sent for {item.topic}: {triggered}")
 
+    def send_digests(self) -> int:
+        """Envía digests a items con digest_webhook. Retorna nº enviados."""
+        from trendscope.watchlist.digest import send_digest
+
+        sent = 0
+        for item in self.store.list_active():
+            if not item.digest_webhook:
+                continue
+            try:
+                if send_digest(self.store, item):
+                    sent += 1
+            except Exception as e:
+                logger.error("Digest failed for {}: {}", item.topic, e)
+        return sent
+
     def tick(self):
         """Immediate tick: analyze all active items now."""
         for item in self.store.list_active():

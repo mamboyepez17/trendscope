@@ -53,10 +53,10 @@
 - [x] Bloque 32 — Modelos tipados de payload
 - [x] Bloque 33 — SSE / progreso de jobs
 - [x] Bloque 34 — Adaptador de datos GDELT
-- [ ] Bloque 35 — Digest de exportaciones
-- [ ] Bloque 36 — Interfaz repository Postgres-ready
-- [ ] Bloque 37 — Observabilidad OpenAPI mejorada
-- [ ] Bloque 38 — Benchmarks y budgets de latencia
+- [x] Bloque 35 — Digest de exportaciones
+- [x] Bloque 36 — Interfaz repository Postgres-ready
+- [x] Bloque 37 — Observabilidad OpenAPI mejorada
+- [x] Bloque 38 — Benchmarks y budgets de latencia
 
 ---
 

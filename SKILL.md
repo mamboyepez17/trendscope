@@ -2,7 +2,7 @@
 
 ## What it does
 
-TrendScope analyzes trends on ANY topic from 8 free sources:
+TrendScope analyzes trends on ANY topic from 9 free sources:
 - Twitter/X (with cookies)
 - Reddit (RSS, no API key needed)
 - Google Trends (RSS + pytrends)
@@ -10,27 +10,34 @@ TrendScope analyzes trends on ANY topic from 8 free sources:
 - YouTube (internal search API)
 - Amazon Best Sellers (Scrapling)
 - TikTok Creative Center
+- GDELT (global news DOC API)
 - TweetClaw (local JSON)
 
 It scores each signal 0-100, analyzes sentiment (Spanish + English, auto-detected),
 and generates actionable insights, correlations, emerging vs established trends,
 and recommendations — all locally, no external AI API needed.
 
+Also: watchlist + webhook alerts + digests, forecast (EMA/velocity/breakout),
+async jobs + SSE, multi-tenant API keys with org isolation.
+
 ## How to use it
 
 ### CLI (interactive)
 ```bash
 cd /path/to/trendscope
-python main.py
+python -m trendscope
 ```
 
 ### API REST (for agents)
 ```bash
-# Start the server
-python server_api.py
+# Start the server (binds 127.0.0.1:8000 by default)
+python -m trendscope.server_api
 
 # Analyze any topic
 curl "http://localhost:8000/trends?topic=crypto+Colombia&sentiment_engine=local"
+
+# Async analysis
+curl "http://localhost:8000/trends?topic=AI&async=true"
 
 # Use a predefined category
 curl "http://localhost:8000/trends?category=crypto"
@@ -44,6 +51,12 @@ curl "http://localhost:8000/categories"
 # Compare two topics
 curl "http://localhost:8000/compare?topic1=crypto&topic2=AI"
 
+# Forecast from history
+curl "http://localhost:8000/forecast?topic=crypto"
+
+# Metrics
+curl "http://localhost:8000/metrics"
+
 # Check health of all sources
 curl "http://localhost:8000/doctor"
 
@@ -53,11 +66,17 @@ curl "http://localhost:8000/doctor"
 
 ### MCP Server (for MCP-compatible agents)
 ```bash
-python server_mcp.py
+python -m trendscope.server_mcp
 ```
 Tools available:
 - `analyze_trends` — Analyze trends on any topic
 - `get_categories` — List predefined categories
+- `get_latest_report` — Latest Markdown report
+- `narrate_trends` — AI narrative
+- `compare_topics` — Side-by-side comparison
+- `doctor` — Source probes
+- `watchlist_add` / `watchlist_list` / `watchlist_run`
+- `history_get` — Historical snapshots
 - `get_latest_report` — Get latest report for a topic
 
 ### Doctor (diagnose sources)

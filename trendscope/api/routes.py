@@ -156,7 +156,7 @@ def register_routes(app: FastAPI, state) -> None:
             ),
         )
 
-    @app.get("/health")
+    @app.get("/health", tags=["ops"])
     def health():
         """Estado del servicio con información de configuración."""
         return {
@@ -168,7 +168,7 @@ def register_routes(app: FastAPI, state) -> None:
             "sentiment_engine_default": settings.sentiment_engine,
         }
 
-    @app.get("/metrics")
+    @app.get("/metrics", tags=["ops"])
     def metrics():
         """Métricas ligeras en texto Prometheus-compatible."""
         from trendscope.core.metrics import render_prometheus
@@ -199,7 +199,7 @@ def register_routes(app: FastAPI, state) -> None:
             "description": "Pasa una de estas como ?category=nombre",
         }
 
-    @app.get("/trends")
+    @app.get("/trends", tags=["trends"], summary="Analyze a topic or category")
     def get_trends(
         request: Request,
         topic: str | None = QParam(None, description="Tema libre"),
@@ -236,7 +236,7 @@ def register_routes(app: FastAPI, state) -> None:
             )
         return _run_pipeline_query(topic, category, geo, sentiment_engine, top_n)
 
-    @app.get("/jobs/{job_id}")
+    @app.get("/jobs/{job_id}", tags=["jobs"], summary="Poll async job status")
     def get_job(request: Request, job_id: str):
         """Consulta el estado de un job asíncrono."""
         from trendscope.jobs.store import get_job_store, job_to_public
@@ -246,7 +246,7 @@ def register_routes(app: FastAPI, state) -> None:
             raise HTTPException(status_code=404, detail="Job not found")
         return job_to_public(job)
 
-    @app.get("/jobs/{job_id}/events")
+    @app.get("/jobs/{job_id}/events", tags=["jobs"], summary="SSE job progress")
     async def job_events(request: Request, job_id: str):
         """Server-Sent Events: emite el estado del job hasta done/error."""
         import asyncio
@@ -372,6 +372,12 @@ def register_routes(app: FastAPI, state) -> None:
             None, ge=0, le=100, description="Alert if top_score >= this"
         ),
         alert_sentiment_flip: bool = QParam(False, description="Alert on sentiment flip"),
+        digest_webhook: str | None = QParam(
+            None, description="HTTPS webhook URL for periodic digests"
+        ),
+        digest_interval_hours: int = QParam(
+            24, ge=1, le=168, description="Digest interval in hours"
+        ),
     ):
         """Add a topic to the watchlist."""
         if category and category not in CATEGORIES:
@@ -390,13 +396,15 @@ def register_routes(app: FastAPI, state) -> None:
             alert_webhook=alert_webhook,
             alert_min_score=alert_min_score,
             alert_sentiment_flip=alert_sentiment_flip,
+            digest_webhook=digest_webhook,
+            digest_interval_hours=digest_interval_hours,
             org_id=_org_id(request),
         )
         item = state.store.add(item)
         state.scheduler.refresh()
         return item
 
-    @app.get("/watchlist")
+    @app.get("/watchlist", tags=["watchlist"])
     def list_watch_items(request: Request):
         """List all watchlist items (scoped to caller org)."""
         items = state.store.list_all(org_id=_org_id(request))
@@ -495,7 +503,7 @@ def register_routes(app: FastAPI, state) -> None:
             "records": [record.__dict__ for record in records],
         }
 
-    @app.get("/forecast")
+    @app.get("/forecast", tags=["watchlist"], summary="EMA / velocity / breakout")
     def get_forecast(
         request: Request,
         topic: str = QParam(..., description="Topic to forecast"),

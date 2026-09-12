@@ -31,6 +31,20 @@ Cuando un modelo complete un bloque, agrega una entrada así:
 
 ---
 
+## [1.8.1] — 2026-02-12 — MiMo
+
+### Añadido
+- Digest periódico a webhook (`digest_webhook`, `digest_interval_hours`)
+- `WatchlistRepository` / `SqliteWatchlistRepository` (Postgres-ready interface)
+- OpenAPI: tags y summaries en endpoints principales
+- Perf budgets con marca `slow`
+- README en inglés actualizado (endpoints, multi-tenant, alerts, jobs, source health, GDELT)
+
+### Estado plan V3
+- Bloques 27–38 completados (250+ tests)
+
+---
+
 ## [1.6.0] — 2026-02-12 — MiMo
 
 ### Corregido

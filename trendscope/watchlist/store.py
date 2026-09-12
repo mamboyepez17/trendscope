@@ -42,7 +42,9 @@ class WatchlistStore:
                     alert_webhook TEXT,
                     alert_min_score REAL,
                     alert_sentiment_flip INTEGER NOT NULL DEFAULT 0,
-                    org_id TEXT NOT NULL DEFAULT 'default'
+                    org_id TEXT NOT NULL DEFAULT 'default',
+                    digest_webhook TEXT,
+                    digest_interval_hours INTEGER NOT NULL DEFAULT 24
                 )
                 """
             )
@@ -53,6 +55,8 @@ class WatchlistStore:
                 "ALTER TABLE watchlist ADD COLUMN alert_sentiment_flip INTEGER NOT NULL DEFAULT 0",
                 "ALTER TABLE watchlist ADD COLUMN org_id TEXT NOT NULL DEFAULT 'default'",
                 "ALTER TABLE history ADD COLUMN org_id TEXT NOT NULL DEFAULT 'default'",
+                "ALTER TABLE watchlist ADD COLUMN digest_webhook TEXT",
+                "ALTER TABLE watchlist ADD COLUMN digest_interval_hours INTEGER NOT NULL DEFAULT 24",
             ):
                 try:
                     conn.execute(col_def)
@@ -92,9 +96,10 @@ class WatchlistStore:
                 """
                 INSERT INTO watchlist (
                     topic, category, geo, interval_minutes, sentiment_engine, active,
-                    alert_webhook, alert_min_score, alert_sentiment_flip, org_id
+                    alert_webhook, alert_min_score, alert_sentiment_flip, org_id,
+                    digest_webhook, digest_interval_hours
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     item.topic,
@@ -107,6 +112,8 @@ class WatchlistStore:
                     item.alert_min_score,
                     int(item.alert_sentiment_flip),
                     item.org_id,
+                    item.digest_webhook,
+                    item.digest_interval_hours,
                 ),
             )
             item.id = cur.lastrowid
@@ -286,6 +293,10 @@ class WatchlistStore:
             if "alert_sentiment_flip" in keys
             else False,
             org_id=row["org_id"] if "org_id" in keys else "default",
+            digest_webhook=row["digest_webhook"] if "digest_webhook" in keys else None,
+            digest_interval_hours=row["digest_interval_hours"]
+            if "digest_interval_hours" in keys
+            else 24,
         )
 
     def _row_to_record(self, row: sqlite3.Row) -> AnalysisRecord:

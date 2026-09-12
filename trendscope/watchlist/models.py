@@ -20,6 +20,8 @@ class WatchItem:
     alert_webhook: Optional[str] = None
     alert_min_score: Optional[float] = None
     alert_sentiment_flip: bool = False
+    digest_webhook: Optional[str] = None
+    digest_interval_hours: int = 24
     org_id: str = "default"
 
 

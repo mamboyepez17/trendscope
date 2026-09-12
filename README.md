@@ -1,63 +1,49 @@
 # TrendScope
 
-> Universal trend intelligence infrastructure — analyze any topic from 8 free sources with sentiment analysis, AI-powered insights, multi-provider narrative generation, data exports, and a live dashboard.
+> Universal trend intelligence infrastructure — analyze any topic from 9 free sources with sentiment analysis, AI insights, multi-provider narratives, watchlist alerts, forecasting, async jobs, multi-tenant API keys, and a live dashboard.
 
 ## What is it?
 
-TrendScope aggregates trend signals from Reddit, Google Trends, Twitter/X, Hacker News, YouTube, TweetClaw, Amazon and TikTok. It scores each signal 0-100, analyzes sentiment in both Spanish and English (auto-detected), and generates actionable insights, correlations, emerging vs established trend detection, and recommendations — all locally, no external AI API needed.
+TrendScope aggregates trend signals from Reddit, Google Trends, Twitter/X, Hacker News, YouTube, TweetClaw, Amazon, TikTok, and GDELT. It scores each signal 0–100, analyzes sentiment in Spanish and English (auto-detected), and generates actionable insights, correlations, emerging vs established detection, and recommendations — all locally, no paid AI API required for the core path.
 
-It also generates AI-powered narratives using OpenRouter (free models), Claude, or Ollama, and exports results to CSV, JSON, or Excel. Outputs structured JSON for agents, Markdown reports for humans, and serves a real-time web dashboard.
+It also generates AI narratives via OpenRouter (free models), Claude, or Ollama; exports to CSV/JSON/Excel; runs a watchlist with webhook alerts and periodic digests; forecasts trend velocity (EMA, breakout); and serves a real-time dashboard with WebSocket + SSE.
 
-## Installation (Windows)
+**Version:** 1.8.x · **Python:** 3.11–3.12 · **License:** MIT
 
-TrendScope requires **Python 3.11 or 3.12**. If you have `uv` installed (recommended), the environment is created automatically:
+## Quick start (Windows)
 
 ```cmd
 cd /d D:\Proyectos\TrendScope
 uv venv --python 3.11 .venv
 uv pip install -e ".[dev]"
+copy .env.example .env
+.venv\Scripts\trendscope-api.exe
 ```
 
-> **Note:** On Windows CMD, `cd` requires `/d` to change drives (from `C:` to `D:`). Without `/d` you stay on the current drive.
+Open **http://localhost:8000/dashboard**.
 
-### Without uv
-
-If you don't have `uv`, download Python 3.11 from [python.org](https://www.python.org/downloads/release/python-31111/) and then:
+Without `uv`:
 
 ```cmd
 cd /d D:\Proyectos\TrendScope
-python311 -m venv .venv
+python -m venv .venv
 .venv\Scripts\activate.bat
 pip install -e ".[dev]"
 ```
 
-### Included shortcuts
+Included shortcuts: `run_tests.bat`, `start_api.bat`, `start_cli.bat`.
 
-Three `.bat` files are included so you don't have to type commands:
-
-- `run_tests.bat` — run all tests
-- `start_api.bat` — start the API at `http://localhost:8000`
-- `start_cli.bat` — start the interactive CLI
-
-> **Note:** `xactions-py` (Twitter/X toolkit) is included as a local module in the `trendscope/xactions/` folder — no separate install needed.
+> `xactions-py` (Twitter/X toolkit) is vendored under `trendscope/xactions/`.
 
 ## Usage
 
-### CLI (for humans)
+### CLI
 
 ```cmd
 .venv\Scripts\trendscope.exe
-```
-
-Or simply double-click `start_cli.bat`.
-
-Or from source:
-
-```cmd
+:: or
 .venv\Scripts\python.exe -m trendscope
 ```
-
-Interactive menu with category selector, sentiment engine picker, and rich-formatted results table with analysis panel.
 
 ### Web dashboard
 
@@ -65,23 +51,17 @@ Interactive menu with category selector, sentiment engine picker, and rich-forma
 .venv\Scripts\trendscope-api.exe
 ```
 
-Or double-click `start_api.bat`.
+Open **http://localhost:8000/dashboard**. Dark theme, stats cards, sentiment gauge, source distribution, score histogram, top trends table, side-by-side compare, watchlist, history chart (local Chart.js, strict CSP), and WebSocket analysis.
 
-Then open **http://localhost:8000/dashboard** in your browser.
-
-Features: dark theme, stats cards, sentiment gauge (SVG donut), source distribution bars, score histogram, top trends table with engagement metrics (likes, RTs, comments, views, points), comparison mode (2 topics side by side), live watchlist panel, history chart with Chart.js, real-time WebSocket analysis, and responsive layout.
+If `API_KEY_REQUIRED=true`, open the dashboard as `/dashboard?api_key=YOUR_KEY` (or store the key in `sessionStorage` as `ts_api_key`).
 
 ### Doctor (diagnose sources)
-
-Check which sources are working and how to fix the ones that aren't:
 
 ```cmd
 .venv\Scripts\python.exe -c "from trendscope.core.doctor import run_doctor; from rich.console import Console; Console().print(run_doctor())"
 ```
 
-Or via API: `GET http://localhost:8000/doctor`
-
-The doctor performs real probes on each source (not just file existence) and reports status with actionable fix instructions.
+Or `GET /doctor`. Real probes on each source with actionable fix instructions.
 
 ### REST API (for HTTP agents)
 
@@ -89,33 +69,33 @@ The doctor performs real probes on each source (not just file existence) and rep
 .venv\Scripts\trendscope-api.exe
 ```
 
-Available endpoints:
+Default bind: `127.0.0.1:8000`. Interactive docs: **http://localhost:8000/docs**
 
 ```text
 GET    /trends?topic=crypto+Colombia
+GET    /trends?topic=AI&async=true     — 202 + job_id
 GET    /trends?category=technology&sentiment_engine=claude
 GET    /narrate?topic=crypto+Colombia&style=executive
-GET    /export/csv?topic=crypto+Colombia
-GET    /export/json?topic=crypto+Colombia
-GET    /export/xlsx?topic=crypto+Colombia
+GET    /export/csv|json|xlsx?topic=...
 GET    /report?topic=crypto
-GET    /categories
-GET    /health
-GET    /doctor              — diagnose all sources
-GET    /cache/stats
-DELETE /cache
-GET    /dashboard            — web dashboard
-GET    /compare?topic1=crypto&topic2=AI  — side-by-side comparison
-GET    /watchlist            — list monitored topics
-POST   /watchlist?topic=...  — add a topic to monitor
-POST   /watchlist/{id}/run   — run analysis immediately
-GET    /watchlist/stats      — watchlist + history stats
-GET    /history?topic=...&days=7  — historical snapshots
-DELETE /watchlist/{id}       — remove a monitored topic
-WS     /ws                   — real-time analysis via WebSocket
+GET    /categories · /health · /doctor
+GET    /metrics · /metrics.json        — Prometheus-style text / JSON
+GET    /cache/stats · DELETE /cache
+GET    /dashboard · /static/chart.umd.min.js
+GET    /compare?topic1=crypto&topic2=AI
+GET    /jobs/{id}                      — poll async job
+GET    /jobs/{id}/events               — SSE status stream
+GET    /forecast?topic=AI&days=30      — EMA, velocity, breakout
+GET    /history?topic=...&days=7
+GET    /watchlist · GET /watchlist/stats
+POST   /watchlist?topic=...&alert_webhook=...&alert_min_score=80
+POST   /watchlist/{id}/run[?background=true]
+PUT    /watchlist/{id} · DELETE /watchlist/{id}
+POST   /admin/prune-history
+WS     /ws[?api_key=...]
 ```
 
-Interactive docs: **http://localhost:8000/docs**
+Headers on responses: `X-RateLimit-Limit`, `X-RateLimit-Remaining`, `Retry-After` on 429.
 
 ### Docker
 
@@ -152,11 +132,16 @@ Or from source:
 .venv\Scripts\python.exe -m trendscope.server_mcp
 ```
 
-Available tools:
+Available tools (MCP SDK 2.x):
 
-- `analyze_trends` — Analyze trends on any topic
-- `get_categories` — List predefined categories
-- `get_latest_report` — Get the latest generated report
+- `analyze_trends` — Multi-source analysis with sentiment
+- `get_categories` — Predefined categories
+- `get_latest_report` — Latest Markdown report
+- `narrate_trends` — AI narrative (executive/creative/technical/alert)
+- `compare_topics` — Side-by-side comparison
+- `doctor` — Source health probes
+- `watchlist_add` · `watchlist_list` · `watchlist_run`
+- `history_get` — Historical snapshots (no full payload)
 
 ### SKILL.md (for agent discovery)
 
@@ -198,56 +183,93 @@ Every analysis can be exported to common formats:
 | CSV | `/export/csv?topic=...` | Spreadsheets, data science |
 | Excel | `/export/xlsx?topic=...` | Reports with two sheets: Trends + Metadata |
 
-## Watchlist + Recurring Monitoring
-
-TrendScope can monitor topics automatically and keep a historical record:
+## Watchlist + Alerts + Digests
 
 ```bash
-# Add a topic to the watchlist
-POST /watchlist?topic=crypto+Colombia&interval_minutes=60
+# Add a monitored topic with a score alert and daily digest
+POST /watchlist?topic=crypto+Colombia&interval_minutes=60\
+  &alert_webhook=https://hooks.example.com/ts\
+  &alert_min_score=80\
+  &alert_sentiment_flip=true\
+  &digest_webhook=https://hooks.example.com/ts-daily\
+  &digest_interval_hours=24
 
-# List all watchlist items
-GET /watchlist
-
-# Run analysis for an item immediately
-POST /watchlist/{id}/run
-
-# View historical snapshots
-GET /history?topic=crypto+Colombia&days=7
-
-# Watchlist stats
-GET /watchlist/stats
+GET  /watchlist
+POST /watchlist/{id}/run[?background=true]
+GET  /history?topic=crypto+Colombia&days=7
+GET  /forecast?topic=crypto+Colombia
+GET  /watchlist/stats
 ```
 
-The scheduler runs every active item at its configured interval, saves a snapshot to SQLite, and keeps the last 7 days by default. Enable/disable with `WATCHLIST_ENABLED=true|false` in `.env`.
+- **Alerts** fire when `top_score >= alert_min_score`, volume crosses a threshold, or sentiment flips. Webhooks are POST JSON with SSRF protection (localhost/private/metadata IPs blocked).
+- **Digests** send a compact summary (latest scores, min/max/avg, forecast) on an interval.
+- **Forecast** endpoint returns EMA, velocity, and breakout flag from history.
+- Enable/disable scheduling with `WATCHLIST_ENABLED=true|false`.
 
-## API Protection
+## Multi-tenant API keys
 
-TrendScope includes built-in API protection for public deployments:
-
-- **Rate limiting** — per-IP limits (default 60 requests/minute)
-- **Optional API keys** — enable with `API_KEY_REQUIRED=true` and `API_KEYS=key1,key2`
-
-Configure in `.env`:
+Static keys can carry an org and scopes:
 
 ```env
-API_RATE_LIMIT=60
-API_RATE_WINDOW=60
-API_KEY_REQUIRED=false
-API_KEYS=your-secret-key
+API_KEY_REQUIRED=true
+# legacy: key1,key2
+# scoped: key|org|scope+scope
+API_KEYS=readkey|acme|trends:read,fullkey|acme|trends:read+watchlist:write+admin
+ORG_RATE_LIMIT=120
 ```
 
-## AI-Powered Analysis (v1.3.0)
+Scopes: `trends:read`, `watchlist:read`, `watchlist:write`, `jobs:read`, `admin`.
+
+- Watchlist/history/jobs are isolated per `org_id`.
+- Rate limits apply per IP **and** per org.
+- WebSocket accepts `?api_key=` (browsers cannot set custom headers).
+
+## API Protection & security defaults
+
+- Default bind: **`127.0.0.1`** (set `API_HOST=0.0.0.0` only when you need it; enable API keys).
+- Optional API keys (constant-time compare) with scopes.
+- Rate limiting (in-memory, per-IP + per-org) with purge of stale buckets.
+- Security headers (`X-Content-Type-Options`, `X-Frame-Options`, CSP on dashboard).
+- Path-safe export filenames; report lookups reject glob injection.
+- Multi-stage Docker image (no compilers/dev tools); compose with `read_only`, `cap_drop: ALL`, healthcheck.
+
+```env
+API_HOST=127.0.0.1
+API_RATE_LIMIT=60
+API_RATE_WINDOW=60
+ORG_RATE_LIMIT=120
+API_KEY_REQUIRED=false
+API_KEYS=
+TRUST_PROXY_HEADERS=false
+SOURCE_HEALTH_SKIP=true
+ALERTS_ENABLED=true
+```
+
+## Source health
+
+Each source tracks success/failure and latency. Scores appear in `payload.meta.source_health`. Sources scoring below 0.2 are skipped automatically (`SOURCE_HEALTH_SKIP=true`) to save time and quota.
+
+## Async jobs
+
+```bash
+curl "http://localhost:8000/trends?topic=AI&async=true"
+# → {"job_id":"...","status":"pending","poll":"/jobs/..."}
+
+curl "http://localhost:8000/jobs/{job_id}"
+curl -N "http://localhost:8000/jobs/{job_id}/events"   # SSE
+```
+
+## AI-Powered Analysis
 
 TrendScope doesn't just collect data — it **analyzes it**:
 
-1. **Executive summary** — natural language summary of the findings
-2. **Actionable insights** — opportunities (🎯), alerts (⚠️), info (📊) with priorities
-3. **Correlations** — consensus (🤝), divergence (🔀), score gaps (📈) between sources
-4. **Emerging vs established** — trends in 1 source only (emerging) vs multi-source (established)
-5. **Recommendations** — actionable next steps
+1. **Executive summary** — natural language findings
+2. **Actionable insights** — opportunities, alerts, info with priorities
+3. **Correlations** — consensus / divergence / score gaps across sources
+4. **Emerging vs established** — single-source vs multi-source signals
+5. **Recommendations** — concrete next steps
 
-All analysis runs locally with pure logic — no API keys, no cost.
+All local logic — no API keys required for this path.
 
 ## Data Sources
 
@@ -261,6 +283,7 @@ All analysis runs locally with pure logic — no API keys, no cost.
 | TweetClaw/OpenClaw | Optional local JSON export | Free | No (bring your own file) |
 | Amazon Best Sellers | Scrapling StealthyFetcher | Free | No |
 | TikTok Creative Center | API JSON + Scrapling fallback | Free | No |
+| GDELT | DOC API 2.0 (global news) | Free | No |
 
 ## Sentiment Analysis
 
@@ -375,8 +398,10 @@ REDDIT_CLIENT_SECRET=your_client_secret
 REDDIT_USER_AGENT=TrendScope/1.5.0
 
 # Twitter/X (DevTools > Application > Cookies on x.com)
+# Either separate values or a full cookie string:
 TWITTER_AUTH_TOKEN=your_auth_token
 TWITTER_CT0=your_ct0
+# TWITTER_COOKIES=auth_token=...; ct0=...
 
 # TweetClaw/OpenClaw optional JSON export path
 TWEETCLAW_RESULTS_FILE=data/tweetclaw_crypto_colombia.json
@@ -398,10 +423,16 @@ GEO_TARGET=CO
 TOP_N=25
 
 # API
-API_HOST=0.0.0.0
+API_HOST=127.0.0.1
 API_PORT=8000
 API_RATE_LIMIT=60
 API_RATE_WINDOW=60
+ORG_RATE_LIMIT=120
+API_KEY_REQUIRED=false
+API_KEYS=
+TRUST_PROXY_HEADERS=false
+SOURCE_HEALTH_SKIP=true
+ALERTS_ENABLED=true
 API_KEY_REQUIRED=false
 API_KEYS=""
 
@@ -446,27 +477,40 @@ Your API key may be invalid or missing. Get a free key at [openrouter.ai/keys](h
 
 ```cmd
 .venv\Scripts\python.exe -m pytest trendscope/tests/ -v
+:: optional long budgets:
+.venv\Scripts\python.exe -m pytest trendscope/tests/ -v -m slow
 ```
 
 Or double-click `run_tests.bat`.
 
-88 tests covering: cache, persistent cache, deduplicator, query, scorer (all sources), sentiment alignment, tweetclaw, settings, narrator, exporter, middleware, watchlist, watchlist API, and WebSocket.
+**250+ tests** covering: sentiment imports, path safety, API security, middleware, pipeline (logging, cache key, source health), SQLite concurrency, Docker hardening, watchlist, alerts, digests, jobs + SSE, forecast, org isolation, MCP tools, OpenAPI, performance budgets, and more.
+
+## Development notes
+
+- Use `create_app()` from `trendscope.api.factory` in tests (injectable store/scheduler, no DB side effects at import).
+- Prefer `trendscope.settings.Settings` over ad-hoc env reads.
+- Repository interface: `trendscope/watchlist/repository.py` (`WatchlistRepository` / `SqliteWatchlistRepository`) — ready for a Postgres adapter later.
 
 ## Roadmap
 
-- [x] Installable package with pyproject.toml
-- [x] Typed configuration with pydantic-settings
-- [x] Persistent SQLite cache
-- [x] Multi-provider narrative generation (OpenRouter, Claude, Ollama)
+- [x] Installable package + pyproject
+- [x] Typed settings (pydantic-settings)
+- [x] Persistent SQLite cache (WAL)
+- [x] Multi-provider narratives (OpenRouter, Claude, Ollama)
 - [x] CSV / JSON / Excel export
-- [x] Rate limiting and API keys
-- [x] Watchlist + recurring monitoring
-- [x] Dashboard with WebSockets and history
-- [x] Docker + CI/CD
+- [x] Rate limiting + API keys + scopes + org isolation
+- [x] Watchlist + alerts + digests + forecast
+- [x] Dashboard (WS, local Chart.js, CSP)
+- [x] Async jobs + SSE
+- [x] Source health runtime
+- [x] GDELT source
+- [x] Docker multi-stage + CI (pytest + ruff)
+- [ ] Postgres adapter / Redis queue (optional scale-out)
+- [ ] Official/licensed data partners
 
 ## Related
 
-- [xactions-py](https://github.com/mamboyepez17/xactions-py) — Twitter/X toolkit (included locally)
+- [xactions-py](https://github.com/mamboyepez17/xactions-py) — Twitter/X toolkit (vendored locally)
 
 ## License
 

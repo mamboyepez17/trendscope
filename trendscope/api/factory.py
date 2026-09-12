@@ -72,9 +72,19 @@ def create_app(
 
     app = FastAPI(
         title="TrendScope API",
-        description="Inteligencia de tendencias universal — mamboyepez17",
+        description=(
+            "Universal trend intelligence — multi-source analysis with sentiment, "
+            "watchlist monitoring, alerts, forecasting, and async jobs."
+        ),
         version=__version__,
         lifespan=lifespan,
+        openapi_tags=[
+            {"name": "trends", "description": "Analyze trends and narratives"},
+            {"name": "watchlist", "description": "Recurring monitoring and history"},
+            {"name": "jobs", "description": "Async analysis jobs"},
+            {"name": "ops", "description": "Health, metrics, cache, doctor"},
+            {"name": "export", "description": "Downloadable exports"},
+        ],
     )
     app.state.ts = state
 
