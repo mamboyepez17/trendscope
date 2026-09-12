@@ -156,16 +156,37 @@ def _call_ollama(prompt: str) -> str:
 
 
 _DEEPSEEK_MODEL_FALLBACKS = (
-    "deepseek-chat",
+    "deepseek-v4.1-flash",
     "deepseek-flash",
     "deepseek-v4-pro",
+    "deepseek-chat",
 )
+
+
+def _post_deepseek(url: str, headers: dict, body: dict):
+    """POST con fallback TLS si hay MITM (Kaspersky, corporate proxy)."""
+    import httpx
+
+    try:
+        with httpx.Client(timeout=90.0, verify=True) as client:
+            return client.post(url, headers=headers, json=body)
+    except httpx.HTTPError as e:
+        msg = str(e)
+        if "CERTIFICATE_VERIFY_FAILED" in msg or "SSL" in msg.upper():
+            logger.warning(
+                "DeepSeek TLS falló (¿Kaspersky / proxy MITM?). "
+                "Reintentando sin verificar certificado. "
+                "Mejor: excluye api.deepseek.com en el antivirus."
+            )
+            with httpx.Client(timeout=90.0, verify=False) as client:
+                return client.post(url, headers=headers, json=body)
+        raise
 
 
 def _call_deepseek(prompt: str) -> str:
     """DeepSeek Chat — API oficial compatible con OpenAI."""
     try:
-        import httpx
+        import httpx  # noqa: F401
     except ImportError:
         return "Error: httpx no instalado."
 
@@ -179,48 +200,53 @@ def _call_deepseek(prompt: str) -> str:
         "Authorization": f"Bearer {settings.deepseek_api_key}",
         "Content-Type": "application/json",
     }
-    models = []
+    models: list[str] = []
     for m in (settings.deepseek_model, *_DEEPSEEK_MODEL_FALLBACKS):
         if m and m not in models:
             models.append(m)
 
     url = f"{settings.deepseek_base_url.rstrip('/')}/chat/completions"
     last_err = ""
-    with httpx.Client(timeout=90.0) as client:
-        for model in models:
-            body = {
-                "model": model,
-                "messages": [
-                    {
-                        "role": "system",
-                        "content": "Eres un experto en análisis de tendencias.",
-                    },
-                    {"role": "user", "content": prompt},
-                ],
-                "temperature": 0.7,
-                "max_tokens": 800,
-            }
-            try:
-                resp = client.post(url, headers=headers, json=body)
-                if resp.status_code >= 400:
-                    last_err = f"{model}: HTTP {resp.status_code} {resp.text[:200]}"
-                    logger.warning(f"DeepSeek {last_err}")
-                    continue
-                data = resp.json()
-                msg = (data.get("choices") or [{}])[0].get("message") or {}
-                content = (msg.get("content") or "").strip()
-                # Modelos reasoner pueden dejar content vacío y volcar en reasoning
-                if not content:
-                    content = (msg.get("reasoning_content") or "").strip()
-                if content:
-                    return content
-                last_err = f"{model}: empty completion"
-            except Exception as e:
-                last_err = f"{model}: {e}"
+    for model in models:
+        body = {
+            "model": model,
+            "messages": [
+                {
+                    "role": "system",
+                    "content": "Eres un experto en análisis de tendencias.",
+                },
+                {"role": "user", "content": prompt},
+            ],
+            "temperature": 0.7,
+            "max_tokens": 800,
+        }
+        try:
+            resp = _post_deepseek(url, headers, body)
+            if resp.status_code >= 400:
+                last_err = f"{model}: HTTP {resp.status_code} {resp.text[:200]}"
                 logger.warning(f"DeepSeek {last_err}")
+                continue
+            data = resp.json()
+            msg = (data.get("choices") or [{}])[0].get("message") or {}
+            content = (msg.get("content") or "").strip()
+            if not content:
+                content = (msg.get("reasoning_content") or "").strip()
+            if content:
+                return content
+            last_err = f"{model}: empty completion"
+        except Exception as e:
+            last_err = f"{model}: {e}"
+            logger.warning(f"DeepSeek {last_err}")
 
     logger.error(f"DeepSeek agotó modelos: {last_err}")
-    return f"Error DeepSeek: {last_err}"
+    hint = ""
+    if "CERTIFICATE" in last_err or "SSL" in last_err.upper():
+        hint = (
+            " | TLS interceptado (Kaspersky/proxy). "
+            "Excluye api.deepseek.com en el antivirus o desactiva "
+            "el análisis de conexiones cifradas."
+        )
+    return f"Error DeepSeek: {last_err}{hint}"
 
 
 def _statistical_summary(payload: dict) -> str:
