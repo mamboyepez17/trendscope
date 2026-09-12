@@ -16,8 +16,8 @@ def run(query: TrendQuery) -> list[dict]:
         return []
 
     try:
-        # xactions-py v1.5+: API pública unificada
-        from xactions import TwitterError, search_tweets_sync
+        # xactions-py v1.5+: API pública unificada (módulo vendored en trendscope.xactions)
+        from trendscope.xactions import TwitterError, search_tweets_sync
 
         cookie_str = f"auth_token={TWITTER_AUTH_TOKEN}; ct0={TWITTER_CT0}"
         results: list[dict] = []

@@ -85,7 +85,7 @@ def _check_twitter() -> dict:
 
     # Verificar que xactions importa
     try:
-        from xactions import TwitterError, search_tweets_sync  # noqa: F401
+        from trendscope.xactions import TwitterError, search_tweets_sync  # noqa: F401
         return {"status": "ok", "message": "xactions-py v1.5+ listo (credenciales configuradas)"}
     except ImportError:
         return {"status": "error", "message": "Modulo xactions/ no encontrado. El directorio xactions/ debe estar en la raiz del proyecto"}

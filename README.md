@@ -76,6 +76,34 @@ Windows shortcuts included: `run_tests.bat`, `start_api.bat`, `start_cli.bat`.
 
 > `xactions-py` (Twitter/X toolkit) is vendored under `trendscope/xactions/`.
 
+## Try it in 5 minutes
+
+```bash
+# 1. Diagnose data sources (network)
+trendscope --doctor
+# or:  .venv/bin/python -m trendscope.ops --doctor
+
+# 2. Offline pipeline smoke (no network required)
+trendscope --smoke
+
+# 3. Start the API
+trendscope-api
+
+# 4. Open in the browser
+#    http://localhost:8000/dashboard
+#    http://localhost:8000/demo     ← sample payload, no scraping
+#    http://localhost:8000/smoke    ← doctor + offline smoke JSON
+#    http://localhost:8000/docs
+```
+
+Optional live smoke (lightweight public sources only: HN, GDELT, Google RSS):
+
+```bash
+trendscope --smoke --live
+```
+
+If Twitter cookies are set in `.env`, a full `GET /trends?topic=...` includes that source too.
+
 ## Usage
 
 ### CLI

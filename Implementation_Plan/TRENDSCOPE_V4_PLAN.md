@@ -35,7 +35,7 @@
 - [x] 41 — Validación de config
 - [x] 42 — Informe de smoke
 - [x] 43 — Live smoke
-- [ ] 44 — README + guía de prueba
+- [x] 44 — README + guía de prueba
 
 ---
 
