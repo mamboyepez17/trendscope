@@ -90,7 +90,25 @@ def run(query: TrendQuery) -> tuple[dict, str]:
         _PIPELINE_SEMAPHORE.release()
 
 
+def _timed_scrape(name: str, fn, query) -> tuple[list[dict], str | None]:
+    """Ejecuta un scraper midiendo latencia y registrando health."""
+    import time
+
+    from trendscope.core import source_health
+
+    t0 = time.perf_counter()
+    try:
+        items = fn(query)
+        source_health.record_success(name, time.perf_counter() - t0)
+        return items, None
+    except Exception as e:
+        source_health.record_failure(name, str(e))
+        raise
+
+
 def _run_unlocked(query: TrendQuery) -> tuple[dict, str]:
+    import time
+
     console.print(f"\n[bold cyan]TrendScope - {query.display_name}[/bold cyan]")
     console.print(f"[dim]Geo: {query.geo} | Sentimiento: {query.sentiment_engine}[/dim]\n")
 
@@ -107,28 +125,39 @@ def _run_unlocked(query: TrendQuery) -> tuple[dict, str]:
     all_items: list[dict] = []
     source_errors: dict[str, str] = {}
 
+    from trendscope.core import source_health
+
     # NO mutar sinks globales de loguru: el logging a fichero debe sobrevivir
     # a cada run del pipeline. Solo reportamos resultados al final.
 
     # Dividir fuentes en paralelas y seriales
-    parallel_sources = [(n, f) for n, f in SOURCES if n in _PARALLEL_SOURCES]
-    serial_sources = [(n, f) for n, f in SOURCES if n in _SERIAL_SOURCES]
+    parallel_sources = [
+        (n, f) for n, f in SOURCES if n in _PARALLEL_SOURCES and not source_health.should_skip(n)
+    ]
+    serial_sources = [
+        (n, f) for n, f in SOURCES if n in _SERIAL_SOURCES and not source_health.should_skip(n)
+    ]
+    skipped = [
+        n for n, _ in SOURCES if source_health.should_skip(n)
+    ]
+    for n in skipped:
+        source_errors[n] = "skipped: source health score low"
 
     # --- Fuentes paralelas ---
     if parallel_sources:
         with ThreadPoolExecutor(max_workers=6) as pool:
-            futures = {
-                pool.submit(fn, query): name
-                for name, fn in parallel_sources
-            }
+            futures = {}
+            for name, fn in parallel_sources:
+                futures[pool.submit(_timed_scrape, name, fn, query)] = name
             results_parallel: list[tuple[str, list[dict], str | None]] = []
             for future in as_completed(futures):
                 name = futures[future]
                 try:
-                    items = future.result()
-                    results_parallel.append((name, items, None))
+                    items, err = future.result()
+                    results_parallel.append((name, items, err))
                 except Exception as e:
                     logger.error(f"Pipeline - {name}: {e}")
+                    source_health.record_failure(name, str(e))
                     source_errors[name] = str(e)
                     results_parallel.append((name, [], str(e)))
 
@@ -146,11 +175,14 @@ def _run_unlocked(query: TrendQuery) -> tuple[dict, str]:
     for name, scraper_fn in serial_sources:
         console.print(f"  [cyan]>[/cyan] {name}... ", end="")
         try:
+            t0 = time.perf_counter()
             items = scraper_fn(query)
+            source_health.record_success(name, time.perf_counter() - t0)
             all_items.extend(items)
             console.print(f"[green]OK ({len(items)} items)[/green]")
         except Exception as e:
             logger.error(f"Pipeline - {name}: {e}")
+            source_health.record_failure(name, str(e))
             source_errors[name] = str(e)
             console.print(f"[red]FAIL[/red]")
 
@@ -185,6 +217,7 @@ def _run_unlocked(query: TrendQuery) -> tuple[dict, str]:
 
     if source_errors:
         json_payload.setdefault("meta", {})["source_errors"] = source_errors
+    json_payload.setdefault("meta", {})["source_health"] = source_health.snapshot()
 
     # Guardar en cache para futuras consultas (lista, no tuple, por JSON)
     cache_set(cache_key, [json_payload, report])

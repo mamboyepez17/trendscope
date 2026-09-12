@@ -48,7 +48,7 @@
 - [x] Bloque 27 — App factory sin side-effects
 - [x] Bloque 28 — Aislamiento por org
 - [x] Bloque 29 — Rate limit por org + key
-- [ ] Bloque 30 — Source health runtime
+- [x] Bloque 30 — Source health runtime
 - [ ] Bloque 31 — Dashboard endurecido
 - [ ] Bloque 32 — Modelos tipados de payload
 - [ ] Bloque 33 — SSE / progreso de jobs

@@ -71,5 +71,8 @@ class Settings(BaseSettings):
     # Cache
     cache_ttl_seconds: int = 300
 
+    # Source health
+    source_health_skip: bool = True
+
 
 settings = Settings()
