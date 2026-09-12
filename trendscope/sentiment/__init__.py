@@ -5,23 +5,24 @@ from trendscope.core.query import TrendQuery
 from trendscope.sentiment.base import SentimentResult
 
 
+def _item_text(item: dict) -> str:
+    title = (item.get("title") or "").strip()
+    extra = (item.get("text") or "").strip()
+    if len(title) < 40 and extra and extra != title:
+        raw = f"{title} {extra}".strip()
+    else:
+        raw = title or extra or (item.get("keyword") or "")
+    return raw[:300]
+
+
 def analyze_items(items: list[dict], query: TrendQuery) -> list[dict]:
     """
     Entry point unificado de sentimiento.
-    Analiza todos los items y los enriquece con label, score y emotions.
+    Enriquece label, score, emotions y stance.
     Si el engine falla, marca todos como neutral y continua.
     """
     engine = query.sentiment_engine
-    texts = []
-    for item in items:
-        # Preferir texto completo si el title es corto (mejor sentimiento)
-        title = (item.get("title") or "").strip()
-        extra = (item.get("text") or "").strip()
-        if len(title) < 40 and extra and extra != title:
-            raw = f"{title} {extra}".strip()
-        else:
-            raw = title or extra or (item.get("keyword") or "")
-        texts.append(raw[:300])
+    texts = [_item_text(item) for item in items]
 
     logger.info(f"Analizando sentimiento: {len(texts)} items con motor '{engine}'")
 
@@ -33,7 +34,6 @@ def analyze_items(items: list[dict], query: TrendQuery) -> list[dict]:
 
         results = analyze(texts)
 
-        # Enriquecer items originales
         for i, result in enumerate(results):
             if i < len(items):
                 items[i]["sentiment_label"] = result.label
@@ -41,7 +41,6 @@ def analyze_items(items: list[dict], query: TrendQuery) -> list[dict]:
                 items[i]["sentiment_engine"] = result.engine
                 items[i]["emotions"] = result.emotions
 
-        # Items sin resultado de sentimiento -> neutral
         for item in items:
             if "sentiment_label" not in item:
                 item["sentiment_label"] = "neutral"
@@ -56,5 +55,17 @@ def analyze_items(items: list[dict], query: TrendQuery) -> list[dict]:
             item["sentiment_score"] = 0.5
             item["sentiment_engine"] = "failed"
             item["emotions"] = {}
+
+    # Stance hacia el tema (siempre, aunque el engine falle)
+    try:
+        from trendscope.sentiment.stance import enrich_stance
+
+        topic = query.free_topic or query.category
+        enrich_stance(items, topic)
+    except Exception as e:
+        logger.warning(f"Stance fallo: {e}")
+        for item in items:
+            item.setdefault("stance", "unknown")
+            item.setdefault("stance_confidence", 0.0)
 
     return items

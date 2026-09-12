@@ -78,7 +78,7 @@ _SERIAL_SOURCES = {"Twitter/X", "TweetClaw JSON"}
 
 
 # Bump when scraper logic changes so stale cache entries are ignored
-_CACHE_VERSION = "v6-free-sources"
+_CACHE_VERSION = "v7-stance"
 
 
 def _cache_key(query: TrendQuery) -> str:
@@ -263,6 +263,10 @@ def _run_unlocked(query: TrendQuery) -> tuple[dict, str]:
         "engine": query.sentiment_engine,
         "overall": max(set(labels), key=labels.count) if labels else "neutral",
     }
+    from trendscope.sentiment.stance import summarize_stances
+
+    stance_summary = summarize_stances(scored)
+    by_source = _sentiment_by_source(scored)
     insights = generate_insights(scored, query, sentiment_summary)
 
     # Export
@@ -271,9 +275,41 @@ def _run_unlocked(query: TrendQuery) -> tuple[dict, str]:
 
     if source_errors:
         json_payload.setdefault("meta", {})["source_errors"] = source_errors
-    json_payload.setdefault("meta", {})["source_health"] = source_health.snapshot()
+    meta = json_payload.setdefault("meta", {})
+    meta["source_health"] = source_health.snapshot()
+    meta["stance_summary"] = stance_summary
+    meta["sentiment_by_source"] = by_source
 
     # Guardar en cache para futuras consultas (lista, no tuple, por JSON)
     cache_set(cache_key, [json_payload, report])
 
     return json_payload, report
+
+
+def _sentiment_by_source(items: list[dict]) -> dict:
+    """Agrega sentimiento y stance por fuente."""
+    from collections import defaultdict
+
+    buckets: dict[str, dict] = defaultdict(
+        lambda: {
+            "count": 0,
+            "positive": 0,
+            "negative": 0,
+            "neutral": 0,
+            "support": 0,
+            "against": 0,
+            "mixed": 0,
+            "unknown": 0,
+        }
+    )
+    for item in items:
+        src = item.get("source") or "unknown"
+        b = buckets[src]
+        b["count"] += 1
+        lab = item.get("sentiment_label", "neutral")
+        if lab in ("positive", "negative", "neutral"):
+            b[lab] += 1
+        st = item.get("stance", "unknown")
+        if st in ("support", "against", "mixed", "unknown"):
+            b[st] += 1
+    return dict(buckets)

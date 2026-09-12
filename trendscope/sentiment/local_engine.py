@@ -149,43 +149,54 @@ def _analyze_fallback(text: str) -> SentimentResult:
         label = "neutral"
         score = 0.5
 
+    from trendscope.sentiment.cache import calibrate_score
+
     return SentimentResult(
         text=text[:100],
         label=label,
-        score=score,
+        score=calibrate_score(label, score),
         engine=f"local_fallback_{lang}",
         emotions={},
     )
 
 
-def analyze(texts: list[str]) -> list[SentimentResult]:
-    """Analiza sentimiento de una lista de textos (autodeteccion ES/EN)."""
+def analyze(texts: list[str], batch_size: int = 32, batch_timeout: float = 20.0) -> list[SentimentResult]:
+    """Analiza sentimiento de una lista de textos (autodeteccion ES/EN).
+
+    - Cache LRU por texto
+    - Batches para no saturar el modelo
+    - Timeout por batch → fallback keywords
+    """
+    import time as _time
+
+    from trendscope.sentiment.cache import cache_get, cache_set, calibrate_score
+
     _load()
     results: list[SentimentResult] = []
 
     LABEL_MAP = {"POS": "positive", "NEG": "negative", "NEU": "neutral"}
 
-    for text in texts:
-        # Mantener alineacion 1:1 con los items: si el texto es vacio o
-        # muy corto, devolver neutral en lugar de saltarlo (sino se
-        # desalinean los resultados con los items originales).
+    def _one(text: str) -> SentimentResult:
         if not text or len(text.strip()) < 3:
-            results.append(SentimentResult(
+            return SentimentResult(
                 text="",
                 label="neutral",
                 score=0.5,
                 engine="local_skipped",
                 emotions={},
-            ))
-            continue
+            )
+        engine_tag = "fallback" if _use_fallback else "pysentimiento"
+        cached = cache_get(text, engine_tag)
+        if cached is not None:
+            return cached
+
         try:
             text_clean = text[:512]
             lang = _detect_language(text_clean)
 
             if _use_fallback:
-                results.append(_analyze_fallback(text_clean))
+                result = _analyze_fallback(text_clean)
             else:
-                # Seleccionar modelo segun idioma detectado
                 if lang == "es":
                     sent_model = _sentiment_model_es
                     emo_model = _emotion_model_es
@@ -195,16 +206,31 @@ def analyze(texts: list[str]) -> list[SentimentResult]:
 
                 sent = sent_model.predict(text_clean)
                 emo = emo_model.predict(text_clean)
-
-                results.append(SentimentResult(
+                label = LABEL_MAP.get(sent.output, "neutral")
+                raw_p = max(sent.probas.values())
+                result = SentimentResult(
                     text=text[:100],
-                    label=LABEL_MAP.get(sent.output, "neutral"),
-                    score=max(sent.probas.values()),
+                    label=label,
+                    score=calibrate_score(label, raw_p),
                     engine=f"local_{lang}",
                     emotions=dict(emo.probas),
-                ))
+                )
+            cache_set(text, engine_tag, result)
+            return result
         except Exception as e:
             logger.warning(f"Local sentiment '{text[:40]}': {e}")
-            results.append(_analyze_fallback(text))
+            return _analyze_fallback(text)
+
+    # Procesar por batches (modelo transformers más estable así)
+    for start in range(0, len(texts), batch_size):
+        chunk = texts[start : start + batch_size]
+        t0 = _time.perf_counter()
+        for text in chunk:
+            if _time.perf_counter() - t0 > batch_timeout:
+                # Timeout: resto con fallback rápido
+                for rest in chunk[chunk.index(text) :]:
+                    results.append(_analyze_fallback(rest))
+                break
+            results.append(_one(text))
 
     return results
