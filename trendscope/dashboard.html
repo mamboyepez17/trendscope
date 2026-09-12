@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>TrendScope · Intelligence Dashboard</title>
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script src="/static/chart.umd.min.js"></script>
 <style>
   :root{
     --bg:#0a0e1a; --card:#141b2d; --card2:#1a2238; --accent:#00d4ff;
@@ -299,8 +299,21 @@
 </main>
 
 <script>
-const API = 'http://localhost:8000';
-const WS = 'ws://localhost:8000/ws';
+const API = ''; // same origin
+const WS_BASE = (location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host + '/ws';
+function getApiKey(){
+  return sessionStorage.getItem('ts_api_key') || new URLSearchParams(location.search).get('api_key') || '';
+}
+function apiHeaders(){
+  const h = {};
+  const k = getApiKey();
+  if (k) h['X-API-Key'] = k;
+  return h;
+}
+const WS = (() => {
+  const k = getApiKey();
+  return k ? WS_BASE + '?api_key=' + encodeURIComponent(k) : WS_BASE;
+})();
 const $ = id => document.getElementById(id);
 
 const SRC_COLORS = {
@@ -338,7 +351,7 @@ function trunc(s,n){ s=s||''; return s.length>n? s.slice(0,n-1)+'…':s; }
 /* ---------- Categories ---------- */
 async function loadCategories(){
   try{
-    const r = await fetch(API+'/categories');
+  const r = await fetch(API+'/categories', {headers: apiHeaders()});
     if(!r.ok) throw new Error('HTTP '+r.status);
     const j = await r.json();
     const cats = (j && j.categories) || [];
@@ -360,7 +373,7 @@ async function fetchTrends({category, topic, geo='CO'}){
   else if(category) p.set('category', category);
   if(geo) p.set('geo', geo);
   p.set('top_n','25');
-  const r = await fetch(API+'/trends?'+p.toString());
+  const r = await fetch(API+'/trends?'+p.toString(), {headers: apiHeaders()});
   if(!r.ok){
     let msg='HTTP '+r.status;
     try{ const e=await r.json(); msg=e.detail||msg; }catch(_){}
@@ -370,7 +383,7 @@ async function fetchTrends({category, topic, geo='CO'}){
 }
 
 async function api(method, path, body){
-  const opts={method,headers:{}};
+  const opts={method,headers: apiHeaders()};
   if(body){opts.headers['Content-Type']='application/json'; opts.body=JSON.stringify(body);}
   const r=await fetch(API+path,opts);
   if(!r.ok){

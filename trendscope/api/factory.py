@@ -82,6 +82,14 @@ def create_app(
     app.add_middleware(RateLimitMiddleware)
     app.add_middleware(APIKeyMiddleware)
 
+    from pathlib import Path
+
+    from fastapi.staticfiles import StaticFiles
+
+    static_dir = Path(__file__).resolve().parent.parent / "static"
+    if static_dir.exists():
+        app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
+
     from trendscope.api.routes import register_routes
 
     register_routes(app, state)

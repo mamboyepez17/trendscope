@@ -16,6 +16,21 @@ Cuando un modelo complete un bloque, agrega una entrada así:
 - descripción
 ---
 
+## [1.8.0] — 2026-02-12 — MiMo
+
+### Añadido
+- Plan V3 (`Implementation_Plan/TRENDSCOPE_V3_PLAN.md`) bloques 27–38
+- `create_app()` sin side-effects al importar (lifespan + stores inyectables)
+- `org_id` en watchlist/history/jobs + aislamiento por tenant
+- Rate limit por org además de IP (`org_rate_limit`)
+- Source health runtime + skip de fuentes muertas (`SOURCE_HEALTH_SKIP`)
+- Dashboard: Chart.js local en `/static`, CSP estricto `script-src 'self'`, API key en fetch/WS
+
+### Pendiente
+- Bloques 32–38 del plan V3 (payload tipado, SSE jobs, GDELT, digest, repository, OpenAPI, perf budgets)
+
+---
+
 ## [1.6.0] — 2026-02-12 — MiMo
 
 ### Corregido

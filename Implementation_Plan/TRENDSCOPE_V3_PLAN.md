@@ -49,7 +49,7 @@
 - [x] Bloque 28 — Aislamiento por org
 - [x] Bloque 29 — Rate limit por org + key
 - [x] Bloque 30 — Source health runtime
-- [ ] Bloque 31 — Dashboard endurecido
+- [x] Bloque 31 — Dashboard endurecido
 - [ ] Bloque 32 — Modelos tipados de payload
 - [ ] Bloque 33 — SSE / progreso de jobs
 - [ ] Bloque 34 — Adaptador de datos GDELT
