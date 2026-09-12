@@ -119,6 +119,8 @@ Default bind: `127.0.0.1:8000`. Interactive docs: **http://localhost:8000/docs**
 GET    /trends?topic=crypto+Colombia
 GET    /trends?topic=AI&async=true     — 202 + job_id
 GET    /trends?category=technology&sentiment_engine=claude
+GET    /demo                          — offline sample payload
+GET    /smoke                         — doctor + offline smoke
 GET    /narrate?topic=crypto+Colombia&style=executive
 GET    /export/csv|json|xlsx?topic=...
 GET    /report?topic=crypto

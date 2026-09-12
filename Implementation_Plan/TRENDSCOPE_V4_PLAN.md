@@ -30,11 +30,11 @@
 
 ## Estado
 
-- [ ] 39 — CLI doctor + smoke
-- [ ] 40 — Demo offline
-- [ ] 41 — Validación de config
-- [ ] 42 — Informe de smoke
-- [ ] 43 — Live smoke
+- [x] 39 — CLI doctor + smoke
+- [x] 40 — Demo offline
+- [x] 41 — Validación de config
+- [x] 42 — Informe de smoke
+- [x] 43 — Live smoke
 - [ ] 44 — README + guía de prueba
 
 ---

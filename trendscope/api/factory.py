@@ -62,6 +62,10 @@ def create_app(
     @asynccontextmanager
     async def lifespan(app: FastAPI):
         _warn_if_exposed()
+        from trendscope.api.validation import validate_settings
+
+        for w in validate_settings():
+            logger.warning("Config: {}", w)
         if state.enable_scheduler:
             state.scheduler.start()
         try:

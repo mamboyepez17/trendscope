@@ -168,6 +168,34 @@ def register_routes(app: FastAPI, state) -> None:
             "sentiment_engine_default": settings.sentiment_engine,
         }
 
+    @app.get("/demo", tags=["trends"], summary="Offline demo payload (no scraping)")
+    def get_demo(topic: str = QParam("AI in Colombia", description="Demo topic label")):
+        """Sample analysis payload — useful for dashboard demos without network."""
+        from trendscope.demo.seed import build_demo_payload
+
+        return build_demo_payload(topic=topic)
+
+    @app.get("/smoke", tags=["ops"], summary="Smoke check summary")
+    def smoke():
+        """Smoke report: doctor + offline pipeline check."""
+        from trendscope.ops import run_doctor_report, run_smoke
+
+        offline = run_smoke(live=False)
+        try:
+            doctor = run_doctor_report()
+        except Exception as e:
+            doctor = {"error": str(e)}
+        ok_sources = sum(1 for v in doctor.values() if isinstance(v, dict) and v.get("status") == "ok")
+        return {
+            "status": "ok" if offline.get("ok") else "error",
+            "version": __version__,
+            "offline_smoke": offline,
+            "doctor_ok_sources": ok_sources,
+            "doctor": doctor,
+            "demo_url": "/demo",
+            "dashboard": "/dashboard",
+        }
+
     @app.get("/metrics", tags=["ops"])
     def metrics():
         """Métricas ligeras en texto Prometheus-compatible."""
