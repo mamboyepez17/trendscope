@@ -203,6 +203,13 @@ def show_results(payload: dict, query: TrendQuery) -> None:
 
 def main() -> None:
     """Entry point del CLI."""
+    if len(sys.argv) > 1:
+        args = sys.argv[1:]
+        if "--doctor" in args or "--smoke" in args or "--live" in args:
+            from trendscope.ops import main as ops_main
+
+            # Pass through remaining args; ops.main uses argparse
+            sys.exit(ops_main(args))
     try:
         console.print(Panel(BANNER, border_style="cyan"))
         mode, category, free_topic = choose_topic()

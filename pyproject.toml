@@ -55,6 +55,7 @@ dev = [
 trendscope = "trendscope.main:main"
 trendscope-api = "trendscope.server_api:run"
 trendscope-mcp = "trendscope.server_mcp:main"
+trendscope-ops = "trendscope.ops:main"
 
 [tool.setuptools.packages.find]
 where = ["."]
