@@ -36,6 +36,6 @@ def test_static_chart_served(isolated_app):
 
 
 def test_dashboard_html_uses_api_key_helper():
-    html = Path("trendscope/dashboard.html").read_text(encoding="utf-8")
-    assert "getApiKey" in html
-    assert "X-API-Key" in html
+    js = Path("trendscope/static/dashboard.js").read_text(encoding="utf-8")
+    assert "getApiKey" in js
+    assert "X-API-Key" in js
