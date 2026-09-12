@@ -67,57 +67,65 @@ def run(query: TrendQuery) -> list[dict]:
 
         cookie_str = f"auth_token={TWITTER_AUTH_TOKEN}; ct0={TWITTER_CT0}"
         results: list[dict] = []
-        keywords = query.keywords[:3]
+        # Más keywords del tema (hasta 4) para cubrir variantes
+        keywords = query.keywords[:4]
+        seen_urls: set[str] = set()
 
         for idx, keyword in enumerate(keywords):
             q = _twitter_query(keyword)
             if not q:
                 continue
-            try:
-                # Latest: resultados del tema (Top + query sin comillas = feed viral)
-                tweets = search_tweets_sync(
-                    cookies=cookie_str,
-                    query=q,
-                    limit=15,
-                    mode="Latest",
-                )
-
-                kept = 0
-                for tweet in tweets:
-                    text = tweet.get("text", "")
-                    if not _is_relevant(text, keyword):
-                        continue
-                    author = tweet.get("author", {})
-                    ts = _parse_twitter_date(tweet.get("created_at"))
-                    results.append(
-                        {
-                            "source": "twitter",
-                            "keyword": keyword,
-                            "title": text[:200],
-                            "text": text[:200],
-                            "likes": tweet.get("likes", 0),
-                            "retweets": tweet.get("retweets", 0),
-                            "replies": tweet.get("replies", 0),
-                            "views": tweet.get("views", 0),
-                            "user_followers": author.get("followers", 0),
-                            "url": tweet.get("url", ""),
-                            "created_at": tweet.get("created_at"),
-                            "created_utc": ts,
-                            "published_at": tweet.get("created_at"),
-                        }
+            for mode in ("Latest", "Top"):
+                try:
+                    # Latest: recientes del tema; Top: más engagement del tema (ya con comillas)
+                    tweets = search_tweets_sync(
+                        cookies=cookie_str,
+                        query=q,
+                        limit=25,
+                        mode=mode,
                     )
-                    kept += 1
 
-                logger.info(f"Twitter '{q}': {kept}/{len(tweets)} relevantes")
-            except TwitterError as e:
-                logger.warning(f"Twitter busqueda '{q}': {e}")
-                if "rate" in str(e).lower():
-                    break
-            except Exception as e:
-                logger.warning(f"Twitter busqueda '{q}': {e}")
+                    kept = 0
+                    for tweet in tweets:
+                        text = tweet.get("text", "")
+                        if not _is_relevant(text, keyword):
+                            continue
+                        url = tweet.get("url", "")
+                        if url and url in seen_urls:
+                            continue
+                        if url:
+                            seen_urls.add(url)
+                        author = tweet.get("author", {})
+                        ts = _parse_twitter_date(tweet.get("created_at"))
+                        results.append(
+                            {
+                                "source": "twitter",
+                                "keyword": keyword,
+                                "title": text[:200],
+                                "text": text[:200],
+                                "likes": tweet.get("likes", 0),
+                                "retweets": tweet.get("retweets", 0),
+                                "replies": tweet.get("replies", 0),
+                                "views": tweet.get("views", 0),
+                                "user_followers": author.get("followers", 0),
+                                "url": url,
+                                "created_at": tweet.get("created_at"),
+                                "created_utc": ts,
+                                "published_at": tweet.get("created_at"),
+                            }
+                        )
+                        kept += 1
+
+                    logger.info(f"Twitter '{q}' [{mode}]: {kept}/{len(tweets)} relevantes")
+                except TwitterError as e:
+                    logger.warning(f"Twitter busqueda '{q}' [{mode}]: {e}")
+                    if "rate" in str(e).lower():
+                        break
+                except Exception as e:
+                    logger.warning(f"Twitter busqueda '{q}' [{mode}]: {e}")
 
             if idx < len(keywords) - 1:
-                time.sleep(1.5)
+                time.sleep(1.2)
 
         logger.info(f"Twitter total: {len(results)} tweets")
         return results

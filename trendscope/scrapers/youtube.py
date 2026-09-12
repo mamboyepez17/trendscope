@@ -53,7 +53,7 @@ def _parse_published_utc(published: str) -> float | None:
     return time.time() - n * mult
 
 
-def _search_youtube(keyword: str, limit: int = 15) -> list[dict]:
+def _search_youtube(keyword: str, limit: int = 20) -> list[dict]:
     """
     Busca videos en YouTube usando el endpoint interno publico.
     No requiere API key — usa el mismo endpoint que usa la pagina de busqueda.
@@ -169,7 +169,7 @@ def run(query: TrendQuery) -> list[dict]:
     all_videos: list[dict] = []
 
     for kw in query.keywords[:3]:
-        videos = _search_youtube(kw, limit=15)
+        videos = _search_youtube(kw, limit=20)
         all_videos.extend(videos)
         time.sleep(0.5)
 

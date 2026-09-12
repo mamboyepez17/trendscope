@@ -26,7 +26,7 @@ def run(query: TrendQuery) -> list[dict]:
             resp.raise_for_status()
             root = ET.fromstring(resp.text)
             items = root.findall(".//item")
-            for item in items[:12]:
+            for item in items[:20]:
                 title = (item.findtext("title") or "").strip()
                 link = (item.findtext("link") or "").strip()
                 pub = (item.findtext("pubDate") or "").strip()

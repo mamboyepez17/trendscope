@@ -66,8 +66,9 @@ def _build_prompt(payload: dict, style: str) -> str:
     context = _build_context(payload)
     return (
         f"{system}\n\n"
-        "Analiza los siguientes datos de tendencias y genera un resumen en espa\u00f1ol. "
-        "S\u00e9 concreto, accionable y basado estrictamente en los datos proporcionados.\n\n"
+        "IMPORTANTE: Responde exclusivamente en español. "
+        "Analiza los siguientes datos de tendencias y genera un resumen. "
+        "Sé concreto, accionable y basado estrictamente en los datos proporcionados.\n\n"
         f"{context}"
     )
 
@@ -213,7 +214,11 @@ def _call_deepseek(prompt: str) -> str:
             "messages": [
                 {
                     "role": "system",
-                    "content": "Eres un experto en análisis de tendencias.",
+                    "content": (
+                        "Eres un analista senior de tendencias en español. "
+                        "Responde SIEMPRE en español de España/Latinoamérica, "
+                        "nunca en inglés, salvo citas técnicas inevitables."
+                    ),
                 },
                 {"role": "user", "content": prompt},
             ],
