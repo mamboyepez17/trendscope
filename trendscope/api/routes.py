@@ -9,6 +9,7 @@ from pathlib import Path
 from fastapi import (
     FastAPI,
     HTTPException,
+    Request,
     Query as QParam,
     WebSocket,
     WebSocketDisconnect,
@@ -30,6 +31,10 @@ from trendscope.narrator.engine import NARRATIVE_STYLES, generate_summary
 from trendscope.output.exporter import export_csv, export_excel, export_json
 from trendscope.settings import settings
 from trendscope.watchlist.models import WatchItem
+
+
+def _org_id(request) -> str:
+    return getattr(request.state, "org_id", None) or "default"
 
 
 def _run_pipeline_query(
@@ -196,6 +201,7 @@ def register_routes(app: FastAPI, state) -> None:
 
     @app.get("/trends")
     def get_trends(
+        request: Request,
         topic: str | None = QParam(None, description="Tema libre"),
         category: str | None = QParam(None, description="Categoria predefinida"),
         geo: str = QParam("CO", description="Codigo ISO pais"),
@@ -218,6 +224,7 @@ def register_routes(app: FastAPI, state) -> None:
                 geo=geo,
                 sentiment_engine=sentiment_engine,
                 top_n=top_n,
+                org_id=_org_id(request),
             )
             return JSONResponse(
                 status_code=202,
@@ -230,11 +237,11 @@ def register_routes(app: FastAPI, state) -> None:
         return _run_pipeline_query(topic, category, geo, sentiment_engine, top_n)
 
     @app.get("/jobs/{job_id}")
-    def get_job(job_id: str):
+    def get_job(request: Request, job_id: str):
         """Consulta el estado de un job asíncrono."""
         from trendscope.jobs.store import get_job_store, job_to_public
 
-        job = get_job_store().get(job_id)
+        job = get_job_store().get(job_id, org_id=_org_id(request))
         if not job:
             raise HTTPException(status_code=404, detail="Job not found")
         return job_to_public(job)
@@ -316,6 +323,7 @@ def register_routes(app: FastAPI, state) -> None:
 
     @app.post("/watchlist")
     def create_watch_item(
+        request: Request,
         topic: str = QParam(..., description="Topic to monitor"),
         category: str | None = QParam(None, description="Predefined category (optional)"),
         geo: str = QParam("CO", description="ISO country code"),
@@ -351,15 +359,16 @@ def register_routes(app: FastAPI, state) -> None:
             alert_webhook=alert_webhook,
             alert_min_score=alert_min_score,
             alert_sentiment_flip=alert_sentiment_flip,
+            org_id=_org_id(request),
         )
         item = state.store.add(item)
         state.scheduler.refresh()
         return item
 
     @app.get("/watchlist")
-    def list_watch_items():
-        """List all watchlist items."""
-        items = state.store.list_all()
+    def list_watch_items(request: Request):
+        """List all watchlist items (scoped to caller org)."""
+        items = state.store.list_all(org_id=_org_id(request))
         return {"items": [item.__dict__ for item in items]}
 
     @app.get("/watchlist/stats")
@@ -368,15 +377,16 @@ def register_routes(app: FastAPI, state) -> None:
         return state.store.get_stats()
 
     @app.get("/watchlist/{item_id}")
-    def get_watch_item(item_id: int):
+    def get_watch_item(request: Request, item_id: int):
         """Get a single watchlist item."""
-        item = state.store.get(item_id)
+        item = state.store.get(item_id, org_id=_org_id(request))
         if not item:
             raise HTTPException(status_code=404, detail="Watch item not found")
         return item
 
     @app.put("/watchlist/{item_id}")
     def update_watch_item(
+        request: Request,
         item_id: int,
         topic: str = QParam(..., description="Topic to monitor"),
         category: str | None = QParam(None, description="Predefined category (optional)"),
@@ -388,7 +398,7 @@ def register_routes(app: FastAPI, state) -> None:
         active: bool = QParam(True, description="Whether the item is active"),
     ):
         """Update a watchlist item."""
-        existing = state.store.get(item_id)
+        existing = state.store.get(item_id, org_id=_org_id(request))
         if not existing:
             raise HTTPException(status_code=404, detail="Watch item not found")
         item = WatchItem(
@@ -399,26 +409,28 @@ def register_routes(app: FastAPI, state) -> None:
             sentiment_engine=sentiment_engine,
             interval_minutes=interval_minutes,
             active=active,
+            org_id=_org_id(request),
         )
         item = state.store.update(item)
         state.scheduler.refresh()
         return item
 
     @app.delete("/watchlist/{item_id}")
-    def delete_watch_item(item_id: int):
+    def delete_watch_item(request: Request, item_id: int):
         """Delete a watchlist item."""
-        if not state.store.delete(item_id):
+        if not state.store.delete(item_id, org_id=_org_id(request)):
             raise HTTPException(status_code=404, detail="Watch item not found")
         state.scheduler.refresh()
         return {"status": "ok", "deleted": item_id}
 
     @app.post("/watchlist/{item_id}/run")
     def run_watch_item_now(
+        request: Request,
         item_id: int,
         background: bool = QParam(False, description="Run as background job"),
     ):
         """Run analysis for a watchlist item immediately."""
-        item = state.store.get(item_id)
+        item = state.store.get(item_id, org_id=_org_id(request))
         if not item:
             raise HTTPException(status_code=404, detail="Watch item not found")
         if background:
@@ -436,12 +448,15 @@ def register_routes(app: FastAPI, state) -> None:
 
     @app.get("/history")
     def get_history(
+        request: Request,
         topic: str | None = QParam(None, description="Filter by topic"),
         days: int = QParam(7, description="Number of days to look back"),
         limit: int = QParam(100, description="Maximum records to return"),
     ):
-        """Get historical analysis records."""
-        records = state.store.get_history(topic=topic, days=days, limit=limit)
+        """Get historical analysis records (scoped to caller org)."""
+        records = state.store.get_history(
+            topic=topic, days=days, limit=limit, org_id=_org_id(request)
+        )
         return {
             "topic": topic,
             "days": days,
@@ -451,13 +466,16 @@ def register_routes(app: FastAPI, state) -> None:
 
     @app.get("/forecast")
     def get_forecast(
+        request: Request,
         topic: str = QParam(..., description="Topic to forecast"),
         days: int = QParam(30, ge=1, le=365, description="Lookback window in days"),
     ):
         """EMA, velocity y detección de breakout sobre el historial de un tema."""
         from trendscope.analyzer.forecast import forecast_topic
 
-        result = forecast_topic(state.store, topic, days=days)
+        result = forecast_topic(
+            state.store, topic, days=days, org_id=_org_id(request)
+        )
         if not result:
             raise HTTPException(
                 status_code=404, detail=f"No history for topic '{topic}'"

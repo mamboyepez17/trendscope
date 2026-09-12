@@ -20,6 +20,7 @@ class WatchItem:
     alert_webhook: Optional[str] = None
     alert_min_score: Optional[float] = None
     alert_sentiment_flip: bool = False
+    org_id: str = "default"
 
 
 @dataclass
@@ -36,3 +37,4 @@ class AnalysisRecord:
     negative: int
     neutral: int
     payload_json: str
+    org_id: str = "default"

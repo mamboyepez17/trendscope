@@ -46,7 +46,7 @@
 ## Estado
 
 - [x] Bloque 27 — App factory sin side-effects
-- [ ] Bloque 28 — Aislamiento por org
+- [x] Bloque 28 — Aislamiento por org
 - [ ] Bloque 29 — Rate limit por org + key
 - [ ] Bloque 30 — Source health runtime
 - [ ] Bloque 31 — Dashboard endurecido

@@ -76,9 +76,11 @@ def forecast_from_scores(
     )
 
 
-def forecast_topic(store, topic: str, days: int = 30) -> dict[str, Any] | None:
+def forecast_topic(
+    store, topic: str, days: int = 30, org_id: str | None = None
+) -> dict[str, Any] | None:
     """Calcula forecast desde el store de watchlist/history."""
-    records = store.get_history(topic=topic, days=days, limit=200)
+    records = store.get_history(topic=topic, days=days, limit=200, org_id=org_id)
     if not records:
         return None
     # get_history devuelve DESC (más reciente primero) → invertir a chronological

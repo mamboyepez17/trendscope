@@ -47,27 +47,57 @@ class JobStore:
                     started_at TEXT,
                     finished_at TEXT,
                     result_path TEXT,
-                    error TEXT
+                    error TEXT,
+                    org_id TEXT NOT NULL DEFAULT 'default'
                 )
                 """
             )
+            try:
+                conn.execute(
+                    "ALTER TABLE jobs ADD COLUMN org_id TEXT NOT NULL DEFAULT 'default'"
+                )
+            except sqlite3.OperationalError:
+                pass
 
-    def create(self, kind: str, topic: str | None, category: str | None, geo: str) -> str:
+    def create(
+        self,
+        kind: str,
+        topic: str | None,
+        category: str | None,
+        geo: str,
+        org_id: str = "default",
+    ) -> str:
         job_id = uuid.uuid4().hex[:16]
         with _connect(self.path) as conn:
             conn.execute(
                 """
-                INSERT INTO jobs (id, kind, topic, category, geo, status, created_at)
-                VALUES (?, ?, ?, ?, ?, 'pending', ?)
+                INSERT INTO jobs (id, kind, topic, category, geo, status, created_at, org_id)
+                VALUES (?, ?, ?, ?, ?, 'pending', ?, ?)
                 """,
-                (job_id, kind, topic, category, geo, datetime.now(timezone.utc).isoformat()),
+                (
+                    job_id,
+                    kind,
+                    topic,
+                    category,
+                    geo,
+                    datetime.now(timezone.utc).isoformat(),
+                    org_id,
+                ),
             )
         return job_id
 
-    def get(self, job_id: str) -> Optional[dict[str, Any]]:
+    def get(self, job_id: str, org_id: str | None = None) -> Optional[dict[str, Any]]:
         with _connect(self.path) as conn:
             conn.row_factory = sqlite3.Row
-            row = conn.execute("SELECT * FROM jobs WHERE id = ?", (job_id,)).fetchone()
+            if org_id:
+                row = conn.execute(
+                    "SELECT * FROM jobs WHERE id = ? AND org_id = ?",
+                    (job_id, org_id),
+                ).fetchone()
+            else:
+                row = conn.execute(
+                    "SELECT * FROM jobs WHERE id = ?", (job_id,)
+                ).fetchone()
         return dict(row) if row else None
 
     def mark_running(self, job_id: str) -> None:
@@ -118,10 +148,11 @@ def submit_analysis_job(
     geo: str = "CO",
     sentiment_engine: str = "local",
     top_n: int = 25,
+    org_id: str = "default",
 ) -> str:
     """Encola un análisis y retorna job_id inmediatamente."""
     store = get_job_store()
-    job_id = store.create(kind, topic, category, geo)
+    job_id = store.create(kind, topic, category, geo, org_id=org_id)
 
     def _run() -> None:
         store.mark_running(job_id)

@@ -41,7 +41,8 @@ class WatchlistStore:
                     created_at TEXT NOT NULL DEFAULT (datetime('now')),
                     alert_webhook TEXT,
                     alert_min_score REAL,
-                    alert_sentiment_flip INTEGER NOT NULL DEFAULT 0
+                    alert_sentiment_flip INTEGER NOT NULL DEFAULT 0,
+                    org_id TEXT NOT NULL DEFAULT 'default'
                 )
                 """
             )
@@ -50,6 +51,8 @@ class WatchlistStore:
                 "ALTER TABLE watchlist ADD COLUMN alert_webhook TEXT",
                 "ALTER TABLE watchlist ADD COLUMN alert_min_score REAL",
                 "ALTER TABLE watchlist ADD COLUMN alert_sentiment_flip INTEGER NOT NULL DEFAULT 0",
+                "ALTER TABLE watchlist ADD COLUMN org_id TEXT NOT NULL DEFAULT 'default'",
+                "ALTER TABLE history ADD COLUMN org_id TEXT NOT NULL DEFAULT 'default'",
             ):
                 try:
                     conn.execute(col_def)
@@ -67,12 +70,19 @@ class WatchlistStore:
                     positive INTEGER,
                     negative INTEGER,
                     neutral INTEGER,
-                    payload_json TEXT
+                    payload_json TEXT,
+                    org_id TEXT NOT NULL DEFAULT 'default'
                 )
                 """
             )
             conn.execute(
                 "CREATE INDEX IF NOT EXISTS idx_history_topic_at ON history(topic, analyzed_at)"
+            )
+            conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_watchlist_org ON watchlist(org_id)"
+            )
+            conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_history_org ON history(org_id)"
             )
 
     def add(self, item: WatchItem) -> WatchItem:
@@ -82,9 +92,9 @@ class WatchlistStore:
                 """
                 INSERT INTO watchlist (
                     topic, category, geo, interval_minutes, sentiment_engine, active,
-                    alert_webhook, alert_min_score, alert_sentiment_flip
+                    alert_webhook, alert_min_score, alert_sentiment_flip, org_id
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     item.topic,
@@ -96,33 +106,56 @@ class WatchlistStore:
                     item.alert_webhook,
                     item.alert_min_score,
                     int(item.alert_sentiment_flip),
+                    item.org_id,
                 ),
             )
             item.id = cur.lastrowid
             item.created_at = datetime.now(timezone.utc)
         return item
 
-    def list_all(self) -> list[WatchItem]:
-        """Return all watch items."""
+    def list_all(self, org_id: str | None = None) -> list[WatchItem]:
+        """Return all watch items (optionally filtered by org)."""
         with _connect(self.path) as conn:
             conn.row_factory = sqlite3.Row
-            rows = conn.execute("SELECT * FROM watchlist ORDER BY created_at DESC").fetchall()
+            if org_id:
+                rows = conn.execute(
+                    "SELECT * FROM watchlist WHERE org_id = ? ORDER BY created_at DESC",
+                    (org_id,),
+                ).fetchall()
+            else:
+                rows = conn.execute(
+                    "SELECT * FROM watchlist ORDER BY created_at DESC"
+                ).fetchall()
         return [self._row_to_watchitem(r) for r in rows]
 
-    def list_active(self) -> list[WatchItem]:
-        """Return active watch items."""
+    def list_active(self, org_id: str | None = None) -> list[WatchItem]:
+        """Return active watch items (optionally filtered by org)."""
         with _connect(self.path) as conn:
             conn.row_factory = sqlite3.Row
-            rows = conn.execute(
-                "SELECT * FROM watchlist WHERE active = 1 ORDER BY created_at DESC"
-            ).fetchall()
+            if org_id:
+                rows = conn.execute(
+                    "SELECT * FROM watchlist WHERE active = 1 AND org_id = ? ORDER BY created_at DESC",
+                    (org_id,),
+                ).fetchall()
+            else:
+                rows = conn.execute(
+                    "SELECT * FROM watchlist WHERE active = 1 ORDER BY created_at DESC"
+                ).fetchall()
         return [self._row_to_watchitem(r) for r in rows]
 
-    def get(self, item_id: int) -> Optional[WatchItem]:
-        """Return a single watch item by id."""
+    def get(self, item_id: int, org_id: str | None = None) -> Optional[WatchItem]:
+        """Return a single watch item by id (org-checked if provided)."""
         with _connect(self.path) as conn:
             conn.row_factory = sqlite3.Row
-            row = conn.execute("SELECT * FROM watchlist WHERE id = ?", (item_id,)).fetchone()
+            if org_id:
+                row = conn.execute(
+                    "SELECT * FROM watchlist WHERE id = ? AND org_id = ?",
+                    (item_id, org_id),
+                ).fetchone()
+            else:
+                row = conn.execute(
+                    "SELECT * FROM watchlist WHERE id = ?", (item_id,)
+                ).fetchone()
         return self._row_to_watchitem(row) if row else None
 
     def update(self, item: WatchItem) -> WatchItem:
@@ -133,7 +166,8 @@ class WatchlistStore:
                 UPDATE watchlist
                 SET topic = ?, category = ?, geo = ?, interval_minutes = ?,
                     sentiment_engine = ?, active = ?,
-                    alert_webhook = ?, alert_min_score = ?, alert_sentiment_flip = ?
+                    alert_webhook = ?, alert_min_score = ?, alert_sentiment_flip = ?,
+                    org_id = ?
                 WHERE id = ?
                 """,
                 (
@@ -146,18 +180,25 @@ class WatchlistStore:
                     item.alert_webhook,
                     item.alert_min_score,
                     int(item.alert_sentiment_flip),
+                    item.org_id,
                     item.id,
                 ),
             )
         return item
 
-    def delete(self, item_id: int) -> bool:
-        """Delete a watch item."""
+    def delete(self, item_id: int, org_id: str | None = None) -> bool:
+        """Delete a watch item (org-checked if provided)."""
         with _connect(self.path) as conn:
-            cur = conn.execute("DELETE FROM watchlist WHERE id = ?", (item_id,))
+            if org_id:
+                cur = conn.execute(
+                    "DELETE FROM watchlist WHERE id = ? AND org_id = ?",
+                    (item_id, org_id),
+                )
+            else:
+                cur = conn.execute("DELETE FROM watchlist WHERE id = ?", (item_id,))
             return cur.rowcount > 0
 
-    def save_history(self, payload: dict) -> AnalysisRecord:
+    def save_history(self, payload: dict, org_id: str = "default") -> AnalysisRecord:
         """Persist a snapshot from a pipeline payload."""
         meta = payload.get("meta", {})
         query = meta.get("query", {})
@@ -175,13 +216,14 @@ class WatchlistStore:
             negative=sentiment.get("negative", 0) or 0,
             neutral=sentiment.get("neutral", 0) or 0,
             payload_json=json.dumps(payload, ensure_ascii=False),
+            org_id=org_id,
         )
         with _connect(self.path) as conn:
             cur = conn.execute(
                 """
                 INSERT INTO history
-                (topic, geo, analyzed_at, total_signals, top_score, positive, negative, neutral, payload_json)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                (topic, geo, analyzed_at, total_signals, top_score, positive, negative, neutral, payload_json, org_id)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     record.topic,
@@ -193,37 +235,36 @@ class WatchlistStore:
                     record.negative,
                     record.neutral,
                     record.payload_json,
+                    record.org_id,
                 ),
             )
             record.id = cur.lastrowid
         return record
 
     def get_history(
-        self, topic: Optional[str] = None, days: int = 7, limit: int = 100
+        self,
+        topic: Optional[str] = None,
+        days: int = 7,
+        limit: int = 100,
+        org_id: str | None = None,
     ) -> list[AnalysisRecord]:
         """Return historical analysis records."""
         with _connect(self.path) as conn:
             conn.row_factory = sqlite3.Row
+            clauses = ["analyzed_at >= datetime('now', '-' || ? || ' days')"]
+            params: list = [days]
             if topic:
-                rows = conn.execute(
-                    """
-                    SELECT * FROM history
-                    WHERE topic = ? AND analyzed_at >= datetime('now', '-' || ? || ' days')
-                    ORDER BY analyzed_at DESC
-                    LIMIT ?
-                    """,
-                    (topic, days, limit),
-                ).fetchall()
-            else:
-                rows = conn.execute(
-                    """
-                    SELECT * FROM history
-                    WHERE analyzed_at >= datetime('now', '-' || ? || ' days')
-                    ORDER BY analyzed_at DESC
-                    LIMIT ?
-                    """,
-                    (days, limit),
-                ).fetchall()
+                clauses.append("topic = ?")
+                params.append(topic)
+            if org_id:
+                clauses.append("org_id = ?")
+                params.append(org_id)
+            params.append(limit)
+            rows = conn.execute(
+                f"SELECT * FROM history WHERE {' AND '.join(clauses)} "
+                "ORDER BY analyzed_at DESC LIMIT ?",
+                params,
+            ).fetchall()
         return [self._row_to_record(r) for r in rows]
 
     def _row_to_watchitem(self, row: sqlite3.Row) -> WatchItem:
@@ -244,6 +285,7 @@ class WatchlistStore:
             alert_sentiment_flip=bool(row["alert_sentiment_flip"])
             if "alert_sentiment_flip" in keys
             else False,
+            org_id=row["org_id"] if "org_id" in keys else "default",
         )
 
     def _row_to_record(self, row: sqlite3.Row) -> AnalysisRecord:
@@ -258,6 +300,7 @@ class WatchlistStore:
             negative=row["negative"],
             neutral=row["neutral"],
             payload_json=row["payload_json"],
+            org_id=row["org_id"] if "org_id" in row.keys() else "default",
         )
 
     def get_stats(self) -> dict:
