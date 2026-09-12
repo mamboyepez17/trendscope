@@ -239,7 +239,7 @@ curl "http://localhost:8000/narrate?topic=crypto+Colombia&style=executive"
 
 Supported providers:
 
-- **DeepSeek** (official API) — set `NARRATOR_PROVIDER=deepseek` and `DEEPSEEK_API_KEY=...` (https://platform.deepseek.com)
+- **DeepSeek** (official API) — set `NARRATOR_PROVIDER=deepseek` and `DEEPSEEK_API_KEY=...`. Default model: `deepseek-v4.1-flash` (DeepSeek-V4.1-Flash; `deepseek-chat` is retired). Override with `DEEPSEEK_MODEL`.
 - **OpenRouter** (default) — free models like `deepseek/deepseek-chat-v3-0324:free`. Get a free key at [openrouter.ai/keys](https://openrouter.ai/keys).
 - **Claude** — via `ANTHROPIC_API_KEY`
 - **Ollama** — local models via `OLLAMA_ENABLED=true`
