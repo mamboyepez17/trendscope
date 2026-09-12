@@ -10,28 +10,44 @@ It also generates AI narratives via OpenRouter (free models), Claude, or Ollama;
 
 **Version:** 1.8.x · **Python:** 3.11–3.12 · **License:** MIT
 
-## Quick start (Windows)
+## Quick start
 
-```cmd
-cd /d D:\Proyectos\TrendScope
+Requires **Python 3.11 or 3.12**.
+
+```bash
+git clone https://github.com/mamboyepez17/trendscope.git
+cd trendscope
+
+# Recommended: uv (https://docs.astral.sh/uv/)
 uv venv --python 3.11 .venv
 uv pip install -e ".[dev]"
-copy .env.example .env
+
+# Or with plain venv + pip
+python -m venv .venv
+# Windows:  .venv\Scripts\activate
+# macOS/Linux: source .venv/bin/activate
+pip install -e ".[dev]"
+
+cp .env.example .env   # Windows: copy .env.example .env
+```
+
+Start the API and open the dashboard:
+
+```bash
+# macOS / Linux
+.venv/bin/trendscope-api
+
+# Windows
 .venv\Scripts\trendscope-api.exe
+
+# Or from source (any OS)
+.venv/bin/python -m trendscope.server_api
+# Windows: .venv\Scripts\python.exe -m trendscope.server_api
 ```
 
 Open **http://localhost:8000/dashboard**.
 
-Without `uv`:
-
-```cmd
-cd /d D:\Proyectos\TrendScope
-python -m venv .venv
-.venv\Scripts\activate.bat
-pip install -e ".[dev]"
-```
-
-Included shortcuts: `run_tests.bat`, `start_api.bat`, `start_cli.bat`.
+Included shortcuts (Windows): `run_tests.bat`, `start_api.bat`, `start_cli.bat`.
 
 > `xactions-py` (Twitter/X toolkit) is vendored under `trendscope/xactions/`.
 
@@ -39,34 +55,37 @@ Included shortcuts: `run_tests.bat`, `start_api.bat`, `start_cli.bat`.
 
 ### CLI
 
-```cmd
+```bash
+# macOS / Linux
+.venv/bin/trendscope
+.venv/bin/python -m trendscope
+
+# Windows
 .venv\Scripts\trendscope.exe
-:: or
 .venv\Scripts\python.exe -m trendscope
 ```
 
 ### Web dashboard
 
-```cmd
-.venv\Scripts\trendscope-api.exe
-```
+Start the API (see Quick start), then open **http://localhost:8000/dashboard**.
 
-Open **http://localhost:8000/dashboard**. Dark theme, stats cards, sentiment gauge, source distribution, score histogram, top trends table, side-by-side compare, watchlist, history chart (local Chart.js, strict CSP), and WebSocket analysis.
+Dark theme, stats cards, sentiment gauge, source distribution, histogram, top trends table, side-by-side compare, watchlist, history chart (local Chart.js, strict CSP), and WebSocket analysis.
 
-If `API_KEY_REQUIRED=true`, open the dashboard as `/dashboard?api_key=YOUR_KEY` (or store the key in `sessionStorage` as `ts_api_key`).
+If `API_KEY_REQUIRED=true`, open `/dashboard?api_key=YOUR_KEY` (or store the key in `sessionStorage` as `ts_api_key`).
 
 ### Doctor (diagnose sources)
 
-```cmd
-.venv\Scripts\python.exe -c "from trendscope.core.doctor import run_doctor; from rich.console import Console; Console().print(run_doctor())"
+```bash
+.venv/bin/python -c "from trendscope.core.doctor import run_doctor; from rich.console import Console; Console().print(run_doctor())"
+# Windows: .venv\Scripts\python.exe -c "..."
 ```
 
 Or `GET /doctor`. Real probes on each source with actionable fix instructions.
 
 ### REST API (for HTTP agents)
 
-```cmd
-.venv\Scripts\trendscope-api.exe
+```bash
+.venv/bin/trendscope-api          # Windows: .venv\Scripts\trendscope-api.exe
 ```
 
 Default bind: `127.0.0.1:8000`. Interactive docs: **http://localhost:8000/docs**
@@ -122,14 +141,10 @@ docker compose exec trendscope pytest trendscope/tests/ -v
 
 ### MCP Server (for MCP-compatible agents)
 
-```cmd
-.venv\Scripts\trendscope-mcp.exe
-```
-
-Or from source:
-
-```cmd
-.venv\Scripts\python.exe -m trendscope.server_mcp
+```bash
+.venv/bin/trendscope-mcp
+# Windows: .venv\Scripts\trendscope-mcp.exe
+# Or:      .venv/bin/python -m trendscope.server_mcp
 ```
 
 Available tools (MCP SDK 2.x):
@@ -149,11 +164,12 @@ TrendScope includes a `SKILL.md` file that AI agents (Claude Code, OpenClaw, Her
 
 ### Run tests
 
-```cmd
-.venv\Scripts\python.exe -m pytest trendscope/tests/ -v
+```bash
+.venv/bin/python -m pytest trendscope/tests/ -v
+# Windows: .venv\Scripts\python.exe -m pytest trendscope/tests/ -v
 ```
 
-Or double-click `run_tests.bat`.
+On Windows you can also double-click `run_tests.bat`.
 
 ## AI-Powered Narrative Generation
 
@@ -451,8 +467,9 @@ CACHE_TTL_SECONDS=300
 
 ### Run the doctor first
 
-```cmd
-.venv\Scripts\python.exe -c "from trendscope.core.doctor import run_doctor; from rich.console import Console; Console().print(run_doctor())"
+```bash
+.venv/bin/python -c "from trendscope.core.doctor import run_doctor; from rich.console import Console; Console().print(run_doctor())"
+# Windows: .venv\Scripts\python.exe -c "..."
 ```
 
 This will tell you exactly what's working, what's not, and how to fix it.
@@ -475,13 +492,14 @@ Your API key may be invalid or missing. Get a free key at [openrouter.ai/keys](h
 
 ## Tests
 
-```cmd
-.venv\Scripts\python.exe -m pytest trendscope/tests/ -v
-:: optional long budgets:
-.venv\Scripts\python.exe -m pytest trendscope/tests/ -v -m slow
+```bash
+.venv/bin/python -m pytest trendscope/tests/ -v
+
+# Optional long-running performance budgets:
+.venv/bin/python -m pytest trendscope/tests/ -v -m slow
 ```
 
-Or double-click `run_tests.bat`.
+Windows: use `.venv\Scripts\python.exe` instead of `.venv/bin/python`.
 
 **250+ tests** covering: sentiment imports, path safety, API security, middleware, pipeline (logging, cache key, source health), SQLite concurrency, Docker hardening, watchlist, alerts, digests, jobs + SSE, forecast, org isolation, MCP tools, OpenAPI, performance budgets, and more.
 
