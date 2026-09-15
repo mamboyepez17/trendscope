@@ -102,20 +102,24 @@ def test_deepseek_ssl_retry_without_verify():
 
 
 def test_deepseek_reasoner_content_fallback():
-    """Si content vacío, usa reasoning_content."""
-    resp = MagicMock(status_code=200)
-    resp.json = lambda: {
-        "choices": [
-            {"message": {"content": "", "reasoning_content": "pensando... resultado"}}
-        ]
-    }
-    with patch("trendscope.narrator.engine.settings.deepseek_api_key", "sk-test"):
-        with patch("trendscope.narrator.engine.settings.deepseek_model", "deepseek-v4-pro"):
-            with patch("httpx.Client") as client_cls:
-                client = client_cls.return_value.__enter__.return_value
-                client.post.return_value = resp
-                out = _call_deepseek("hola")
-    assert "resultado" in out
+    """Si content vacío (reasoner), NO se expone reasoning_content al usuario."""
+    from trendscope.narrator.engine import _extract_deepseek_text
+
+    content, finish = _extract_deepseek_text(
+        {
+            "choices": [
+                {
+                    "finish_reason": "stop",
+                    "message": {
+                        "content": "",
+                        "reasoning_content": "pensamiento interno no visible",
+                    },
+                }
+            ]
+        }
+    )
+    assert content == ""
+    assert "pensamiento" not in content
 
 
 def test_generate_summary_dispatch_deepseek():

@@ -157,24 +157,19 @@ def _call_ollama(prompt: str) -> str:
 
 
 _DEEPSEEK_MODEL_FALLBACKS = (
-    # Preferir modelos chat (rápidos, texto completo). Los *-pro son reasoners
-    # y suelen dejar el narrative corto o quemar tokens en reasoning.
+    # Solo modelos chat (no reasoners): no exponen "pensamiento" ni dejan narrative vacío
     "deepseek-flash",
     "deepseek-chat",
-    "deepseek-v4.1-flash",
-    "deepseek-v4-pro",
 )
 
 _DEEPSEEK_MAX_TOKENS = 2000
 
 
 def _extract_deepseek_text(data: dict) -> tuple[str, str]:
-    """Devuelve (texto, finish_reason)."""
+    """Devuelve (texto visible, finish_reason). Nunca expone reasoning_content."""
     choice = (data.get("choices") or [{}])[0]
     msg = choice.get("message") or {}
     content = (msg.get("content") or "").strip()
-    if not content:
-        content = (msg.get("reasoning_content") or "").strip()
     return content, str(choice.get("finish_reason") or "")
 
 
