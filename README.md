@@ -21,6 +21,8 @@ On top of that: AI narratives (OpenRouter / Claude / Ollama), CSV/JSON/Excel exp
 
 **Why it exists:** expensive social-listening suites lock you into their data and pricing. TrendScope is free-source-first, agent-friendly (REST + MCP), and meant to run on your machine or a single VPS.
 
+> **Project status (2026-02-12):** paused / parked. Hardening, multi-source scraping, watchlist, jobs, sentiment stance, and DeepSeek narrator are implemented and tested (**306 tests**). Not actively maintained. Resume anytime with `git pull` and the Quick start below.
+
 ## Table of contents
 
 - [Quick start](#quick-start)
