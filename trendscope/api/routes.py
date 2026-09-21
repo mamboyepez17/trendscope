@@ -549,6 +549,76 @@ def register_routes(app: FastAPI, state) -> None:
             )
         return result
 
+    @app.get("/discover", tags=["trends"], summary="Trending topics by geo")
+    def discover(
+        geo: str = QParam("CO", description="CO | US | GLOBAL"),
+    ):
+        """Today's trending queries (Google Trends RSS) for discovery."""
+        import trendscope.scrapers.google_trends as gtrends
+
+        geo_u = (geo or "CO").upper()
+        rss_geo = {"GLOBAL": "US", "US": "US", "CO": "CO", "MX": "MX"}.get(geo_u, geo_u)
+        try:
+            items = gtrends._fetch_rss(rss_geo)
+        except Exception as e:
+            raise HTTPException(status_code=502, detail=str(e)) from e
+        topics = []
+        for it in items[:20]:
+            kw = (it.get("keyword") or it.get("title") or "").strip()
+            if kw:
+                topics.append(
+                    {
+                        "topic": kw,
+                        "traffic": it.get("approx_traffic", ""),
+                        "geo": geo_u,
+                    }
+                )
+        return {"geo": geo_u, "topics": topics}
+
+    @app.get("/conversation", tags=["trends"], summary="Posts + comments mood")
+    def conversation(
+        topic: str = QParam(..., description="Topic to analyze conversation"),
+        limit: int = QParam(8, ge=1, le=20, description="Posts to pull"),
+        comments_per_post: int = QParam(
+            15, ge=1, le=40, description="Comments per post"
+        ),
+    ):
+        """Collect public Reddit comments (+ optional X) and compute mood/acceptance."""
+        from trendscope.analyzer.conversation import analyze_conversation
+        from trendscope.scrapers import reddit_comments, x_replies
+        from trendscope.sentiment import analyze_items
+        from trendscope.core.query import TrendQuery
+
+        q = TrendQuery(mode="free", free_topic=topic, geo="CO")
+        posts = reddit_comments.search_public_posts(topic, limit=limit)
+        all_comments: list[dict] = []
+        for p in posts[:4]:
+            cid = p.get("reddit_id") or ""
+            if not cid:
+                continue
+            all_comments.extend(reddit_comments.fetch_comments(cid, limit=comments_per_post))
+
+        # Optional X signals if cookies configured
+        try:
+            all_comments.extend(x_replies.run(q))
+        except Exception:
+            pass
+
+        if all_comments:
+            all_comments = analyze_items(all_comments, q)
+
+        mood = analyze_conversation(all_comments, posts=posts)
+        return {
+            "topic": topic,
+            "posts": posts[:limit],
+            "comments": all_comments[:200],
+            "counts": {
+                "posts": len(posts),
+                "comments": len(all_comments),
+            },
+            "mood": mood,
+        }
+
     @app.websocket("/ws")
     async def websocket_endpoint(websocket: WebSocket):
         """Real-time analysis via WebSocket."""

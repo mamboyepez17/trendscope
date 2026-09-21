@@ -45,7 +45,22 @@ Cuando un modelo complete un bloque, agrega una entrada así:
 
 ---
 
-## [1.6.0] — 2026-02-12 — MiMo
+## [1.9.0] — 2026-02-12 — MiMo
+
+### Añadido
+- **Reddit comments mapper** (JSON público, sin API de paga)
+- **X replies** signals via xactions (best-effort)
+- **Conversation analyzer**: acceptance, toxic/hot, mood + emoji
+- API: `GET /conversation`, `GET /discover?geo=`
+- Dashboard: **light/dark**, paleta editorial, card **Conversation mood**
+- DeepSeek: español, solo respuesta (sin reasoning)
+
+### Estado
+- Plan V6 bloques 47–53 completados; **327 tests**
+- Proyecto **activo** para prueba manual
+
+---
+
 
 ### Corregido
 - **Sentimiento**: imports `from sentiment.…` → `from trendscope.sentiment.…` (motor dejaba todo en `failed`)

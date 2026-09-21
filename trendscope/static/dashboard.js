@@ -17,25 +17,34 @@ const $ = id => document.getElementById(id);
 
 const SRC_COLORS = {
   reddit:/^reddit/, twitter:/^twitter/, google_trends:/^google_trends/,
-  hackernews:/^hackernews/, youtube:/^youtube/, amazon:/^amazon/, tiktok:/^tiktok/
+  hackernews:/^hackernews/, youtube:/^youtube/, amazon:/^amazon/, tiktok:/^tiktok/,
+  gdelt:/^gdelt/, google_news:/^google_news/, bing:/^bing/, wikipedia:/^wikipedia/,
+  bluesky:/^bluesky/
 };
-const SRC_HEX = {reddit:'#ff5700',twitter:'#00d4ff',google_trends:'#3b82f6',
-  hackernews:'#22c55e',youtube:'#ef4444',amazon:'#eab308',tiktok:'#ec4899'};
+const SRC_HEX = {
+  reddit:'#c45c26', twitter:'#5b9aa0', google_trends:'#6a7fa8',
+  hackernews:'#c96b5c', youtube:'#b85c4a', amazon:'#d4a054', tiktok:'#8b6b9e',
+  gdelt:'#6a7fa8', google_news:'#5b9aa0', bing:'#6a7fa8', wikipedia:'#8a938f',
+  bluesky:'#5b9aa0', reddit_comment:'#c45c26', twitter_comment:'#5b9aa0'
+};
 
 function srcKey(name){
   name = (name||'').toLowerCase();
   for(const k in SRC_COLORS) if(SRC_COLORS[k].test(name)) return k;
   return name.replace(/[^a-z0-9]/g,'_') || 'other';
 }
-function srcColor(name){ return SRC_HEX[srcKey(name)] || '#6b7a99'; }
+function srcColor(name){ return SRC_HEX[srcKey(name)] || getCss('--muted', '#8a938f'); }
 function srcLabel(name){ return (name||'').replace(/_/g,' '); }
+function getCss(v, fb){
+  return getComputedStyle(document.documentElement).getPropertyValue(v).trim() || fb;
+}
 
-function scoreColor(s){ return s>=75?'#ef4444': s>=50?'#eab308':'#22c55e'; }
+function scoreColor(s){ return s>=75?getCss('--neg','#c96b5c'): s>=50?getCss('--accent','#d4a054'):getCss('--pos','#6fbf73'); }
 function sentiInfo(label){
   label=(label||'neutral').toLowerCase();
-  if(label.startsWith('pos')) return {cls:'pos',sym:'+',col:'#22c55e'};
-  if(label.startsWith('neg')) return {cls:'neg',sym:'−',col:'#ef4444'};
-  return {cls:'neu',sym:'~',col:'#6b7a99'};
+  if(label.startsWith('pos')) return {cls:'pos',sym:'+',col:getCss('--pos','#6fbf73')};
+  if(label.startsWith('neg')) return {cls:'neg',sym:'−',col:getCss('--neg','#c96b5c')};
+  return {cls:'neu',sym:'~',col:getCss('--muted','#8a938f')};
 }
 function fmt(n){
   if(n==null) return '—';
@@ -369,13 +378,14 @@ async function viewHistory(topic){
 }
 function renderHistoryList(records){
   if(!records.length){ $('historyList').innerHTML='<div class="empty">No history</div>'; return; }
+  const cpos=getCss('--pos','#6fbf73'), cneg=getCss('--neg','#c96b5c');
   $('historyList').innerHTML=records.slice(0,20).map(r=>`
     <div class="history-row">
       <span>${new Date(r.analyzed_at).toLocaleString()}</span>
       <span>score <b>${r.top_score.toFixed?r.top_score.toFixed(1):r.top_score}</b></span>
       <span>signals <b>${r.total_signals}</b></span>
-      <span style="color:#22c55e">+${r.positive}</span>
-      <span style="color:#ef4444">−${r.negative}</span>
+      <span style="color:${cpos}">+${r.positive}</span>
+      <span style="color:${cneg}">−${r.negative}</span>
     </div>`).join('');
 }
 function renderHistoryChart(records){
@@ -383,25 +393,32 @@ function renderHistoryChart(records){
   const labels=records.map(r=>new Date(r.analyzed_at).toLocaleDateString(undefined,{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}));
   const scores=records.map(r=>r.top_score);
   const volumes=records.map(r=>r.total_signals);
+  const accent=getCss('--accent','#d4a054');
+  const teal=getCss('--accent-2','#5b9aa0');
+  const muted=getCss('--muted','#8a938f');
+  const border=getCss('--border','#24313f');
   if(historyChart) historyChart.destroy();
   historyChart=new Chart(ctx,{
     type:'line',
     data:{
       labels,
       datasets:[
-        {label:'Top score',data:scores,borderColor:'#00d4ff',backgroundColor:'rgba(0,212,255,.15)',fill:true,tension:.3,yAxisID:'y'},
-        {label:'Signals',data:volumes,borderColor:'#22c55e',backgroundColor:'rgba(34,197,94,.1)',fill:true,tension:.3,yAxisID:'y1',type:'bar'}
+        {label:'Top score',data:scores,borderColor:accent,backgroundColor:accent+'33',fill:true,tension:.35,pointRadius:2,pointHoverRadius:5,yAxisID:'y'},
+        {label:'Signals',data:volumes,borderColor:teal,backgroundColor:teal+'22',fill:true,tension:.35,yAxisID:'y1',type:'bar',barPercentage:.65}
       ]
     },
     options:{
       responsive:true,maintainAspectRatio:false,
       interaction:{mode:'index',intersect:false},
-      scales:{
-        x:{ticks:{color:'#6b7a99',font:{size:10}},grid:{color:'#1e2940'}},
-        y:{position:'left',ticks:{color:'#6b7a99'},grid:{color:'#1e2940'},title:{display:true,text:'Score',color:'#6b7a99'}},
-        y1:{position:'right',ticks:{color:'#6b7a99'},grid:{drawOnChartArea:false},title:{display:true,text:'Signals',color:'#6b7a99'}}
+      plugins:{
+        legend:{labels:{color:muted,boxWidth:12,font:{size:11}}},
+        tooltip:{backgroundColor:getCss('--card2','#1c2836'),titleColor:getCss('--text','#e8e4dc'),bodyColor:muted,borderColor:border,borderWidth:1,cornerRadius:8,padding:10}
       },
-      plugins:{legend:{labels:{color:'#e0e6ed'}}}
+      scales:{
+        x:{ticks:{color:muted,font:{size:10}},grid:{color:border,drawBorder:false}},
+        y:{position:'left',ticks:{color:muted,font:{size:10}},grid:{color:border,drawBorder:false}},
+        y1:{position:'right',ticks:{color:muted,font:{size:10}},grid:{drawOnChartArea:false}}
+      }
     }
   });
 }
@@ -482,6 +499,7 @@ async function analyze(){
     renderSingle(data);
     // Narrativa IA en background (no bloquea el panel de trends)
     loadNarrative(topic||undefined, cat||undefined, geo);
+    loadConversation(topic||undefined, cat||undefined, geo);
   }catch(e){
     showError(e.message+' (Is API running at '+API+'?)');
     $('stats').innerHTML=''; $('gaugeWrap').innerHTML=''; $('sources').innerHTML='';
@@ -514,6 +532,59 @@ async function loadNarrative(topic, category, geo){
   }
 }
 
+/* ---------- Theme + Conversation mood ---------- */
+function applyTheme(mode){
+  document.documentElement.setAttribute('data-theme', mode);
+  try{ localStorage.setItem('ts_theme', mode); }catch(e){}
+  const btn = $('themeToggle');
+  if(btn) btn.textContent = mode==='light' ? 'Dark' : 'Light';
+}
+function initTheme(){
+  let mode='dark';
+  try{ mode = localStorage.getItem('ts_theme') || 'dark'; }catch(e){}
+  applyTheme(mode);
+  const btn=$('themeToggle');
+  if(btn) btn.addEventListener('click', ()=>{
+    const cur = document.documentElement.getAttribute('data-theme')||'dark';
+    applyTheme(cur==='light'?'dark':'light');
+  });
+}
+
+function renderMood(mood){
+  const box=$('moodBox');
+  if(!box) return;
+  if(!mood){ box.innerHTML='<div class="empty">Run Analyze to inspect comments</div>'; return; }
+  const total = Math.max(1, mood.total||1);
+  const pct = n => Math.round((n/total)*100);
+  const phrases=(mood.top_phrases||[]).slice(0,3);
+  box.innerHTML=`
+    <div class="mood-face" aria-hidden="true">${esc(mood.emoji||'😶')}</div>
+    <div>
+      <div class="mood-label">${esc(mood.label||mood.mood||'')}</div>
+      <div class="mood-sub">Acceptance ${((mood.acceptance_score||0)*100).toFixed(0)}% · ${mood.total||0} signals · emotion ${esc(mood.dominant_emotion||'')}</div>
+      <div class="mood-bars">
+        <div class="mood-row"><span>Support</span><div class="bar"><i class="sup" style="width:${pct(mood.support||0)}%"></i></div><span>${mood.support||0}</span></div>
+        <div class="mood-row"><span>Against</span><div class="bar"><i class="agn" style="width:${pct(mood.against||0)}%"></i></div><span>${mood.against||0}</span></div>
+        <div class="mood-row"><span>Mixed</span><div class="bar"><i class="mix" style="width:${pct(mood.mixed||0)}%"></i></div><span>${mood.mixed||0}</span></div>
+        <div class="mood-row"><span>Neutral</span><div class="bar"><i class="neu" style="width:${pct(mood.neutral||0)}%"></i></div><span>${mood.neutral||0}</span></div>
+      </div>
+      ${phrases.length?`<div class="phrases">“${esc(phrases.join('” · “'))}”</div>`:''}
+    </div>`;
+}
+
+async function loadConversation(topic, category, geo){
+  const t = topic || category;
+  if(!t) return;
+  try{
+    const p=new URLSearchParams({topic:t, limit:'6', comments_per_post:'12'});
+    const r=await fetch(API+'/conversation?'+p.toString(), {headers: apiHeaders()});
+    const j=await r.json();
+    renderMood(j.mood);
+  }catch(e){
+    console.error('conversation', e);
+  }
+}
+
 /* ---------- Init ---------- */
 $('analizar').addEventListener('click', analyze);
 $('topic').addEventListener('keydown',e=>{ if(e.key==='Enter') analyze(); });
@@ -540,3 +611,4 @@ if(_wl){
 loadCategories();
 loadWatchlist();
 connectWS();
+initTheme();
