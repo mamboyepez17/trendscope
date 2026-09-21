@@ -63,10 +63,18 @@ def test_conversation_mood_endpoint(isolated_app):
                 with patch(
                     "trendscope.scrapers.x_replies.run", return_value=[]
                 ):
-                    resp = client.get(
-                        "/conversation",
-                        params={"topic": "Abelardo", "limit": 3},
-                    )
+                    with patch(
+                        "trendscope.scrapers.hn_comments.fetch_hn_posts",
+                        return_value=[],
+                    ):
+                        with patch(
+                            "trendscope.scrapers.hn_comments.fetch_hn_comments",
+                            return_value=comments,
+                        ):
+                            resp = client.get(
+                                "/conversation",
+                                params={"topic": "Abelardo", "limit": 3},
+                            )
     assert resp.status_code == 200
     data = resp.json()
     assert data["topic"] == "Abelardo"

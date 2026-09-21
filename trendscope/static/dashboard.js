@@ -121,13 +121,14 @@ function renderStats(meta){
   const top = meta.top_trends ? meta.top_trends[0]?.trend_score : null;
   const topScore = top!=null ? Math.round(top) : '—';
   const pos=ss.positive||0, neg=ss.negative||0, neu=ss.neutral||0;
+  const cpos=getCss('--pos','#6fbf73'), cneg=getCss('--neg','#c96b5c'), cneu=getCss('--muted','#8a938f');
   $('stats').innerHTML = `
     <div class="stat"><div class="k">Total signals</div><div class="v" data-count="${total}">0</div></div>
     <div class="stat"><div class="k">Active sources</div><div class="v" data-count="${sources}">0</div></div>
     <div class="stat"><div class="k">Sentiment</div><div class="v" style="font-size:20px;line-height:1.3">
-        <span class="pill" style="color:#22c55e"><span class="dot" style="background:#22c55e"></span>${pos}+</span>
-        <span class="pill" style="color:#ef4444"><span class="dot" style="background:#ef4444"></span>${neg}−</span>
-        <span class="pill" style="color:#6b7a99"><span class="dot" style="background:#6b7a99"></span>${neu}~</span></div></div>
+        <span class="pill" style="color:${cpos}"><span class="dot" style="background:${cpos}"></span>${pos}+</span>
+        <span class="pill" style="color:${cneg}"><span class="dot" style="background:${cneg}"></span>${neg}−</span>
+        <span class="pill" style="color:${cneu}"><span class="dot" style="background:${cneu}"></span>${neu}~</span></div></div>
     <div class="stat"><div class="k">Top score</div><div class="v" data-count="${topScore}">0</div></div>`;
   animateCounts();
 }
@@ -154,9 +155,9 @@ function renderGauge(meta){
   const pP=pos/total, pN=neg/total, pU=neu/total;
   const R=70, C=2*Math.PI*R;
   const segs=[
-    {v:pP,col:'#22c55e',lbl:'Positive'},
-    {v:pU,col:'#6b7a99',lbl:'Neutral'},
-    {v:pN,col:'#ef4444',lbl:'Negative'}
+    {v:pP,col:getCss('--pos','#6fbf73'),lbl:'Positive'},
+    {v:pU,col:getCss('--muted','#8a938f'),lbl:'Neutral'},
+    {v:pN,col:getCss('--neg','#c96b5c'),lbl:'Negative'}
   ];
   let offset=0;
   const arcs = segs.map(s=>{
@@ -211,7 +212,7 @@ function renderHistogram(trends){
   });
   const max=Math.max(...bins,1);
   const labels=['0-19','20-39','40-59','60-79','80-100'];
-  const cols=['#22c55e','#22c55e','#eab308','#ef4444','#ef4444'];
+  const cols=[getCss('--pos','#6fbf73'),getCss('--pos','#6fbf73'),getCss('--accent','#d4a054'),getCss('--neg','#c96b5c'),getCss('--neg','#c96b5c')];
   $('hist').innerHTML = bins.map((c,i)=>`
     <div class="hist-col">
       <div class="hist-bar" data-h="${(c/max*100).toFixed(1)}" style="background:linear-gradient(180deg,${cols[i]},${cols[i]}aa)"></div>

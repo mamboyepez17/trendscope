@@ -583,26 +583,48 @@ def register_routes(app: FastAPI, state) -> None:
             15, ge=1, le=40, description="Comments per post"
         ),
     ):
-        """Collect public Reddit comments (+ optional X) and compute mood/acceptance."""
+        """Collect comments (Reddit public + HN + optional X) and compute mood."""
         from trendscope.analyzer.conversation import analyze_conversation
-        from trendscope.scrapers import reddit_comments, x_replies
-        from trendscope.sentiment import analyze_items
         from trendscope.core.query import TrendQuery
+        from trendscope.scrapers import hn_comments, reddit_comments, x_replies
+        from trendscope.sentiment import analyze_items
 
         q = TrendQuery(mode="free", free_topic=topic, geo="CO")
-        posts = reddit_comments.search_public_posts(topic, limit=limit)
+        posts: list[dict] = []
         all_comments: list[dict] = []
-        for p in posts[:4]:
-            cid = p.get("reddit_id") or ""
-            if not cid:
-                continue
-            all_comments.extend(reddit_comments.fetch_comments(cid, limit=comments_per_post))
+        sources_tried: dict[str, str] = {}
 
-        # Optional X signals if cookies configured
+        # 1) Reddit public JSON
         try:
-            all_comments.extend(x_replies.run(q))
-        except Exception:
-            pass
+            rposts = reddit_comments.search_public_posts(topic, limit=limit)
+            sources_tried["reddit"] = f"posts={len(rposts)}"
+            posts.extend(rposts)
+            for p in rposts[:4]:
+                cid = p.get("reddit_id") or ""
+                if cid:
+                    all_comments.extend(
+                        reddit_comments.fetch_comments(cid, limit=comments_per_post)
+                    )
+        except Exception as e:
+            sources_tried["reddit"] = f"error: {e}"
+
+        # 2) HN posts + comments (always useful; free)
+        try:
+            hposts = hn_comments.fetch_hn_posts(topic, limit=max(3, limit // 2))
+            hcomments = hn_comments.fetch_hn_comments(topic, limit=comments_per_post * 2)
+            sources_tried["hackernews"] = f"posts={len(hposts)} comments={len(hcomments)}"
+            posts.extend(hposts)
+            all_comments.extend(hcomments)
+        except Exception as e:
+            sources_tried["hackernews"] = f"error: {e}"
+
+        # 3) X replies if cookies
+        try:
+            xrows = x_replies.run(q)
+            sources_tried["x"] = f"signals={len(xrows)}"
+            all_comments.extend(xrows)
+        except Exception as e:
+            sources_tried["x"] = f"error: {e}"
 
         if all_comments:
             all_comments = analyze_items(all_comments, q)
@@ -616,6 +638,7 @@ def register_routes(app: FastAPI, state) -> None:
                 "posts": len(posts),
                 "comments": len(all_comments),
             },
+            "sources": sources_tried,
             "mood": mood,
         }
 
