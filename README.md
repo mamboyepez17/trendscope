@@ -1,32 +1,36 @@
 # TrendScope
 
 <p align="center">
-  <strong>Universal trend intelligence — nine free sources, one pipeline.</strong><br>
-  Sentiment · Insights · Watchlist alerts · Forecasting · Async jobs · Live dashboard
+  <strong>How do people feel about any topic, in any country? Measured from what they actually say.</strong><br>
+  Mood Index · Emotions · Recent news & comments · Watchlist alerts · Forecasting · Live dashboard
 </p>
 
 <p align="center">
-  <a href="https://github.com/mamboyepez17/trendscope/actions"><img src="https://img.shields.io/badge/tests-250%2B-brightgreen" alt="tests"></a>
+  <a href="https://github.com/mamboyepez17/trendscope/actions"><img src="https://img.shields.io/badge/tests-375%2B-brightgreen" alt="tests"></a>
   <a href="https://www.python.org/downloads/"><img src="https://img.shields.io/badge/python-3.11%20%7C%203.12-blue" alt="python"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-lightgrey" alt="license"></a>
-  <img src="https://img.shields.io/badge/sources-12-orange" alt="sources">
-  <img src="https://img.shields.io/badge/version-1.8.x-informational" alt="version">
+  <img src="https://img.shields.io/badge/sources-13%20%2B%20comments-orange" alt="sources">
+  <img src="https://img.shields.io/badge/languages-es%20·%20en%20·%20pt%20·%20fr%20·%20de%20·%20it-informational" alt="languages">
 </p>
 
 ---
 
-TrendScope pulls signals from Reddit, Google Trends, Twitter/X, Hacker News, YouTube, Amazon, TikTok, GDELT, Google News, Bing News, Wikipedia, Bluesky, and TweetClaw. Each signal is scored 0–100, sentiment is analyzed in Spanish and English (auto-detected), and you get insights, correlations, emerging vs established trends, and recommendations — **locally**, without a paid AI API for the core path.
+TrendScope measures **public mood** on any topic to support decisions. It reads what people write — **replies on X, YouTube comments, Reddit and Hacker News threads, Bluesky posts** — classifies every opinion as **joy, anger, sadness, fear or neutral**, and aggregates them into a **Mood Index from −100 to +100** with a margin of error. News headlines are measured separately as *media tone*, so the press never gets mistaken for the public.
 
-On top of that: AI narratives (OpenRouter / Claude / Ollama), CSV/JSON/Excel exports, a watchlist with webhook alerts and digests, trend forecasting, and a real-time dashboard with WebSocket + SSE.
+It also pulls **recent** signals from Google News, Bing News, GDELT, Google Trends, YouTube, Wikipedia, Amazon and TikTok, scores them 0–100, and produces insights, correlations and recommendations — **locally**, without a paid AI API for the core path.
 
-**Why it exists:** expensive social-listening suites lock you into their data and pricing. TrendScope is free-source-first, agent-friendly (REST + MCP), and meant to run on your machine or a single VPS.
+It works **in any country and language**: per-language lexicons (Spanish, English, Portuguese, French, German, Italian), regional slang packs that only switch on in their own country, your own custom lexicon, country-specific news editions, and a dashboard in Spanish, English and Portuguese.
 
-> **Project status (2026-02-12):** **active again** — Comment Intelligence + dashboard light/dark UI. Hardening, multi-source scraping, watchlist, jobs, sentiment stance, DeepSeek narrator implemented and tested (**330+ tests**).
+**Why it exists:** expensive social-listening suites lock you into their data and pricing. TrendScope is free-source-first, agent-friendly (REST + WebSocket + MCP), and meant to run on your machine or a single VPS.
 
 ## Table of contents
 
 - [Quick start](#quick-start)
 - [Usage](#usage)
+- [The Mood Index](#the-mood-index-how-people-feel)
+- [Any country, any language](#any-country-any-language)
+- [Where people's comments come from](#where-peoples-comments-come-from)
+- [Recent content only](#recent-content-only)
 - [REST API](#rest-api-for-http-agents)
 - [Watchlist, alerts & digests](#watchlist--alerts--digests)
 - [Multi-tenant API keys](#multi-tenant-api-keys)
@@ -34,6 +38,7 @@ On top of that: AI narratives (OpenRouter / Claude / Ollama), CSV/JSON/Excel exp
 - [Data sources](#data-sources)
 - [Architecture](#architecture)
 - [Configuration](#configuration)
+- [Troubleshooting](#troubleshooting)
 - [Tests](#tests)
 - [Roadmap](#roadmap)
 
@@ -54,6 +59,10 @@ python -m venv .venv
 # Windows:  .venv\Scripts\activate
 # macOS/Linux: source .venv/bin/activate
 pip install -e ".[dev]"
+
+# Optional extras
+pip install -e ".[x]"        # latest xactions-py for X/Twitter
+pip install -e ".[reddit]"   # reddit-actions for Reddit comments
 
 cp .env.example .env   # Windows: copy .env.example .env
 ```
@@ -76,7 +85,7 @@ Then open **http://localhost:8000/dashboard**.
 
 Windows shortcuts included: `run_tests.bat`, `start_api.bat`, `start_cli.bat`.
 
-> `xactions-py` (Twitter/X toolkit) is vendored under `trendscope/xactions/`.
+> A copy of [xactions-py](https://github.com/mamboyepez17/xactions-py) (X/Twitter toolkit, v1.8.0) is vendored under `trendscope/xactions/`. If the `x` extra is installed, TrendScope uses the package instead, so you always get the latest version.
 
 ## Try it in 5 minutes
 
@@ -104,7 +113,7 @@ Optional live smoke (lightweight public sources only: HN, GDELT, Google RSS):
 trendscope --smoke --live
 ```
 
-If Twitter cookies are set in `.env`, a full `GET /trends?topic=...` includes that source too.
+If X cookies are set in `.env`, a full `GET /trends?topic=...` also reads real replies on X.
 
 ## Usage
 
@@ -124,11 +133,13 @@ If Twitter cookies are set in `.env`, a full `GET /trends?topic=...` includes th
 
 Start the API (see Quick start), then open **http://localhost:8000/dashboard**.
 
-Spanish UI with tabs: **Ánimo** (mood hero with the −100…+100 index and margin, KPIs,
-emotion bars, what people talk about, representative quotes, mood by source, AI summary),
-**Tendencias** (recent items with age and emotion), **Comparar** (two topics side by side) and
-**Monitoreo** (watchlist + mood history). Light/dark themes follow the OS with a manual toggle;
-emotion colors are validated for color-blind safety. Local Chart.js, strict CSP, WebSocket.
+- **Languages:** Spanish, English and Portuguese. The UI language and country start from your browser settings, and the country field suggests every country by name.
+- **Mood tab:** mood hero with the −100…+100 index and its margin, KPIs (opinions, distinct people, intensity, polarization, media tone, freshness), emotion bars, "what are they talking about?", representative quotes, mood by source and an AI summary.
+- **Trends tab:** recent items with their age ("3 h ago") and emotion.
+- **Compare tab:** two topics side by side.
+- **Monitoring tab:** watchlist plus mood history.
+- **Themes:** light and dark follow the OS, with a manual toggle. Emotion colors are validated for color-blind safety.
+- **Tech:** local Chart.js, strict CSP, WebSocket.
 
 If `API_KEY_REQUIRED=true`, open `/dashboard?api_key=YOUR_KEY` (or store the key in `sessionStorage` as `ts_api_key`).
 
@@ -141,62 +152,15 @@ If `API_KEY_REQUIRED=true`, open `/dashboard?api_key=YOUR_KEY` (or store the key
 
 Or `GET /doctor`. Real probes on each source with actionable fix instructions.
 
-### REST API (for HTTP agents)
-
-```bash
-.venv/bin/trendscope-api          # Windows: .venv\Scripts\trendscope-api.exe
-```
-
-Default bind: `127.0.0.1:8000`. Interactive docs: **http://localhost:8000/docs**
-
-```text
-GET    /trends?topic=crypto+Colombia
-GET    /trends?topic=AI&async=true     — 202 + job_id
-GET    /trends?category=technology&sentiment_engine=claude
-GET    /demo                          — offline sample payload
-GET    /smoke                         — doctor + offline smoke
-GET    /discover?geo=CO|US|GLOBAL     — trending topics
-GET    /conversation?topic=...        — posts + comments + mood/acceptance
-GET    /narrate?topic=crypto+Colombia&style=executive
-GET    /export/csv|json|xlsx?topic=...
-GET    /report?topic=crypto
-GET    /categories · /health · /doctor
-GET    /metrics · /metrics.json        — Prometheus-style text / JSON
-GET    /cache/stats · DELETE /cache
-GET    /dashboard · /static/chart.umd.min.js
-GET    /compare?topic1=crypto&topic2=AI
-GET    /jobs/{id}                      — poll async job
-GET    /jobs/{id}/events               — SSE status stream
-GET    /forecast?topic=AI&days=30      — EMA, velocity, breakout
-GET    /history?topic=...&days=7
-GET    /watchlist · GET /watchlist/stats
-POST   /watchlist?topic=...&alert_webhook=...&alert_min_score=80
-POST   /watchlist/{id}/run[?background=true]
-PUT    /watchlist/{id} · DELETE /watchlist/{id}
-POST   /admin/prune-history
-WS     /ws[?api_key=...]
-```
-
-Headers on responses: `X-RateLimit-Limit`, `X-RateLimit-Remaining`, `Retry-After` on 429.
-
 ### Docker
 
-Run TrendScope in a container with Docker Compose:
-
 ```bash
-# Copy the example environment file and edit as needed
 cp .env.example .env
-
-# Build and start the container
 docker compose up -d
-
-# View logs
 docker compose logs -f
 ```
 
-The API will be available at **http://localhost:8000** and the dashboard at **http://localhost:8000/dashboard**. The `data/` folder is mounted as a volume so analysis results and the SQLite history persist across restarts.
-
-To run tests inside the container:
+The API is available at **http://localhost:8000** and the dashboard at **http://localhost:8000/dashboard**. The `data/` folder is mounted as a volume, so analysis results and the SQLite history persist across restarts.
 
 ```bash
 docker compose exec trendscope pytest trendscope/tests/ -v
@@ -212,7 +176,7 @@ docker compose exec trendscope pytest trendscope/tests/ -v
 
 Available tools (MCP SDK 2.x):
 
-- `analyze_trends` — Multi-source analysis with sentiment
+- `analyze_trends` — Multi-source analysis with sentiment and mood
 - `get_categories` — Predefined categories
 - `get_latest_report` — Latest Markdown report
 - `narrate_trends` — AI narrative (executive/creative/technical/alert)
@@ -225,37 +189,167 @@ Available tools (MCP SDK 2.x):
 
 TrendScope includes a `SKILL.md` file that AI agents (Claude Code, OpenClaw, Hermes, Cursor) can discover automatically. It describes all available commands, endpoints, and configuration options.
 
-### Run tests
+## The Mood Index (how people feel)
 
-```bash
-.venv/bin/python -m pytest trendscope/tests/ -v
-# Windows: .venv\Scripts\python.exe -m pytest trendscope/tests/ -v
+The main meter comes from **what people say** (comments, replies and social posts), not from headlines. Every opinion gets an emotion distribution over **joy, anger, sadness, fear and neutral**:
+
+- **Inputs:** a model when available (pysentimiento or Claude), blended with a per-language lexicon, regional slang and emojis.
+- **Language handling:** negations ("not happy", "no estoy feliz") and intensifiers ("very", "!!!", ALL CAPS) are handled.
+
+Opinions are then aggregated like this:
+
+| Step | Rule |
+|---|---|
+| Weight by type | comment 1.0 · social post 0.7 · news 0 (reported separately as *media tone*) |
+| Engagement | `1 + min(3, log10(1 + likes))` — a viral comment weighs up to 4×, never 1000× |
+| One person, one vote | each author's weight is divided by their number of messages |
+| Net index | `100 · Σ w·polarity / Σ w`, from −100 to +100, with a ±95% margin (`n_eff = (Σw)²/Σw²`) |
+| Mood | **Happy / Angry / Sad / Worried / Divided / Neutral**; the sign of the index always wins |
+
+The index also reports:
+
+- the share of each emotion, polarization, intensity and a confidence level (`high` / `medium` / `low`)
+- representative quotes per emotion
+- the words that drive each emotion
+- a one-line headline, e.g. *"People feel mostly worried about «health reform» (26% fear). Net index −29 (±34) from 21 opinions across 5 sources."*
+
+Where to find it:
+
+- `meta.mood_index` in `/trends`
+- `mood_index` in `/conversation`
+- `meta.media_tone` in `/trends` (press headlines)
+
+The overall `sentiment_summary.overall` label is derived from the weighted net index, not from the most frequent label.
+
+## Any country, any language
+
+TrendScope works for any country (`?geo=XX`, ISO 3166-1 alpha-2) and adapts automatically:
+
+| What | How |
+|---|---|
+| Text language | Detected per text: **es, en, pt, fr, de, it**, each with its own lexicon |
+| Local slang | Regional packs that only switch on in their own country: **CO, MX, AR, UY, CL, PE, VE, ES, BR, US** (e.g. *"qué chimba"* is joy in Colombia and neutral in Mexico) |
+| Your own slang | `CUSTOM_LEXICON_PATH=my_lexicon.json`: words or multi-word phrases by language or country ([example](docs/lexicon.example.json)) |
+| News | Google News edition of the country (`hl`/`gl`/`ceid`) and YouTube in its language |
+| Reddit | Also searches the country's subreddit (r/Colombia, r/mexico, r/brasil…) |
+| Index labels & AI summary | `?lang=es\|en\|pt` (defaults to the country's language; other languages fall back to English) |
+| Dashboard | Español / English / Português; language and country default to the browser's |
+
+Custom lexicon format (every key is optional):
+
+```json
+{
+  "*":  { "joy": ["awesome sauce"], "anger": ["rip-off"] },
+  "es": { "sadness": ["qué tusa"] },
+  "CO": { "fear": ["culillo"], "joy": ["qué nota"] }
+}
 ```
 
-On Windows you can also double-click `run_tests.bat`.
+Categories: `joy`, `anger`, `sadness`, `fear`, `neg` (generic negative), `negations`, `intensifiers`.
+
+- **Languages without a lexicon** (Japanese, Arabic…): emojis still count, and the `claude` engine is multilingual, so use `?sentiment_engine=claude`.
+- **Contributing slang for a new country:** add an entry to `trendscope/sentiment/lexicons/regional.py`. Only include words that are unambiguous in that country.
+
+## Where people's comments come from
+
+| Source | What it brings | Requirement |
+|---|---|---|
+| **X** | Real replies to the topic's most-discussed recent tweets (`get_tweet_replies_sync` from [xactions-py](https://github.com/mamboyepez17/xactions-py)) | X cookies in `.env`; optionally `pip install -e ".[x]"` |
+| **YouTube** | Comments on the most-viewed recent videos that name the topic | Nothing (no API key) |
+| **Reddit** | Comments from the topic's threads (global + the country's subreddit) | Optionally `pip install -e ".[reddit]"` ([reddit-actions](https://github.com/mamboyepez17/reddit-actions)) + a session cookie if Reddit returns 403 |
+| **Hacker News** | Comments mentioning the topic | Nothing |
+
+`/trends` collects comments in parallel with the other sources. Comments feed the Mood Index but never enter the trend ranking. Set `PIPELINE_COLLECT_COMMENTS=false` to skip them.
+
+## Recent content only
+
+Every source asks for content from the last `MAX_AGE_DAYS` days (default 7; `?days=1..30` in the API):
+
+| Source | Filter |
+|---|---|
+| Google News | `when:Nd` |
+| Bing News | interval filter |
+| GDELT | `timespan` + sort by date |
+| X | `since:` |
+| Bluesky | `since` |
+| Reddit | `t=` |
+| Hacker News | `created_at_i` |
+| YouTube | upload-date filter |
+
+The pipeline then normalizes every date (RSS, ISO, GDELT formats) and **drops anything older** than the window. `meta.freshness` reports how many items were dropped and the median age of what was kept.
+
+**Relevance:**
+
+- Free topics are searched as an **exact phrase**, without extra "country / year / trends" keywords.
+- News and video headlines must name **the whole topic** ("tax reform" no longer matches "health reform").
+- Posts and comments only need one topic word, because people write casually.
+
+## REST API (for HTTP agents)
+
+```bash
+.venv/bin/trendscope-api          # Windows: .venv\Scripts\trendscope-api.exe
+```
+
+Default bind: `127.0.0.1:8000`. Interactive docs: **http://localhost:8000/docs**
+
+```text
+GET    /trends?topic=health+reform&geo=CO&days=7&lang=en
+GET    /trends?topic=AI&async=true     — 202 + job_id
+GET    /trends?category=technology&sentiment_engine=claude
+GET    /conversation?topic=...&geo=MX&days=3&lang=es  — posts + comments + mood_index
+GET    /narrate?topic=...&style=executive&lang=pt
+GET    /demo                          — offline sample payload
+GET    /smoke                         — doctor + offline smoke
+GET    /discover?geo=CO|US|GLOBAL     — trending topics
+GET    /export/csv|json|xlsx?topic=...
+GET    /report?topic=crypto
+GET    /categories · /health · /doctor
+GET    /metrics · /metrics.json        — Prometheus-style text / JSON
+GET    /cache/stats · DELETE /cache    — DELETE requires the admin scope
+GET    /dashboard · /static/chart.umd.min.js
+GET    /compare?topic1=crypto&topic2=AI
+GET    /jobs/{id}                      — poll async job
+GET    /jobs/{id}/events               — SSE status stream
+GET    /forecast?topic=AI&days=30      — EMA, velocity, breakout
+GET    /history?topic=...&days=7
+GET    /watchlist · GET /watchlist/stats
+POST   /watchlist?topic=...&geo=...&alert_webhook=...&alert_min_score=80
+POST   /watchlist/{id}/run[?background=true]
+PUT    /watchlist/{id} · DELETE /watchlist/{id}
+POST   /admin/prune-history            — requires the admin scope
+WS     /ws[?api_key=...]               — send {"topic", "geo", "days", "lang", ...}
+```
+
+Common query parameters:
+
+| Parameter | Meaning |
+|---|---|
+| `geo` | Country code (ISO 3166-1 alpha-2) |
+| `days` | Freshness window, 1–30 (default `MAX_AGE_DAYS`) |
+| `lang` | Language of mood labels, headlines and AI narrative: `es`, `en`, `pt` |
+| `sentiment_engine` | `local` (free) or `claude` (multilingual, premium) |
+
+Headers on responses: `X-RateLimit-Limit`, `X-RateLimit-Remaining`, `Retry-After` on 429.
 
 ## AI-Powered Narrative Generation
 
-Generate human-readable summaries, creative copy, technical analysis, or risk alerts from any trend query:
+Generate human-readable summaries, creative copy, technical analysis, or risk alerts from any query. The narrative receives the Mood Index and representative quotes, and answers in the requested language (`lang`, or the country's language by default).
 
 ```bash
-# OpenRouter (free models) — default
-curl "http://localhost:8000/narrate?topic=crypto+Colombia&style=executive"
+curl "http://localhost:8000/narrate?topic=crypto&geo=US&style=executive"
 
 # Styles: executive, creative, technical, alert
 ```
 
 Supported providers:
 
-- **DeepSeek** (official API) — set `NARRATOR_PROVIDER=deepseek` and `DEEPSEEK_API_KEY=...`. Default model: `deepseek-v4.1-flash` (DeepSeek-V4.1-Flash; `deepseek-chat` is retired). Override with `DEEPSEEK_MODEL`.
-- **OpenRouter** (default) — free models like `deepseek/deepseek-chat-v3-0324:free`. Get a free key at [openrouter.ai/keys](https://openrouter.ai/keys).
-- **Claude** — via `ANTHROPIC_API_KEY`
-- **Ollama** — local models via `OLLAMA_ENABLED=true`
-- **Statistical fallback** — if no provider is configured, returns a structured local summary.
+- **DeepSeek** (official API): set `NARRATOR_PROVIDER=deepseek` and `DEEPSEEK_API_KEY=...`. Override the model with `DEEPSEEK_MODEL`.
+- **OpenRouter** (default): free models like `deepseek/deepseek-chat-v3-0324:free`. Get a free key at [openrouter.ai/keys](https://openrouter.ai/keys).
+- **Claude**: via `ANTHROPIC_API_KEY`.
+- **Ollama**: local models via `OLLAMA_ENABLED=true`.
+- **Statistical fallback**: if no provider is configured, returns a structured local summary.
 
 ## Data Export
-
-Every analysis can be exported to common formats:
 
 | Format | Endpoint | Use case |
 |---|---|---|
@@ -267,7 +361,7 @@ Every analysis can be exported to common formats:
 
 ```bash
 # Add a monitored topic with a score alert and daily digest
-POST /watchlist?topic=crypto+Colombia&interval_minutes=60\
+POST /watchlist?topic=crypto&geo=US&interval_minutes=60\
   &alert_webhook=https://hooks.example.com/ts\
   &alert_min_score=80\
   &alert_sentiment_flip=true\
@@ -276,14 +370,14 @@ POST /watchlist?topic=crypto+Colombia&interval_minutes=60\
 
 GET  /watchlist
 POST /watchlist/{id}/run[?background=true]
-GET  /history?topic=crypto+Colombia&days=7
-GET  /forecast?topic=crypto+Colombia
+GET  /history?topic=crypto&days=7
+GET  /forecast?topic=crypto
 GET  /watchlist/stats
 ```
 
 - **Alerts** fire when `top_score >= alert_min_score`, volume crosses a threshold, or sentiment flips. Webhooks are POST JSON with SSRF protection (localhost/private/metadata IPs blocked).
 - **Digests** send a compact summary (latest scores, min/max/avg, forecast) on an interval.
-- **Forecast** endpoint returns EMA, velocity, and breakout flag from history.
+- **Forecast** returns EMA, velocity, and a breakout flag from history.
 - Enable/disable scheduling with `WATCHLIST_ENABLED=true|false`.
 
 ## Multi-tenant API keys
@@ -300,7 +394,9 @@ ORG_RATE_LIMIT=120
 
 Scopes: `trends:read`, `watchlist:read`, `watchlist:write`, `jobs:read`, `admin`.
 
-- Watchlist/history/jobs are isolated per `org_id`.
+- Watchlist mutations require `watchlist:write`.
+- `DELETE /cache` and `/admin/*` require `admin`.
+- Watchlist, history and jobs are isolated per `org_id`.
 - Rate limits apply per IP **and** per org.
 - WebSocket accepts `?api_key=` (browsers cannot set custom headers).
 
@@ -341,114 +437,56 @@ curl -N "http://localhost:8000/jobs/{job_id}/events"   # SSE
 
 ## AI-Powered Analysis
 
-TrendScope doesn't just collect data — it **analyzes it**:
+TrendScope doesn't just collect data, it **analyzes it**:
 
-1. **Executive summary** — natural language findings
-2. **Actionable insights** — opportunities, alerts, info with priorities
-3. **Correlations** — consensus / divergence / score gaps across sources
-4. **Emerging vs established** — single-source vs multi-source signals
-5. **Recommendations** — concrete next steps
+1. **Executive summary**: natural-language findings
+2. **Actionable insights**: opportunities, alerts, info with priorities
+3. **Correlations**: consensus / divergence / score gaps across sources
+4. **Emerging vs established**: signals seen in one source vs several distinct sources
+5. **Recommendations**: concrete next steps
 
-All local logic — no API keys required for this path.
+All local logic; no API keys required for this path.
 
 ## Data Sources
 
 | Source | Method | Cost | Requires Auth |
 |---|---|---|---|
-| Reddit | RSS via old.reddit.com + PRAW fallback | Free | Optional (works without) |
+| X (Twitter) | xactions-py GraphQL: recent search (`since:`) + real replies | Free | Yes (cookies) |
+| YouTube | Internal API: recent-upload search + video comments | Free | No |
+| Reddit | reddit-actions / public JSON + RSS, global + country subreddit | Free | Optional |
+| Hacker News | Algolia search (stories + comments, date-filtered) | Free | No |
+| Bluesky | Public AppView search (`since`) | Free | No |
+| Google News | RSS search, exact phrase, country edition, `when:Nd` | Free | No |
+| Bing News | RSS search, exact phrase, interval filter | Free | No |
+| GDELT | DOC API 2.0 (global news, `timespan`) | Free | No |
 | Google Trends | RSS primary + pytrends + relevance scoring | Free | No |
-| Twitter/X | xactions-py (GraphQL internal API) | Free | Yes (cookies) |
-| Hacker News | Algolia Search API + Firebase top stories | Free | No |
-| YouTube | Internal search API (youtubei/v1/search) | Free | No |
+| Wikipedia (es) | Search API (context) | Free | No |
 | TweetClaw/OpenClaw | Optional local JSON export | Free | No (bring your own file) |
 | Amazon Best Sellers | Scrapling StealthyFetcher | Free | No |
 | TikTok Creative Center | API JSON + Scrapling fallback | Free | No |
-| GDELT | DOC API 2.0 (global news) | Free | No |
-| Google News | RSS search by topic | Free | No |
-| Bing News | RSS search by topic | Free | No |
-| Wikipedia (es) | Search API | Free | No |
-| Bluesky | Public AppView search | Free | No |
-
-## Índice de Ánimo (cómo se siente la gente)
-
-El medidor principal sale de lo que **opina la gente** (comentarios, respuestas y posts
-sociales), no de los titulares. Cada opinión se clasifica en **alegría, enojo, tristeza,
-miedo o neutral** (modelo + léxico ES/EN con jerga colombiana + emojis, con manejo de
-negaciones e intensificadores) y luego se agrega así:
-
-| Paso | Regla |
-|---|---|
-| Peso por tipo | comentario 1.0 · post social 0.7 · noticias 0 (se reportan aparte como *tono de medios*) |
-| Engagement | `1 + min(3, log10(1 + likes))` — un comentario viral pesa hasta 4×, nunca 1000× |
-| Una persona = un voto | el peso de cada autor se divide entre su número de mensajes |
-| Índice neto | `100 · Σ w·polaridad / Σ w`, de −100 a +100, con margen ±95% (`n_eff = (Σw)²/Σw²`) |
-| Ánimo | **Contentos / Enojados / Tristes / Preocupados / Divididos / Neutrales**; el signo del índice manda |
-
-Además entrega: % por emoción, polarización, intensidad, nivel de confianza,
-citas representativas por emoción y palabras que explican cada emoción.
-Está en `meta.mood_index` de `/trends` y en `mood_index` de `/conversation`.
-
-### Cualquier país, cualquier idioma
-
-TrendScope funciona para cualquier país (`?geo=XX`, código ISO) y ajusta todo solo:
-
-| Qué | Cómo |
-|---|---|
-| Idioma de los textos | Detección por texto: **es, en, pt, fr, de, it** (léxico propio de cada uno) |
-| Jerga local | Paquetes por país que solo se activan en ese país: **CO, MX, AR, UY, CL, PE, VE, ES, BR, US** (p. ej. "qué chimba" es alegría en CO, neutral en MX) |
-| Tu propia jerga | `CUSTOM_LEXICON_PATH=mi_lexico.json` — palabras o frases por idioma o país ([ejemplo](docs/lexicon.example.json)) |
-| Noticias | Edición de Google News del país (`hl`/`gl`/`ceid`) y YouTube en su idioma |
-| Reddit | Busca también en el subreddit del país (r/Colombia, r/mexico, r/brasil…) |
-| Textos del índice y del resumen IA | `?lang=es\|en\|pt` (por defecto, el idioma del país; otros idiomas → inglés) |
-| Dashboard | Español / English / Português; idioma y país iniciales según tu navegador |
-
-Para idiomas sin léxico (japonés, árabe…) los emojis siguen funcionando y el motor
-`claude` es multilingüe: `?sentiment_engine=claude`.
-
-Para aportar la jerga de un país nuevo: agrega una entrada en
-`trendscope/sentiment/lexicons/regional.py` (solo palabras claras en ese país; lo ambiguo, fuera).
-
-### Comentarios de la gente: de dónde salen
-
-| Fuente | Qué trae | Requisito |
-|---|---|---|
-| **X** | Respuestas reales a los tweets del tema con más conversación (`get_tweet_replies_sync` de [xactions-py](https://github.com/mamboyepez17/xactions-py)) | Cookies de X en `.env`; opcional `pip install -e ".[x]"` para la versión más reciente |
-| **YouTube** | Comentarios de los videos recientes más vistos del tema | Nada (sin API key) |
-| **Reddit** | Comentarios de los hilos del tema (global + subreddit del país) | Opcional `pip install -e ".[reddit]"` ([reddit-actions](https://github.com/mamboyepez17/reddit-actions)) + cookie si da 403 |
-| **Hacker News** | Comentarios del tema | Nada |
-
-### Solo información reciente
-
-Todas las fuentes piden contenido de los últimos `MAX_AGE_DAYS` días (por defecto 7;
-`?days=1..30` en la API): `when:Nd` en Google News, intervalo en Bing, `timespan` en
-GDELT, `since:` en X, `since` en Bluesky, `t=week` en Reddit, filtros de fecha en HN y
-YouTube. Después, el pipeline normaliza las fechas y **descarta lo más viejo** que la
-ventana (`meta.freshness` dice cuántos ítems se descartaron y la edad mediana).
 
 ## Sentiment Analysis
 
 | Engine | Technology | Cost |
 |---|---|---|
-| `local` | pysentimiento (Spanish + English, auto-detected) | Free |
-| `local` (fallback) | Keyword-based bilingual (auto-activates if torch unavailable) | Free |
-| `claude` | Claude Haiku API (multilingual) | Low cost |
+| `local` | pysentimiento models for Spanish and English; lexicon + regional slang + emojis for Portuguese, French, German and Italian | Free |
+| `local` (fallback) | Lexicon engine for every language (auto-activates if torch is unavailable) | Free |
+| `claude` | Claude (Haiku by default, `CLAUDE_SENTIMENT_MODEL`) — sentiment + emotions, any language; falls back to `local` per batch on any error | Low cost |
 
-Language is auto-detected per text — no configuration needed. Spanish content uses the Latin American Spanish model, English content uses the English model.
-
-If pysentimiento or torch is unavailable (e.g., Windows WDAC policies, Python 3.14), TrendScope automatically falls back to keyword-based bilingual sentiment analysis.
+Language is detected per text, so no configuration is needed. If pysentimiento or torch is unavailable (e.g. Windows WDAC policies), TrendScope automatically uses the lexicon engine.
 
 ## Predefined Categories
 
 - tecnologia, economia, salud, moda, deportes, politica, emprendimiento, educacion, inmobiliario, crypto
 
-Also accepts **free topic** — any text you want to analyze.
+Also accepts **free topics**: any text you want to analyze.
 
 ## Output
 
 Each analysis generates two files in `data/`:
 
-- `trends_DATE_TOPIC.json` — Structured JSON for AI agents (includes `insights` and `agent_prompt`)
-- `report_DATE_TOPIC.md` — Human-readable Markdown report with analysis section
+- `trends_DATE_TOPIC.json`: structured JSON for AI agents (includes `mood_index`, `insights` and `agent_prompt`)
+- `report_DATE_TOPIC.md`: human-readable Markdown report with an analysis section
 
 Plus exported files via `/export/*`:
 
@@ -460,36 +498,49 @@ Plus exported files via `/export/*`:
 
 ```mermaid
 flowchart TD
-  U[User / Agent] --> Q[TrendQuery]
+  U[User / Agent] --> Q["TrendQuery (topic, geo, days, lang)"]
   Q --> P[Pipeline]
-  subgraph scrapers [Scrapers]
-    R[Reddit]
-    G[Google Trends]
-    H[Hacker News]
-    Y[YouTube]
-    A[Amazon]
-    T[TikTok]
-    GD[GDELT]
-    X[Twitter/X serial]
-    TC[TweetClaw serial]
+  subgraph sources [Sources — recent content only]
+    N[Google News · Bing · GDELT]
+    S[X · Bluesky · Reddit · HN · YouTube]
+    O[Google Trends · Wikipedia · Amazon · TikTok]
   end
-  P --> scrapers
-  scrapers --> D[Dedup]
-  D --> S[Sentiment]
-  S --> SC[Scoring 0-100]
+  subgraph comments [People's comments]
+    XR[X replies]
+    YC[YouTube comments]
+    RC[Reddit + country subreddit]
+    HC[HN comments]
+  end
+  P --> sources
+  P --> comments
+  sources --> F[Freshness window + topic relevance]
+  F --> D[Dedup]
+  D --> SE["Sentiment + emotions (language + regional slang)"]
+  comments --> SE
+  SE --> SC[Scoring 0-100]
+  SE --> MI["Mood Index (−100…+100, margin, emotions, quotes)"]
   SC --> I[Insights engine]
-  I --> OUT[JSON + Markdown + Narrative]
+  MI --> OUT[JSON + Markdown + Narrative]
+  I --> OUT
   OUT --> CACHE[(SQLite cache)]
   CACHE --> API[REST / WS / SSE]
   CACHE --> W[Watchlist scheduler]
   W --> AL[Alerts + digests webhooks]
   W --> HIST[(History)]
-  HIST --> F[Forecast EMA / breakout]
-  API --> DASH[Dashboard]
+  HIST --> FC[Forecast EMA / breakout]
+  API --> DASH["Dashboard (es / en / pt)"]
   API --> MCP[MCP tools]
 ```
 
-High-level flow: scrape → dedup → sentiment → score → insights → cache → surfaces (REST, WS, MCP, dashboard). Source health scores live in memory and can skip unhealthy sources automatically.
+High-level flow:
+
+1. Scrape recent content and people's comments in parallel.
+2. Apply the freshness window and topic relevance, then dedup.
+3. Run sentiment and emotions, then scoring and the Mood Index.
+4. Generate insights and cache the result.
+5. Serve it through REST, WS, MCP and the dashboard.
+
+Source health scores live in memory and can skip unhealthy sources automatically.
 
 ## Stack
 
@@ -497,49 +548,59 @@ High-level flow: scrape → dedup → sentiment → score → insights → cache
 |---|---|
 | Runtime | Python 3.11–3.12 |
 | API | FastAPI + uvicorn |
-| Scraping | Scrapling · requests · xactions-py (vendored) |
-| Sentiment | pysentimiento (ES/EN) · Claude optional · keyword fallback |
-| Narrative | OpenRouter · Claude · Ollama · statistical fallback |
-| Persistence | SQLite (WAL) — cache, watchlist, history, jobs |
+| Scraping | requests · Scrapling · xactions-py (vendored or package) · reddit-actions (optional) |
+| Sentiment | pysentimiento (ES/EN) · per-language lexicons + regional slang + emojis · Claude optional |
+| Narrative | DeepSeek · OpenRouter · Claude · Ollama · statistical fallback |
+| Persistence | SQLite (WAL): cache, watchlist, history, jobs |
 | Scheduling | APScheduler |
 | Agents | REST · WebSocket · SSE · MCP SDK 2.x |
-| UI | Single-page dashboard + local Chart.js (CSP `script-src 'self'`) |
+| UI | Single-page dashboard (es/en/pt) + local Chart.js (CSP `script-src 'self'`) |
 | Ops | loguru · lightweight `/metrics` · Docker multi-stage |
 
 ## Configuration
 
-Copy `.env.example` to `.env` and fill in your credentials:
+Copy `.env.example` to `.env` and fill in what you need:
 
 ```env
-# Reddit (optional — TrendScope uses RSS by default)
-REDDIT_CLIENT_ID=your_client_id
-REDDIT_CLIENT_SECRET=your_client_secret
-REDDIT_USER_AGENT=TrendScope/1.5.0
+# Country and freshness
+GEO_TARGET=CO               # default country (ISO 3166-1 alpha-2); any country works
+MAX_AGE_DAYS=7              # only content from the last N days (1–30)
+TOP_N=25
 
-# Twitter/X (DevTools > Application > Cookies on x.com)
-# Either separate values or a full cookie string:
+# People's comments for the Mood Index
+PIPELINE_COLLECT_COMMENTS=true
+CUSTOM_LEXICON_PATH=        # your own slang/brand lexicon (see docs/lexicon.example.json)
+
+# X/Twitter (DevTools > Application > Cookies on x.com)
 TWITTER_AUTH_TOKEN=your_auth_token
 TWITTER_CT0=your_ct0
 # TWITTER_COOKIES=auth_token=...; ct0=...
 
+# Reddit (optional)
+REDDIT_CLIENT_ID=
+REDDIT_CLIENT_SECRET=
+REDDIT_USER_AGENT=TrendScope/1.5.0
+# With the [reddit] extra, if Reddit returns 403:
+# REDDIT_SESSION_COOKIE=
+# REDDIT_COOKIE_HEADER=
+
 # TweetClaw/OpenClaw optional JSON export path
-TWEETCLAW_RESULTS_FILE=data/tweetclaw_crypto_colombia.json
+TWEETCLAW_RESULTS_FILE=
 
-# Claude API (optional, for premium sentiment)
-ANTHROPIC_API_KEY=your_api_key
-
-# OpenRouter (free models for narrative generation)
-OPENROUTER_API_KEY=your_openrouter_key
-OPENROUTER_MODEL=deepseek/deepseek-chat-v3-0324:free
-NARRATOR_PROVIDER=openrouter
-NARRATIVE_ENABLED=true
-
-# Sentiment engine
+# Sentiment engine: local | claude
 SENTIMENT_ENGINE=local
+ANTHROPIC_API_KEY=
+CLAUDE_SENTIMENT_MODEL=claude-haiku-4-5
 
-# Geo target (ISO 3166-1 alpha-2, default: CO)
-GEO_TARGET=CO
-TOP_N=25
+# Narrative
+NARRATOR_PROVIDER=openrouter   # openrouter | deepseek | claude | ollama
+NARRATIVE_ENABLED=true
+OPENROUTER_API_KEY=
+OPENROUTER_MODEL=deepseek/deepseek-chat-v3-0324:free
+DEEPSEEK_API_KEY=
+OLLAMA_ENABLED=false
+OLLAMA_HOST=http://localhost:11434
+OLLAMA_MODEL=qwen3.5:9b
 
 # API
 API_HOST=127.0.0.1
@@ -552,19 +613,12 @@ API_KEYS=
 TRUST_PROXY_HEADERS=false
 SOURCE_HEALTH_SKIP=true
 ALERTS_ENABLED=true
-API_KEY_REQUIRED=false
-API_KEYS=""
-
-# Ollama (optional, for local narratives)
-OLLAMA_ENABLED=false
-OLLAMA_HOST=http://localhost:11434
-OLLAMA_MODEL=qwen3.5:9b
 
 # Cache
 CACHE_TTL_SECONDS=300
 ```
 
-**Note:** All credentials are optional. Without them, TrendScope uses sources that don't require authentication (Google Trends, Reddit RSS, Hacker News, YouTube, Amazon, TikTok). Only Twitter/X requires cookies.
+**Note:** all credentials are optional. Without them, TrendScope still reads YouTube comments, Hacker News, Reddit, Bluesky, Google News, Bing, GDELT, Google Trends and more. Only X requires cookies.
 
 ## Troubleshooting
 
@@ -575,22 +629,31 @@ CACHE_TTL_SECONDS=300
 # Windows: .venv\Scripts\python.exe -c "..."
 ```
 
-This will tell you exactly what's working, what's not, and how to fix it.
+It tells you exactly what's working, what's not, and how to fix it.
+
+### "Sin datos" / "No data" in the Mood Index
+
+No opinions were found in the time window. Try a longer period (`days=30`), a broader topic, or add X cookies. `meta.comments.sources` shows what each comment source returned.
+
+### News about unrelated topics
+
+Free topics are searched as an exact phrase, and news headlines must name the whole topic. If a topic has several common names, analyze each one, or compare them with `/compare`.
 
 ### pysentimiento / torch import error on Windows
 
-If you see `OSError: [WinError 4551]`, Windows WDAC is blocking PyTorch DLLs. TrendScope automatically falls back to keyword-based bilingual sentiment analysis — no action needed.
+If you see `OSError: [WinError 4551]`, Windows WDAC is blocking PyTorch DLLs. TrendScope automatically falls back to the lexicon engine; no action needed.
 
 ### Reddit returns 403
 
-Reddit blocked the public JSON endpoint. Install the optional `reddit` extra
-(`pip install -e ".[reddit]"`, uses [reddit-actions](https://github.com/mamboyepez17/reddit-actions))
-and set `REDDIT_SESSION_COOKIE` or `REDDIT_COOKIE_HEADER` so comments keep flowing. Without it,
-TrendScope falls back to RSS via `old.reddit.com` and Hacker News comments.
+Reddit blocked the public JSON endpoint. Install the optional `reddit` extra (`pip install -e ".[reddit]"`, uses [reddit-actions](https://github.com/mamboyepez17/reddit-actions)) and set `REDDIT_SESSION_COOKIE` or `REDDIT_COOKIE_HEADER` so comments keep flowing. Without it, TrendScope falls back to RSS via `old.reddit.com` and other comment sources.
 
-### Twitter returns 401 or 403
+### X returns 401 or 403
 
-Your cookies may have expired. Get fresh cookies from x.com → DevTools (F12) → Application → Cookies → x.com. Copy `auth_token` and `ct0` into your `.env`.
+Your cookies may have expired. Get fresh cookies from x.com → DevTools (F12) → Application → Cookies → x.com and copy `auth_token` and `ct0` into your `.env`. Installing the `x` extra keeps xactions-py up to date with X's latest request signing.
+
+### No YouTube comments
+
+Some videos have comments disabled. YouTube's internal API can also change without notice; TrendScope then logs a warning and keeps working with the other sources.
 
 ### OpenRouter returns 401
 
@@ -607,58 +670,77 @@ Your API key may be invalid or missing. Get a free key at [openrouter.ai/keys](h
 
 Windows: use `.venv\Scripts\python.exe` instead of `.venv/bin/python`.
 
-**250+ tests** covering: sentiment imports, path safety, API security, middleware, pipeline (logging, cache key, source health), SQLite concurrency, Docker hardening, watchlist, alerts, digests, jobs + SSE, forecast, org isolation, MCP tools, OpenAPI, performance budgets, and more.
+**375+ tests** covering:
+
+- **Mood & sentiment:** Mood Index math, emotions in six languages, regional slang, custom lexicons.
+- **Data quality:** freshness window, news relevance, X replies, YouTube comments.
+- **API:** API security and scopes, middleware, pipeline, OpenAPI, MCP tools.
+- **Storage & jobs:** SQLite concurrency, watchlist, alerts, digests, jobs + SSE, forecast, org isolation.
+- **Ops:** Docker hardening, performance budgets, and more.
 
 ## Development notes
 
 - Use `create_app()` from `trendscope.api.factory` in tests (injectable store/scheduler, no DB side effects at import).
 - Prefer `trendscope.settings.Settings` over ad-hoc env reads.
-- Repository interface: `trendscope/watchlist/repository.py` (`WatchlistRepository` / `SqliteWatchlistRepository`) — ready for a Postgres adapter later.
+- Tests never scrape the network: `conftest.py` disables comment collection in `/trends`.
+- Repository interface: `trendscope/watchlist/repository.py` (`WatchlistRepository` / `SqliteWatchlistRepository`), ready for a Postgres adapter later.
 
 ### Project layout (simplified)
 
 ```text
 trendscope/
   scrapers/          # one file per source (run(query) -> list[dict])
-  analyzer/          # dedup, scoring, insights, forecast
-  sentiment/         # local + claude engines
-  narrator/          # OpenRouter / Claude / Ollama
-  core/              # pipeline, cache, paths, metrics, source health
+    comments.py      # people's comments: X replies, YouTube, Reddit, HN
+  analyzer/          # dedup, scoring, insights, mood_index, forecast
+  sentiment/         # local + claude engines, emotions, language detection
+    lexicons/        # base.py (6 languages) + regional.py (slang by country)
+  narrator/          # DeepSeek / OpenRouter / Claude / Ollama
+  core/              # pipeline, dates, locale, text, cache, metrics, source health
   watchlist/         # store, scheduler, alerts, digest, repository
   jobs/              # async job queue (SQLite-backed)
   api/               # factory, routes, middleware, auth keys
   models/            # typed payload helpers
-  xactions/          # vendored Twitter/X toolkit
-  dashboard.html     # single-page UI
-  static/            # local Chart.js
+  xactions/          # vendored X/Twitter toolkit (xactions-py v1.8.0)
+  dashboard.html     # single-page UI (es / en / pt)
+  static/            # dashboard.js + local Chart.js
+docs/
+  lexicon.example.json
 ```
 
 ## Roadmap
 
-Done ·
+Done:
 
 - [x] Installable package + pyproject
 - [x] Typed settings (pydantic-settings)
 - [x] Persistent SQLite cache (WAL)
-- [x] Multi-provider narratives (OpenRouter, Claude, Ollama)
+- [x] Multi-provider narratives (DeepSeek, OpenRouter, Claude, Ollama)
 - [x] CSV / JSON / Excel export
 - [x] Rate limiting + API keys + scopes + org isolation
 - [x] Watchlist + alerts + digests + forecast
 - [x] Dashboard (WS, local Chart.js, CSP)
 - [x] Async jobs + SSE
 - [x] Source health runtime
-- [x] GDELT source
 - [x] Docker multi-stage + CI (pytest + ruff)
+- [x] Mood Index from people's comments (emotions, weighting, margin of error)
+- [x] Real X replies and YouTube comments
+- [x] Recent-content window across all sources + exact-phrase news relevance
+- [x] Any country / any language (6 lexicons, regional slang, custom lexicons, es/en/pt UI)
 
-Next ·
+Next:
 
+- [ ] Mood-shift alerts on the watchlist ("net index dropped 20 points in 24 h")
+- [ ] Narrative clustering (group the conversation into 3–6 storylines, each with its mood)
+- [ ] Bot / coordinated-amplification detection
+- [ ] Hand-labeled evaluation set to measure each engine's accuracy per language
+- [ ] App store reviews (Google Play / App Store) for brands and products
 - [ ] Postgres adapter / Redis queue (optional scale-out)
-- [ ] Official/licensed data partners
 
 ## Related
 
-- [xactions-py](https://github.com/mamboyepez17/xactions-py) — Twitter/X toolkit (vendored locally)
+- [xactions-py](https://github.com/mamboyepez17/xactions-py): X/Twitter toolkit (vendored locally, or install with the `x` extra)
+- [reddit-actions](https://github.com/mamboyepez17/reddit-actions): Reddit posts & comments toolkit (optional `reddit` extra)
 
 ## License
 
-[MIT](LICENSE) — built for people who want trend intel without the enterprise invoice.
+[MIT](LICENSE): built for people who want to know how the public feels without the enterprise invoice.
