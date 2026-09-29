@@ -12,42 +12,6 @@ _emotion_model_en = None
 _use_fallback = False
 
 
-# --- Keywords para fallback bilingue ---
-
-_POSITIVE_ES = {
-    "excelente", "increible", "genial", "bueno", "mejor", "perfecto",
-    "encanta", "recomiendo", "fantastico", "maravilloso", "feliz", "gran",
-    "innovador", "revolucionario", "impresionante", "hermoso", "brillante",
-    "logro", "exito", "victoria", "avance", "progreso", "crecimiento",
-    "oportunidad", "beneficio", "positivo", "optimista", "esperanza",
-}
-
-_NEGATIVE_ES = {
-    "terrible", "horrible", "malo", "peor", "fraude", "estafa", "odio",
-    "decepcionante", "basura", "inutil", "caro", "fallo", "error",
-    "problema", "crisis", "colapso", "caida", "desastre", "peligro",
-    "muerto", "muerte", "guerra", "violencia", "miedo", "panico",
-    "rechazo", "fracaso", "perdida", "deuda", "quiebra", "corrupcion",
-}
-
-_POSITIVE_EN = {
-    "love", "great", "best", "amazing", "awesome", "excellent", "wonderful",
-    "fantastic", "good", "perfect", "brilliant", "outstanding", "superb",
-    "incredible", "beautiful", "success", "win", "winning", "growth",
-    "breakthrough", "innovative", "revolutionary", "impressive", "top",
-    "trending", "popular", "viral", "boom", "record", "achievement",
-    "opportunity", "benefit", "positive", "optimistic", "hope", "excited",
-}
-
-_NEGATIVE_EN = {
-    "bad", "worst", "hate", "terrible", "horrible", "awful", "poor",
-    "scam", "fraud", "disappointing", "broken", "crash", "fail", "failure",
-    "fear", "danger", "warning", "alert", "crisis", "collapse", "dead",
-    "death", "war", "violence", "panic", "loss", "debt", "bankruptcy",
-    "corruption", "disaster", "threat", "risk", "decline", "recession",
-    "layoff", "fired", "scandal", "controversy", "outrage", "angry",
-}
-
 # Palabras comunes en espanol para deteccion de idioma
 _SPANISH_INDICATORS = {
     "el", "la", "los", "las", "un", "una", "de", "del", "en", "es",
@@ -128,35 +92,29 @@ def _load() -> None:
 
 
 def _analyze_fallback(text: str) -> SentimentResult:
-    """Analisis basico de sentimiento por keywords bilingue."""
+    """Sentimiento por léxico bilingüe (tildes, puntuación, negación, emojis).
+
+    Usa el detector de emociones: polaridad = alegría − (enojo+tristeza+miedo).
+    """
+    from trendscope.sentiment.cache import calibrate_score
+    from trendscope.sentiment.emotions import analyze_text
+
     lang = _detect_language(text)
-    words = set(text.lower().split())
-
-    if lang == "es":
-        pos_count = len(words & _POSITIVE_ES) + len(words & _POSITIVE_EN)
-        neg_count = len(words & _NEGATIVE_ES) + len(words & _NEGATIVE_EN)
-    else:
-        pos_count = len(words & _POSITIVE_EN) + len(words & _POSITIVE_ES)
-        neg_count = len(words & _NEGATIVE_EN) + len(words & _NEGATIVE_ES)
-
-    if pos_count > neg_count:
+    emo = analyze_text(text)
+    if emo.polarity >= 0.15:
         label = "positive"
-        score = min(0.95, 0.6 + pos_count * 0.1)
-    elif neg_count > pos_count:
+    elif emo.polarity <= -0.15:
         label = "negative"
-        score = min(0.95, 0.6 + neg_count * 0.1)
     else:
         label = "neutral"
-        score = 0.5
-
-    from trendscope.sentiment.cache import calibrate_score
+    score = 0.5 if label == "neutral" else min(0.95, 0.55 + abs(emo.polarity) * 0.45)
 
     return SentimentResult(
         text=text[:100],
         label=label,
         score=calibrate_score(label, score),
         engine=f"local_fallback_{lang}",
-        emotions={},
+        emotions={k: v for k, v in emo.distribution.items() if k != "neutral" and v > 0},
     )
 
 
@@ -225,10 +183,10 @@ def analyze(texts: list[str], batch_size: int = 32, batch_timeout: float = 20.0)
     for start in range(0, len(texts), batch_size):
         chunk = texts[start : start + batch_size]
         t0 = _time.perf_counter()
-        for text in chunk:
+        for idx, text in enumerate(chunk):
             if _time.perf_counter() - t0 > batch_timeout:
-                # Timeout: resto con fallback rápido
-                for rest in chunk[chunk.index(text) :]:
+                # Timeout: resto con fallback rápido (por posición, no por valor)
+                for rest in chunk[idx:]:
                     results.append(_analyze_fallback(rest))
                 break
             results.append(_one(text))

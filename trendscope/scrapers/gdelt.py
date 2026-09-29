@@ -8,6 +8,7 @@ from urllib.parse import quote
 
 from loguru import logger
 
+from trendscope.core.dates import parse_date
 from trendscope.core.http import get_session
 from trendscope.core.query import TrendQuery
 
@@ -26,7 +27,8 @@ def run(query: TrendQuery) -> list[dict]:
                 "mode": "ArtList",
                 "maxrecords": 15,
                 "format": "json",
-                "timespan": "24h",
+                "timespan": f"{max(1, int(query.max_age_days))}d",
+                "sort": "datedesc",
             }
             resp = session.get(GDELT_DOC_URL, params=params, timeout=15)
             resp.raise_for_status()
@@ -47,6 +49,7 @@ def run(query: TrendQuery) -> list[dict]:
                         "domain": art.get("domain", ""),
                         "language": art.get("language", ""),
                         "published_at": ts,
+                        "created_utc": parse_date(ts),
                         "social_image": art.get("socialimage", ""),
                     }
                 )

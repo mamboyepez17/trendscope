@@ -44,6 +44,10 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+# Comentarios de Reddit vía github.com/mamboyepez17/reddit-actions
+reddit = [
+    "reddit-actions @ git+https://github.com/mamboyepez17/reddit-actions.git",
+]
 dev = [
     "pytest>=8.0.0",
     "pytest-asyncio>=0.23.0",

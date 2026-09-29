@@ -43,6 +43,7 @@ def _run_pipeline_query(
     geo: str = "CO",
     sentiment_engine: str = "local",
     top_n: int = 25,
+    days: int | None = None,
 ) -> dict:
     if not topic and not category:
         raise HTTPException(
@@ -62,6 +63,8 @@ def _run_pipeline_query(
         sentiment_engine=sentiment_engine,
         top_n=top_n,
     )
+    if days:
+        query.max_age_days = days
     try:
         payload, _ = run_pipeline(query)
     except RuntimeError as e:
@@ -84,6 +87,7 @@ def register_routes(app: FastAPI, state) -> None:
         geo: str = QParam("CO", description="Codigo ISO pais"),
         sentiment_engine: str = QParam("local", description="local | claude"),
         top_n: int = QParam(25, ge=1, le=100, description="Numero de resultados"),
+        days: int | None = QParam(None, ge=1, le=30, description="Últimos N días"),
     ):
         """Genera una narrativa inteligente sobre un tema usando el proveedor configurado."""
         if not topic and not category:
@@ -101,13 +105,13 @@ def register_routes(app: FastAPI, state) -> None:
                 status_code=400,
                 detail=f"Estilo '{style}' no valido. Opciones: {', '.join(NARRATIVE_STYLES.keys())}",
             )
-        payload = _run_pipeline_query(topic, category, geo, sentiment_engine, top_n)
+        payload = _run_pipeline_query(topic, category, geo, sentiment_engine, top_n, days)
         result = generate_summary(payload, style=style)
         return {
             "topic": topic or category,
-            "style": result["style"],
-            "provider": result["provider"],
-            "model": result["model"],
+            "style": result.get("style", style),
+            "provider": result.get("provider", "none"),
+            "model": result.get("model", ""),
             "narrative": result["narrative"],
         }
 
@@ -235,6 +239,9 @@ def register_routes(app: FastAPI, state) -> None:
         geo: str = QParam("CO", description="Codigo ISO pais"),
         sentiment_engine: str = QParam("local", description="local | claude"),
         top_n: int = QParam(25, ge=1, le=100, description="Numero de resultados"),
+        days: int | None = QParam(
+            None, ge=1, le=30, description="Solo contenido de los últimos N días (default 7)"
+        ),
         async_mode: bool = QParam(
             False, alias="async", description="Si true, devuelve 202 + job_id"
         ),
@@ -253,6 +260,7 @@ def register_routes(app: FastAPI, state) -> None:
                 sentiment_engine=sentiment_engine,
                 top_n=top_n,
                 org_id=_org_id(request),
+                days=days,
             )
             return JSONResponse(
                 status_code=202,
@@ -262,7 +270,7 @@ def register_routes(app: FastAPI, state) -> None:
                     "poll": f"/jobs/{job_id}",
                 },
             )
-        return _run_pipeline_query(topic, category, geo, sentiment_engine, top_n)
+        return _run_pipeline_query(topic, category, geo, sentiment_engine, top_n, days)
 
     @app.get("/jobs/{job_id}", tags=["jobs"], summary="Poll async job status")
     def get_job(request: Request, job_id: str):
@@ -582,54 +590,31 @@ def register_routes(app: FastAPI, state) -> None:
         comments_per_post: int = QParam(
             15, ge=1, le=40, description="Comments per post"
         ),
+        days: int | None = QParam(
+            None, ge=1, le=30, description="Solo comentarios de los últimos N días"
+        ),
     ):
-        """Collect comments (Reddit public + HN + optional X) and compute mood."""
+        """Recolecta comentarios (Reddit + HN + X) y mide el ánimo de la gente."""
         from trendscope.analyzer.conversation import analyze_conversation
+        from trendscope.analyzer.mood_index import compute_mood_index
         from trendscope.core.query import TrendQuery
-        from trendscope.scrapers import hn_comments, reddit_comments, x_replies
+        from trendscope.scrapers import comments as comments_mod
         from trendscope.sentiment import analyze_items
 
         q = TrendQuery(mode="free", free_topic=topic, geo="CO")
-        posts: list[dict] = []
-        all_comments: list[dict] = []
-        sources_tried: dict[str, str] = {}
+        if days:
+            q.max_age_days = days
+        collected = comments_mod.collect(
+            topic, query=q, limit=limit, comments_per_post=comments_per_post
+        )
+        posts = collected["posts"]
+        all_comments = collected["comments"]
 
-        # 1) Reddit public JSON
-        try:
-            rposts = reddit_comments.search_public_posts(topic, limit=limit)
-            sources_tried["reddit"] = f"posts={len(rposts)}"
-            posts.extend(rposts)
-            for p in rposts[:4]:
-                cid = p.get("reddit_id") or ""
-                if cid:
-                    all_comments.extend(
-                        reddit_comments.fetch_comments(cid, limit=comments_per_post)
-                    )
-        except Exception as e:
-            sources_tried["reddit"] = f"error: {e}"
-
-        # 2) HN posts + comments (always useful; free)
-        try:
-            hposts = hn_comments.fetch_hn_posts(topic, limit=max(3, limit // 2))
-            hcomments = hn_comments.fetch_hn_comments(topic, limit=comments_per_post * 2)
-            sources_tried["hackernews"] = f"posts={len(hposts)} comments={len(hcomments)}"
-            posts.extend(hposts)
-            all_comments.extend(hcomments)
-        except Exception as e:
-            sources_tried["hackernews"] = f"error: {e}"
-
-        # 3) X replies if cookies
-        try:
-            xrows = x_replies.run(q)
-            sources_tried["x"] = f"signals={len(xrows)}"
-            all_comments.extend(xrows)
-        except Exception as e:
-            sources_tried["x"] = f"error: {e}"
-
-        if all_comments:
-            all_comments = analyze_items(all_comments, q)
+        if all_comments or posts:
+            analyze_items(all_comments + posts, q)
 
         mood = analyze_conversation(all_comments, posts=posts)
+        mood_index = compute_mood_index(all_comments + posts, topic=topic)
         return {
             "topic": topic,
             "posts": posts[:limit],
@@ -638,8 +623,9 @@ def register_routes(app: FastAPI, state) -> None:
                 "posts": len(posts),
                 "comments": len(all_comments),
             },
-            "sources": sources_tried,
+            "sources": collected["sources"],
             "mood": mood,
+            "mood_index": mood_index,
         }
 
     @app.websocket("/ws")
@@ -712,6 +698,12 @@ def register_routes(app: FastAPI, state) -> None:
                     sentiment_engine=sentiment_engine,
                     top_n=top_n,
                 )
+                try:
+                    days = int(params.get("days") or 0)
+                except (TypeError, ValueError):
+                    days = 0
+                if 1 <= days <= 30:
+                    query.max_age_days = days
 
                 try:
                     loop = asyncio.get_running_loop()

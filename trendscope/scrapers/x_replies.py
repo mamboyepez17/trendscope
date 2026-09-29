@@ -29,7 +29,9 @@ def run(query: TrendQuery) -> list[dict]:
         return []
 
     cookie_str = f"auth_token={TWITTER_AUTH_TOKEN}; ct0={TWITTER_CT0}"
-    q = _twitter_query(keyword)
+    from trendscope.core.dates import since_day
+
+    q = f"{_twitter_query(keyword)} since:{since_day(query.max_age_days)}"
     results: list[dict] = []
 
     try:

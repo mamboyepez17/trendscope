@@ -43,7 +43,22 @@ def _build_context(payload: dict) -> str:
             "negative": sentiment.get("negative", 0),
             "neutral": sentiment.get("neutral", 0),
             "compound": sentiment.get("compound"),
+            "net_score": sentiment.get("net_score"),
         },
+        # Ánimo de la gente (comentarios) — lo más importante para decidir
+        "public_mood": {
+            k: (meta.get("mood_index") or {}).get(k)
+            for k in (
+                "label", "headline", "net_score", "margin", "confidence",
+                "sample_size", "emotions", "polarization", "drivers",
+            )
+        },
+        "public_quotes": {
+            emo: [q.get("text") for q in qs[:2]]
+            for emo, qs in ((meta.get("mood_index") or {}).get("quotes") or {}).items()
+        },
+        "media_tone": meta.get("media_tone"),
+        "freshness_days": (meta.get("freshness") or {}).get("max_age_days"),
         "top_trends": [
             {
                 "title": t.get("title"),
@@ -304,7 +319,7 @@ def generate_summary(
     """Genera una narrativa usando el proveedor configurado."""
 
     if not settings.narrative_enabled:
-        return {"narrative": "Narrador deshabilitado.", "provider": "none", "style": style}
+        return {"narrative": "Narrador deshabilitado.", "provider": "none", "model": "", "style": style}
 
     provider = settings.narrator_provider
     prompt = _build_prompt(payload, style)

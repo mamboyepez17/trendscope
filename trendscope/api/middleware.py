@@ -148,9 +148,16 @@ class APIKeyMiddleware(BaseHTTPMiddleware):
         request.state.org_id = matched.org_id
         request.state.scopes = matched.scopes
 
-        # Scope check para mutaciones de watchlist
+        # Scope check para mutaciones de watchlist y operaciones de admin
         path = request.url.path
         method = request.method.upper()
+        is_admin_op = path.startswith("/admin") or (path == "/cache" and method == "DELETE")
+        if is_admin_op and not matched.allows("admin"):
+            return Response(
+                content='{"detail":"API key lacks admin scope"}',
+                status_code=403,
+                media_type="application/json",
+            )
         if path.startswith("/watchlist") and method in {"POST", "PUT", "DELETE"}:
             if not matched.allows("watchlist:write"):
                 return Response(

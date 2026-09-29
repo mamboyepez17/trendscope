@@ -42,10 +42,16 @@ class Settings(BaseSettings):
     deepseek_model: str = "deepseek-flash"
 
     sentiment_engine: str = "local"
+    # Modelo del motor "claude" (sentimiento + emociones)
+    claude_sentiment_model: str = "claude-haiku-4-5"
+    # /trends también recolecta comentarios para el Índice de Ánimo
+    pipeline_collect_comments: bool = True
 
     # General
     geo_target: str = "CO"
     top_n: int = 25
+    # Ventana de frescura: solo contenido de los últimos N días (1–30)
+    max_age_days: int = 7
     data_dir: str = "data"
 
     # API

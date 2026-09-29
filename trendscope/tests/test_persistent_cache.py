@@ -1,4 +1,5 @@
 """Tests para trendscope/core/persistent_cache.py."""
+import shutil
 import unittest
 import tempfile
 import time
@@ -14,12 +15,8 @@ class PersistentCacheTest(unittest.TestCase):
         self.cache = PersistentCache(db_path=self.db_path, ttl=1)
 
     def tearDown(self):
-        # Windows puede retener handles de SQLite; tolerar fallo de limpieza.
-        try:
-            self.db_path.unlink(missing_ok=True)
-            self.db_path.parent.rmdir()
-        except PermissionError:
-            pass
+        # SQLite en modo WAL deja -wal/-shm; Windows puede retener handles.
+        shutil.rmtree(self.tmp_dir, ignore_errors=True)
 
     def test_set_and_get(self):
         self.cache.set("k1", {"a": 1})

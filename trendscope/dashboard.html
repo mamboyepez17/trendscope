@@ -1,288 +1,262 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="es">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>TrendScope · Intelligence Dashboard</title>
+<title>TrendScope · Ánimo de la gente</title>
 <script src="/static/chart.umd.min.js"></script>
 <style>
-  /* Editorial dual theme — dark ink desk / light paper */
-  :root, [data-theme="dark"]{
-    --bg:#0c1218;
-    --bg-elev:#121a22;
-    --card:#16202b;
-    --card2:#1c2836;
-    --accent:#d4a054;          /* warm brass — less neon */
-    --accent-2:#5b9aa0;        /* muted teal */
-    --text:#e8e4dc;
-    --muted:#8a938f;
-    --border:#24313f;
-    --pos:#6fbf73;
-    --neg:#c96b5c;
-    --neu:#8a938f;
-    --red:#c96b5c;
-    --yellow:#d4a054;
-    --green:#6fbf73;
-    --reddit:#c45c26; --twitter:#5b9aa0; --google:#6a7fa8;
-    --hackernews:#c96b5c; --youtube:#b85c4a; --amazon:#d4a054; --tiktok:#8b6b9e;
-    --gdelt:#6a7fa8; --bing:#6a7fa8; --wiki:#8a938f; --bluesky:#5b9aa0;
-    --radius:12px;
-    --shadow:0 1px 0 rgba(255,255,255,.04) inset, 0 8px 24px rgba(0,0,0,.28);
-    --header-bg:rgba(12,18,24,.88);
-    --mood-size:64px;
+  /* ── Tokens ─────────────────────────────────────────────────────────────
+     Colores de datos validados (daltonismo + contraste) en ambos modos:
+       emociones  alegría · tristeza · enojo · miedo (orden fijo) + neutral
+       índice     negativo (naranja) ↔ gris ↔ positivo (aqua)            */
+  :root, [data-theme="light"]{
+    color-scheme: light;
+    --bg:#f4f4f1; --surface:#fcfcfb; --surface-2:#f0efec; --border:#e3e1da;
+    --ink:#0b0b0b; --ink-2:#52514e; --muted:#7a7872; --grid:#ebe9e3;
+    --btn:#0b0b0b; --btn-ink:#ffffff; --focus:#2a78d6;
+    --emo-joy:#eda100; --emo-sad:#2a78d6; --emo-anger:#e34948; --emo-fear:#4a3aa7; --emo-neutral:#b8b6ae;
+    --pos:#1baf7a; --neg:#eb6834; --mid:#e6e4de;
+    --good:#0ca30c; --critical:#d03b3b;
+    --shadow:0 1px 2px rgba(20,20,18,.05), 0 6px 24px rgba(20,20,18,.05);
+    --radius:14px;
   }
-  [data-theme="light"]{
-    --bg:#f3efe6;
-    --bg-elev:#ebe6db;
-    --card:#faf7f0;
-    --card2:#f0ebe1;
-    --accent:#b45309;          /* terracotta / amber ink */
-    --accent-2:#0f766e;        /* deep teal */
-    --text:#1c1917;
-    --muted:#6b6560;
-    --border:#e0d8c8;
-    --pos:#15803d;
-    --neg:#b45309;
-    --neu:#6b6560;
-    --red:#b91c1c;
-    --yellow:#b45309;
-    --green:#15803d;
-    --reddit:#c2410c; --twitter:#0f766e; --google:#3b5b8c;
-    --hackernews:#b91c1c; --youtube:#9f1239; --amazon:#a16207; --tiktok:#7e22ce;
-    --gdelt:#3b5b8c; --bing:#3b5b8c; --wiki:#6b6560; --bluesky:#0f766e;
-    --shadow:0 1px 2px rgba(28,25,23,.06), 0 8px 20px rgba(28,25,23,.06);
-    --header-bg:rgba(243,239,230,.92);
+  @media (prefers-color-scheme: dark){
+    :root:where(:not([data-theme="light"])){
+      color-scheme: dark;
+      --bg:#121211; --surface:#1a1a19; --surface-2:#232321; --border:#32322e;
+      --ink:#ffffff; --ink-2:#c3c2b7; --muted:#8f8e86; --grid:#2a2a27;
+      --btn:#ffffff; --btn-ink:#0b0b0b; --focus:#3987e5;
+      --emo-joy:#c98500; --emo-sad:#3987e5; --emo-anger:#e66767; --emo-fear:#9085e9; --emo-neutral:#5f5e59;
+      --pos:#199e70; --neg:#d95926; --mid:#383835;
+      --shadow:0 1px 0 rgba(255,255,255,.03) inset, 0 8px 28px rgba(0,0,0,.35);
+    }
   }
+  :root[data-theme="dark"]{
+    color-scheme: dark;
+    --bg:#121211; --surface:#1a1a19; --surface-2:#232321; --border:#32322e;
+    --ink:#ffffff; --ink-2:#c3c2b7; --muted:#8f8e86; --grid:#2a2a27;
+    --btn:#ffffff; --btn-ink:#0b0b0b; --focus:#3987e5;
+    --emo-joy:#c98500; --emo-sad:#3987e5; --emo-anger:#e66767; --emo-fear:#9085e9; --emo-neutral:#5f5e59;
+    --pos:#199e70; --neg:#d95926; --mid:#383835;
+    --shadow:0 1px 0 rgba(255,255,255,.03) inset, 0 8px 28px rgba(0,0,0,.35);
+  }
+
   *{box-sizing:border-box;margin:0;padding:0}
-  html,body{height:100%}
   body{
-    background:
-      linear-gradient(180deg, var(--bg-elev) 0%, var(--bg) 280px);
-    color:var(--text);
-    font-family:'Iowan Old Style','Palatino Linotype','Book Antiqua',Palatino,'Segoe UI',system-ui,sans-serif;
-    line-height:1.55; min-height:100vh; -webkit-font-smoothing:antialiased;
+    background:var(--bg); color:var(--ink);
+    font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+    font-size:14px; line-height:1.5; -webkit-font-smoothing:antialiased; min-height:100vh;
   }
-  a{color:var(--accent-2);text-decoration:none}
-  a:hover{text-decoration:underline}
-  ::selection{background:color-mix(in srgb, var(--accent) 35%, transparent)}
-
-  header.top{
-    position:sticky; top:0; z-index:50;
-    background:var(--header-bg); backdrop-filter:blur(12px);
-    border-bottom:1px solid var(--border);
-  }
-  .top-inner{
-    max-width:1180px;margin:0 auto;padding:12px 20px;
-    display:flex;align-items:center;gap:16px;flex-wrap:wrap;
-  }
-  .brand{display:flex;align-items:center;gap:14px;margin-right:auto}
-  .brand-mark{
-    width:40px;height:40px;border-radius:10px;
-    border:1px solid var(--border);
-    background:linear-gradient(145deg,var(--card2),var(--card));
-    display:grid;place-items:center;
-    font-weight:700;color:var(--accent);
-    font-family:Georgia,'Times New Roman',serif;font-size:18px;
-  }
-  .brand h1{font-size:20px;font-weight:600;letter-spacing:.02em;font-family:Georgia,serif}
-  .brand h1 span{color:var(--accent)}
-  .brand small{color:var(--muted);font-size:11px;display:block;letter-spacing:.06em;text-transform:uppercase}
-
-  .controls{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
-  .field{display:flex;flex-direction:column;gap:3px}
-  .field label{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.1em}
-  select,input[type=text],input[type=number]{
-    background:var(--card2);color:var(--text);border:1px solid var(--border);
-    border-radius:8px;padding:8px 11px;font-size:13px;min-width:150px;
-    font-family:inherit;outline:none;
-  }
-  select:focus,input:focus{border-color:var(--accent)}
-  .geo{min-width:72px !important;width:72px}
-  .interval{min-width:96px !important;width:96px}
-  .btn{
-    background:var(--accent);color:var(--bg);
-    border:none;border-radius:8px;padding:10px 16px;font-size:13px;font-weight:600;
-    cursor:pointer;font-family:inherit;letter-spacing:.02em;
-  }
-  .btn:hover{filter:brightness(1.06)}
-  .btn:active{transform:translateY(1px)}
-  .btn:disabled{opacity:.5;cursor:not-allowed}
-  .btn.ghost{background:transparent;color:var(--text);border:1px solid var(--border)}
-  .btn.ghost:hover{border-color:var(--accent);color:var(--accent)}
-  .btn.danger{background:var(--neg);color:#fff}
-  .btn.sm{padding:6px 10px;font-size:11px}
-
-  .toggle{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted);cursor:pointer;user-select:none}
-  .switch{position:relative;width:40px;height:22px;background:var(--card2);border:1px solid var(--border);border-radius:12px;transition:.2s}
-  .switch::after{content:"";position:absolute;top:2px;left:2px;width:16px;height:16px;border-radius:50%;background:var(--muted);transition:.2s}
-  .toggle.on .switch{background:color-mix(in srgb, var(--accent) 25%, var(--card2));border-color:var(--accent)}
-  .toggle.on .switch::after{left:20px;background:var(--accent)}
-
-  .connection-dot{width:8px;height:8px;border-radius:50%;background:var(--neg);display:inline-block;margin-right:6px}
-  .connection-dot.on{background:var(--pos)}
-
-  main{max-width:1180px;margin:0 auto;padding:22px 20px 72px}
-  .grid{display:grid;gap:16px}
-  .card{
-    background:var(--card);border:1px solid var(--border);border-radius:var(--radius);
-    padding:16px 18px;box-shadow:var(--shadow);
-  }
-  .card h2{
-    font-size:12px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;
-    color:var(--muted);margin-bottom:12px;font-family:system-ui,sans-serif;
-  }
-
-  /* Mood conversation */
-  .mood-panel{display:grid;grid-template-columns:auto 1fr;gap:20px;align-items:center}
-  .mood-face{font-size:var(--mood-size);line-height:1;filter:saturate(.9)}
-  .mood-label{font-size:22px;font-family:Georgia,serif;color:var(--text);margin-bottom:4px}
-  .mood-sub{font-size:13px;color:var(--muted);margin-bottom:10px}
-  .mood-bars{display:grid;gap:8px}
-  .mood-row{display:grid;grid-template-columns:72px 1fr 36px;gap:8px;align-items:center;font-size:12px}
-  .mood-row span:last-child{text-align:right;color:var(--muted)}
-  .bar{height:8px;border-radius:4px;background:var(--card2);overflow:hidden}
-  .bar i{display:block;height:100%;border-radius:4px}
-  .bar .sup{background:var(--pos)}
-  .bar .agn{background:var(--neg)}
-  .bar .mix{background:var(--accent)}
-  .bar .neu{background:var(--muted);opacity:.5}
-  .phrases{margin-top:12px;font-size:13px;color:var(--muted);font-style:italic}
-
-  .narrative .narr-meta{font-size:11px;color:var(--muted);margin-bottom:8px;letter-spacing:.08em;text-transform:uppercase;font-family:system-ui,sans-serif}
-  .narrative .narr-text{color:var(--text);line-height:1.7;font-size:14.5px}
-  .narrative .error{color:var(--neg)}
-  .empty{text-align:center;color:var(--muted);padding:40px 16px}
-
-  /* theme toggle */
-  #themeToggle{
-    border:1px solid var(--border);background:var(--card2);color:var(--text);
-    border-radius:20px;padding:6px 12px;font-size:12px;cursor:pointer;font-family:inherit;
-  }
-  #themeToggle:hover{border-color:var(--accent);color:var(--accent)}
-
-  @media (max-width:900px){
-    .brand{width:100%;margin-right:0}
-    .controls{width:100%}
-    select,input[type=text]{flex:1;min-width:0}
-    .stats{grid-template-columns:1fr 1fr}
-    .mood-panel{grid-template-columns:1fr;text-align:center}
-    main{padding:16px 12px 60px}
-  }
-</style>
-  .card h2{font-size:13px;text-transform:uppercase;letter-spacing:1.2px;color:var(--muted);margin-bottom:14px;display:flex;align-items:center;gap:8px}
-  .card h2::before{content:"";width:4px;height:14px;background:var(--accent);border-radius:2px}
-
-  .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:18px}
-  .stat{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:16px;position:relative;overflow:hidden}
-  .stat::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,color-mix(in srgb, var(--accent) 6%, transparent),transparent 55%);pointer-events:none}
-  .stat .k{font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--muted)}
-  .stat .v{font-size:30px;font-weight:800;margin-top:6px;line-height:1}
-  .stat .sub{font-size:12px;color:var(--muted);margin-top:8px;display:flex;gap:10px;flex-wrap:wrap}
-  .pill{display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:600}
-  .dot{width:8px;height:8px;border-radius:50%;display:inline-block}
-
-  .visuals{display:grid;grid-template-columns:1fr 1fr;gap:18px}
-  .gauge-wrap{display:flex;align-items:center;justify-content:center;gap:24px;flex-wrap:wrap}
-  .gauge-legend{display:flex;flex-direction:column;gap:10px;font-size:13px}
-  .gauge-legend .row{display:flex;align-items:center;gap:8px;min-width:160px;justify-content:space-between}
-  .bar-mini{flex:1;height:6px;background:var(--card2);border-radius:3px;overflow:hidden;margin:0 8px}
-  .bar-mini > i{display:block;height:100%;border-radius:3px;transform:scaleX(0);transform-origin:left;transition:transform .9s cubic-bezier(.2,.8,.2,1)}
-
-  .src-row{display:grid;grid-template-columns:120px 1fr 44px;align-items:center;gap:12px;margin-bottom:12px;font-size:13px}
-  .src-row:last-child{margin-bottom:0}
-  .src-name{display:flex;align-items:center;gap:8px}
-  .src-track{height:14px;background:var(--card2);border-radius:7px;overflow:hidden;position:relative}
-  .src-fill{height:100%;border-radius:7px;width:0;transition:width 1s cubic-bezier(.2,.8,.2,1)}
-  .src-count{text-align:right;color:var(--muted);font-variant-numeric:tabular-nums}
-
-  .hist{display:flex;align-items:flex-end;gap:8px;height:180px;padding-top:10px}
-  .hist-col{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%;gap:6px}
-  .hist-bar{width:100%;max-width:46px;background:linear-gradient(180deg,var(--accent),var(--accent-2));border-radius:6px 6px 0 0;height:0;transition:height 1s cubic-bezier(.2,.8,.2,1);min-height:2px}
-  .hist-lbl{font-size:11px;color:var(--muted);font-variant-numeric:tabular-nums}
-
-  .trends{list-style:none}
-  .trend{
-    display:grid;grid-template-columns:36px 1fr auto;gap:14px;align-items:center;
-    padding:14px;border:1px solid var(--border);border-radius:12px;margin-bottom:10px;
-    background:var(--card2);transition:border-color .15s, transform .15s;opacity:0;transform:translateY(8px);
-    animation:fadein .5s forwards;
-  }
-  .trend:hover{border-color:var(--accent)}
-  @keyframes fadein{to{opacity:1;transform:translateY(0)}}
-  .rank{font-size:18px;font-weight:800;color:var(--muted);text-align:center;font-variant-numeric:tabular-nums}
-  .rank.top{color:var(--accent)}
-  .trend-main{min-width:0}
-  .trend-title{font-size:14px;line-height:1.4;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;word-break:break-word}
-  .trend-title a{color:var(--text)}
-  .trend-title a:hover{color:var(--accent)}
-  .trend-meta{display:flex;align-items:center;gap:10px;margin-top:8px;flex-wrap:wrap}
-  .badge{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:700;padding:3px 9px;border-radius:20px;text-transform:uppercase;letter-spacing:.5px}
-  .senti{display:inline-flex;align-items:center;gap:4px;font-size:12px;font-weight:700}
-  .senti.pos{color:var(--pos)} .senti.neg{color:var(--neg)} .senti.neu{color:var(--neu)}
-  .scorebar-wrap{width:130px}
-  .scorebar{height:8px;background:var(--card);border-radius:4px;overflow:hidden}
-  .scorebar > i{display:block;height:100%;width:0;border-radius:4px;transition:width 1s cubic-bezier(.2,.8,.2,1)}
-  .score-num{font-size:12px;font-weight:700;text-align:right;margin-top:3px;font-variant-numeric:tabular-nums}
-  .eng{display:flex;gap:12px;font-size:11px;color:var(--muted);margin-top:8px;flex-wrap:wrap}
-  .eng span{display:inline-flex;align-items:center;gap:4px}
-  .eng b{color:var(--text);font-variant-numeric:tabular-nums}
-  .ico{font-style:normal;font-family:'Segoe UI Symbol',sans-serif}
-
-  .cmp{display:grid;grid-template-columns:1fr 1fr;gap:18px}
-  .cmp .panel{border:1px solid var(--border);border-radius:var(--radius);overflow:hidden}
-  .cmp .panel > .ph{padding:10px 14px;background:var(--card2);font-weight:700;font-size:14px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px}
-  .cmp .panel > .pb{padding:0}
-  .cmp .panel .trend{margin:0;border:none;border-radius:0;border-bottom:1px solid var(--border)}
-  .cmp .panel .trend:last-child{border-bottom:none}
-
-  .status{min-height:60px;margin:18px 0;display:none}
-  .status.show{display:block}
-  .loader{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:30px;color:var(--muted)}
-  .spinner{width:44px;height:44px;border:4px solid var(--card2);border-top-color:var(--accent);border-radius:50%;animation:spin 1s linear infinite}
-  @keyframes spin{to{transform:rotate(360deg)}}
-  .error{background:color-mix(in srgb, var(--neg) 12%, transparent);border:1px solid var(--neg);border-radius:10px;padding:14px;color:var(--neg)}
-  .error b{color:var(--text)}
-  .empty .big{font-size:40px;margin-bottom:10px;opacity:.5}
-
-  .meta-line{color:var(--muted);font-size:12px;margin-bottom:16px;flex-wrap:wrap;display:flex;gap:14px}
-  .meta-line b{color:var(--text)}
+  a{color:inherit}
+  button,input,select{font:inherit;color:inherit}
+  :focus-visible{outline:2px solid var(--focus);outline-offset:2px;border-radius:6px}
+  .num{font-variant-numeric:tabular-nums}
   .hidden{display:none !important}
-  section{margin-top:22px}
+  .muted{color:var(--muted)}
+  .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
 
-  /* Watchlist & History */
-  .layout{display:grid;grid-template-columns:320px 1fr;gap:18px;align-items:start}
-  .watchlist{max-height:500px;overflow:auto}
-  .watch-item{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px;border:1px solid var(--border);border-radius:10px;margin-bottom:8px;background:var(--card2)}
-  .watch-item:hover{border-color:var(--accent)}
-  .watch-info{min-width:0}
+  /* ── Header ── */
+  header.top{position:sticky;top:0;z-index:40;background:color-mix(in srgb,var(--bg) 88%,transparent);
+    backdrop-filter:blur(10px);border-bottom:1px solid var(--border)}
+  .top-inner{max-width:1200px;margin:0 auto;padding:10px 16px;display:flex;align-items:center;gap:12px}
+  .brand{display:flex;align-items:center;gap:10px;margin-right:auto}
+  .brand-mark{width:32px;height:32px;border-radius:9px;background:var(--btn);color:var(--btn-ink);
+    display:grid;place-items:center;font-weight:800;font-size:13px;letter-spacing:.02em}
+  .brand b{font-size:16px;letter-spacing:-.01em}
+  .brand small{display:block;color:var(--muted);font-size:11px;margin-top:-2px}
+  .live{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted)}
+  .connection-dot{width:7px;height:7px;border-radius:50%;background:var(--muted)}
+  .connection-dot.on{background:var(--good)}
+  .icon-btn{border:1px solid var(--border);background:var(--surface);border-radius:999px;
+    padding:6px 12px;font-size:12px;cursor:pointer}
+  .icon-btn:hover{border-color:var(--ink-2)}
+
+  main{max-width:1200px;margin:0 auto;padding:18px 16px 64px}
+
+  /* ── Buscador ── */
+  .search{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);
+    box-shadow:var(--shadow);padding:16px}
+  .search h1{font-size:20px;letter-spacing:-.01em;margin-bottom:2px}
+  .search p.lead{color:var(--ink-2);font-size:13px;margin-bottom:14px}
+  .search-row{display:grid;grid-template-columns:1fr auto;gap:10px}
+  .topic-wrap{position:relative}
+  .topic-wrap input{width:100%;height:46px;border-radius:11px;border:1px solid var(--border);
+    background:var(--surface-2);padding:0 14px;font-size:16px;outline:none}
+  .topic-wrap input:focus{border-color:var(--focus);background:var(--surface)}
+  .btn{height:46px;border:none;border-radius:11px;padding:0 22px;background:var(--btn);color:var(--btn-ink);
+    font-weight:650;cursor:pointer;white-space:nowrap}
+  .btn:hover{opacity:.9}
+  .btn:disabled{opacity:.45;cursor:wait}
+  .btn.sm{height:32px;padding:0 12px;font-size:12px;border-radius:8px}
+  .btn.ghost{background:transparent;color:var(--ink);border:1px solid var(--border)}
+  .btn.ghost:hover{border-color:var(--ink-2)}
+  .btn.danger{background:transparent;color:var(--critical);border:1px solid var(--border)}
+  .options{display:flex;flex-wrap:wrap;gap:10px;margin-top:12px;align-items:flex-end}
+  .field{display:flex;flex-direction:column;gap:4px}
+  .field label{font-size:11px;color:var(--muted);font-weight:600;letter-spacing:.02em}
+  .field select,.field input{height:34px;border-radius:8px;border:1px solid var(--border);
+    background:var(--surface-2);padding:0 10px;font-size:13px;min-width:120px;outline:none}
+  .field input.geo{min-width:0;width:64px;text-transform:uppercase}
+  .toggle{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--ink-2);cursor:pointer;
+    user-select:none;height:34px;padding:0 4px}
+  .switch{position:relative;width:34px;height:20px;background:var(--surface-2);border:1px solid var(--border);border-radius:12px;transition:.2s}
+  .switch::after{content:"";position:absolute;top:2px;left:2px;width:14px;height:14px;border-radius:50%;background:var(--muted);transition:.2s}
+  .toggle.on .switch{background:var(--btn);border-color:var(--btn)}
+  .toggle.on .switch::after{left:16px;background:var(--btn-ink)}
+  .examples{display:flex;flex-wrap:wrap;gap:6px;margin-top:12px;align-items:center}
+  .chip-btn{border:1px solid var(--border);background:transparent;border-radius:999px;padding:4px 10px;
+    font-size:12px;cursor:pointer;color:var(--ink-2)}
+  .chip-btn:hover{border-color:var(--ink-2);color:var(--ink)}
+
+  /* ── Tabs ── */
+  .tabs{display:flex;gap:4px;margin:18px 0 14px;border-bottom:1px solid var(--border);overflow-x:auto}
+  .tab{border:none;background:none;padding:10px 14px;font-weight:600;color:var(--muted);cursor:pointer;
+    border-bottom:2px solid transparent;margin-bottom:-1px;white-space:nowrap}
+  .tab:hover{color:var(--ink)}
+  .tab.active{color:var(--ink);border-bottom-color:var(--ink)}
+  .tab .count{font-size:11px;background:var(--surface-2);border-radius:999px;padding:1px 7px;margin-left:6px;color:var(--ink-2)}
+
+  /* ── Tarjetas ── */
+  .grid{display:grid;gap:14px}
+  .g2{grid-template-columns:1fr 1fr}
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);
+    box-shadow:var(--shadow);padding:16px 18px;min-width:0}
+  .card h2{font-size:13px;font-weight:700;margin-bottom:2px}
+  .card .sub{font-size:12px;color:var(--muted);margin-bottom:14px}
+  .empty{text-align:center;color:var(--muted);padding:28px 12px;font-size:13px}
+
+  /* ── Hero del ánimo ── */
+  .hero{display:grid;grid-template-columns:auto 1fr;gap:22px;align-items:center;padding:22px}
+  .mood-face{font-size:72px;line-height:1;width:96px;height:96px;display:grid;place-items:center;
+    background:var(--surface-2);border-radius:24px}
+  .mood-kicker{font-size:12px;color:var(--muted);font-weight:600;letter-spacing:.04em;text-transform:uppercase}
+  .mood-label{font-size:30px;font-weight:800;letter-spacing:-.02em;line-height:1.15}
+  .mood-headline{color:var(--ink-2);margin:6px 0 14px;max-width:760px}
+  .meter-head{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:6px}
+  .net{font-size:28px;font-weight:800;letter-spacing:-.02em}
+  .net small{font-size:14px;color:var(--muted);font-weight:600}
+  .pill{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;border:1px solid var(--border);
+    border-radius:999px;padding:2px 10px;color:var(--ink-2)}
+  .pill .dot{width:7px;height:7px;border-radius:50%}
+  .meter svg{display:block;width:100%;height:44px;overflow:visible}
+  .meter-scale{display:flex;justify-content:space-between;font-size:11px;color:var(--muted);margin-top:2px}
+
+  /* ── KPIs ── */
+  .kpis{display:grid;grid-template-columns:repeat(6,1fr);gap:10px;margin-top:14px}
+  .kpi{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:12px 14px;min-width:0}
+  .kpi .k{font-size:11px;color:var(--muted);font-weight:600}
+  .kpi .v{font-size:22px;font-weight:800;letter-spacing:-.01em;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .kpi .h{font-size:11px;color:var(--ink-2);margin-top:2px}
+
+  /* ── Barras de emociones ── */
+  .emo-row{display:grid;grid-template-columns:92px 1fr 48px;gap:10px;align-items:center;padding:7px 0;cursor:default}
+  .emo-name{display:flex;align-items:center;gap:8px;font-weight:600;font-size:13px}
+  .emo-name .sw{width:10px;height:10px;border-radius:3px;flex:none}
+  .track{height:12px;background:var(--surface-2);border-radius:4px;overflow:hidden}
+  .fill{height:100%;border-radius:4px;width:0;transition:width .8s cubic-bezier(.2,.8,.2,1)}
+  .pct{text-align:right;font-weight:700;font-size:13px}
+  .emo-row:hover .track{outline:1px solid var(--border)}
+
+  /* ── Drivers ── */
+  .driver{padding:8px 0;border-bottom:1px solid var(--grid)}
+  .driver:last-child{border-bottom:none}
+  .driver-h{display:flex;align-items:center;gap:8px;font-size:12px;font-weight:700;margin-bottom:6px}
+  .tags{display:flex;flex-wrap:wrap;gap:6px}
+  .tag{font-size:12px;background:var(--surface-2);border-radius:6px;padding:2px 8px;color:var(--ink-2)}
+
+  /* ── Citas ── */
+  .filters{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px}
+  .filters .chip-btn.active{background:var(--btn);color:var(--btn-ink);border-color:var(--btn)}
+  .quotes{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+  .quote{border:1px solid var(--border);border-left-width:4px;border-radius:10px;padding:10px 12px;background:var(--surface)}
+  .quote p{font-size:13.5px;line-height:1.55}
+  .quote .by{font-size:11px;color:var(--muted);margin-top:6px;display:flex;gap:8px;flex-wrap:wrap}
+  .quote .by a{color:var(--ink-2)}
+
+  /* ── Por fuente (divergente) ── */
+  .src-row{display:grid;grid-template-columns:180px 1fr 56px;gap:10px;align-items:center;padding:6px 0}
+  .src-name{font-size:13px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .src-name small{font-weight:500;color:var(--muted);margin-left:4px}
+  .div-track{position:relative;height:12px;background:var(--surface-2);border-radius:4px}
+  .div-track::after{content:"";position:absolute;left:50%;top:-3px;bottom:-3px;width:1px;background:var(--muted)}
+  .div-fill{position:absolute;top:0;bottom:0;border-radius:4px}
+
+  /* ── Narrativa ── */
+  .narrative .narr-meta{font-size:11px;color:var(--muted);margin-bottom:8px}
+  .narrative .narr-text{line-height:1.7;font-size:14px;color:var(--ink)}
+  .narrative .error{color:var(--critical)}
+
+  /* ── Tendencias ── */
+  .trends{list-style:none}
+  .trend{display:grid;grid-template-columns:28px 1fr 110px;gap:12px;align-items:center;padding:12px 4px;border-bottom:1px solid var(--grid)}
+  .trend:last-child{border-bottom:none}
+  .rank{font-weight:800;color:var(--muted);text-align:center}
+  .trend-title{font-weight:600;line-height:1.4;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+  .trend-title a{text-decoration:none}
+  .trend-title a:hover{text-decoration:underline}
+  .meta{display:flex;flex-wrap:wrap;gap:6px 10px;margin-top:5px;font-size:12px;color:var(--muted);align-items:center}
+  .badge{font-size:11px;font-weight:700;border:1px solid var(--border);border-radius:6px;padding:1px 7px;color:var(--ink-2);text-transform:capitalize}
+  .emo-chip{display:inline-flex;align-items:center;gap:5px;font-weight:600;color:var(--ink-2)}
+  .emo-chip .sw{width:8px;height:8px;border-radius:2px}
+  .score .track{height:6px}
+  .score .fill{background:var(--ink-2)}
+  .score .n{font-size:12px;font-weight:700;text-align:right;margin-top:3px}
+  .fresh{color:var(--ink-2);font-weight:600}
+
+  /* ── Comparar ── */
+  .cmp-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  .cmp-head{display:flex;align-items:center;gap:12px;margin-bottom:10px}
+  .cmp-head .mood-face{font-size:40px;width:56px;height:56px;border-radius:14px}
+  .cmp-head b{font-size:18px}
+
+  /* ── Monitoreo ── */
+  .layout{display:grid;grid-template-columns:320px 1fr;gap:14px;align-items:start}
+  .add-form{display:flex;gap:8px;margin-bottom:12px}
+  .add-form input{flex:1;min-width:0;height:34px;border-radius:8px;border:1px solid var(--border);background:var(--surface-2);padding:0 10px}
+  .add-form input.interval{flex:none;width:70px}
+  .watch-item{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px;border:1px solid var(--border);border-radius:10px;margin-bottom:8px}
   .watch-topic{font-weight:700;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .watch-meta{font-size:11px;color:var(--muted)}
-  .watch-actions{display:flex;gap:6px;flex-shrink:0}
-  .add-form{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}
-  .add-form input{flex:1;min-width:120px}
-  .add-form input.interval{min-width:80px;width:80px}
+  .watch-actions{display:flex;gap:6px;flex:none}
   .chart-wrap{position:relative;height:260px}
-  .history-list{max-height:200px;overflow:auto;margin-top:14px}
-  .history-row{display:flex;justify-content:space-between;gap:10px;padding:8px 10px;border-bottom:1px solid var(--border);font-size:12px}
-  .history-row:last-child{border-bottom:none}
+  .history-list{max-height:220px;overflow:auto;margin-top:12px}
+  .history-row{display:grid;grid-template-columns:1fr auto auto;gap:12px;padding:7px 4px;border-bottom:1px solid var(--grid);font-size:12px}
 
-  @media (max-width:1000px){
-    .stats{grid-template-columns:repeat(2,1fr)}
-    .visuals{grid-template-columns:1fr}
-    .cmp{grid-template-columns:1fr}
-    .layout{grid-template-columns:1fr}
+  /* ── Estado / carga ── */
+  .status{margin-top:14px}
+  .loader{display:flex;align-items:center;gap:14px;padding:16px 18px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius)}
+  .spinner{width:22px;height:22px;border:3px solid var(--surface-2);border-top-color:var(--ink);border-radius:50%;animation:spin .9s linear infinite;flex:none}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .loader b{display:block}
+  .loader span{font-size:12px;color:var(--muted)}
+  .error{background:color-mix(in srgb,var(--critical) 9%,var(--surface));border:1px solid color-mix(in srgb,var(--critical) 40%,var(--border));
+    border-radius:var(--radius);padding:12px 16px;color:var(--ink)}
+  .error b{color:var(--critical)}
+  .welcome{text-align:center;padding:48px 16px;color:var(--ink-2)}
+  .welcome .big{font-size:44px;margin-bottom:8px}
+  .welcome h2{font-size:18px;color:var(--ink);margin-bottom:6px}
+
+  /* Tooltip */
+  .tip{position:fixed;z-index:60;pointer-events:none;background:var(--ink);color:var(--surface);
+    font-size:12px;padding:6px 9px;border-radius:7px;max-width:260px;opacity:0;transition:opacity .1s}
+  .tip.show{opacity:1}
+
+  @media (max-width:980px){
+    .kpis{grid-template-columns:repeat(3,1fr)}
+    .g2,.cmp-grid,.layout{grid-template-columns:1fr}
+    .quotes{grid-template-columns:1fr}
   }
   @media (max-width:640px){
-    .top-inner{padding:12px 14px}
-    .brand{width:100%;margin-right:0}
-    .controls{width:100%}
-    select,input[type=text]{flex:1;min-width:0}
-    .stats{grid-template-columns:1fr 1fr}
-    .trend{grid-template-columns:28px 1fr;gap:10px}
-    .trend .scorebar-wrap{grid-column:1/-1;width:100%}
-    .src-row{grid-template-columns:90px 1fr 36px}
-    main{padding:18px 14px 60px}
-    .logo{font-size:9px}
+    .search-row{grid-template-columns:1fr}
+    .hero{grid-template-columns:1fr;text-align:left;padding:16px}
+    .mood-face{width:72px;height:72px;font-size:52px}
+    .mood-label{font-size:24px}
+    .kpis{grid-template-columns:repeat(2,1fr)}
+    .trend{grid-template-columns:22px 1fr}
+    .trend .score{grid-column:2}
+    .src-row{grid-template-columns:96px 1fr 44px}
+    .brand small{display:none}
   }
 </style>
 </head>
@@ -292,97 +266,165 @@
   <div class="top-inner">
     <div class="brand">
       <div class="brand-mark">TS</div>
-      <div>
-        <h1>Trend<span>Scope</span></h1>
-        <small>Intelligence desk · v1.8</small>
-      </div>
+      <div><b>TrendScope</b><small>Ánimo de la gente, en tiempo real</small></div>
     </div>
-
-    <div class="controls">
-      <button type="button" id="themeToggle" title="Toggle light / dark">Light</button>
-      <div class="field">
-        <label for="cat">Category</label>
-        <select id="cat"><option value="">Loading…</option></select>
-      </div>
-      <div class="field" id="topicField">
-        <label for="topic">Free topic (optional)</label>
-        <input type="text" id="topic" placeholder="e.g. crypto Colombia">
-      </div>
-      <div class="field hidden" id="topic2Field">
-        <label for="topic2">Topic 2 (compare)</label>
-        <input type="text" id="topic2" placeholder="e.g. bitcoin">
-      </div>
-      <div class="field">
-        <label for="geo">Geo</label>
-        <input type="text" id="geo" class="geo" value="CO" maxlength="3">
-      </div>
-      <button class="btn" id="analizar">Analyze</button>
-      <div class="toggle" id="cmpToggle" title="Compare mode">
-        <span>Compare</span>
-        <span class="switch"></span>
-      </div>
-      <div style="display:flex;align-items:center;gap:6px;font-size:11px;color:var(--muted)">
-        <span id="wsDot" class="connection-dot"></span><span id="wsText">WS off</span>
-      </div>
-    </div>
+    <div class="live" title="Conexión en vivo (WebSocket)"><span id="wsDot" class="connection-dot"></span><span id="wsText">Sin conexión</span></div>
+    <button type="button" id="themeToggle" class="icon-btn" title="Cambiar tema claro / oscuro">Tema</button>
   </div>
 </header>
 
 <main>
-  <div class="status" id="status"></div>
-
-  <!-- Watchlist + History sidebar -->
-  <section class="layout">
-    <div class="card">
-      <h2>Watchlist</h2>
-      <div class="add-form">
-        <input type="text" id="wlTopic" placeholder="topic to monitor">
-        <input type="number" id="wlInterval" class="interval" value="60" min="5" title="minutes">
-        <button class="btn sm" id="wlAdd">Add</button>
+  <!-- Buscador -->
+  <section class="search" aria-label="Buscar tema">
+    <h1>¿Cómo se siente la gente sobre…?</h1>
+    <p class="lead">Mide si la gente está contenta, enojada, triste o preocupada a partir de comentarios, tweets y noticias recientes.</p>
+    <div class="search-row">
+      <div class="topic-wrap" id="topicField">
+        <label for="topic" class="sr">Tema</label>
+        <input type="text" id="topic" placeholder="Ej: reforma a la salud, Petro, Bitcoin, Rappi…" autocomplete="off">
       </div>
-      <div class="watchlist" id="watchlist"></div>
+      <button class="btn" id="analizar">Medir ánimo</button>
     </div>
-
-    <div class="card" id="historyCard">
-      <h2>History & Trends</h2>
-      <div class="meta-line">
-        <span>Topic: <b id="histTopic">—</b></span>
-        <span>Records: <b id="histCount">0</b></span>
+    <div class="options">
+      <div class="field">
+        <label for="days">Periodo</label>
+        <select id="days">
+          <option value="1">Últimas 24 h</option>
+          <option value="3">Últimos 3 días</option>
+          <option value="7" selected>Últimos 7 días</option>
+          <option value="30">Últimos 30 días</option>
+        </select>
       </div>
-      <div class="chart-wrap">
-        <canvas id="historyChart"></canvas>
+      <div class="field">
+        <label for="cat">o una categoría</label>
+        <select id="cat"><option value="">Cargando…</option></select>
       </div>
-      <div class="history-list" id="historyList"></div>
+      <div class="field">
+        <label for="geo">País</label>
+        <input type="text" id="geo" class="geo" value="CO" maxlength="2">
+      </div>
+      <div class="field">
+        <label for="engine">Motor</label>
+        <select id="engine">
+          <option value="local" selected>Local (gratis)</option>
+          <option value="claude">Claude (premium)</option>
+        </select>
+      </div>
+      <div class="toggle" id="cmpToggle" role="switch" aria-checked="false" tabindex="0" title="Comparar dos temas">
+        <span class="switch"></span><span>Comparar</span>
+      </div>
+      <div class="field hidden" id="topic2Field">
+        <label for="topic2">Tema 2</label>
+        <input type="text" id="topic2" placeholder="Ej: Ethereum">
+      </div>
+    </div>
+    <div class="examples" id="examples">
+      <span class="muted" style="font-size:12px">Prueba:</span>
+      <button type="button" class="chip-btn" data-example="reforma a la salud">reforma a la salud</button>
+      <button type="button" class="chip-btn" data-example="Bitcoin">Bitcoin</button>
+      <button type="button" class="chip-btn" data-example="inteligencia artificial">inteligencia artificial</button>
+      <button type="button" class="chip-btn" data-example="Selección Colombia">Selección Colombia</button>
     </div>
   </section>
 
-  <!-- single result -->
-  <div id="singleView">
-    <div class="stats grid" id="stats"></div>
-    <div class="visuals" style="margin-top:18px">
-      <section class="card"><h2>Overall sentiment</h2><div class="gauge-wrap" id="gaugeWrap"></div></section>
-      <section class="card"><h2>Source distribution</h2><div id="sources"></div></section>
-    </div>
-    <section class="card" style="margin-top:18px"><h2>Score distribution</h2><div class="hist" id="hist"></div></section>
-    <section class="card" style="margin-top:16px">
-      <h2>Conversation mood</h2>
-      <div id="moodBox" class="mood-panel">
-        <div class="empty">Run Analyze to inspect comments</div>
-      </div>
-    </section>
-    <section class="card" style="margin-top:16px">
-      <h2>AI narrative</h2>
-      <div id="narrativeBox" class="narrative"><div class="empty">Run Analyze to generate a narrative</div></div>
-    </section>
-    <section class="card" style="margin-top:18px"><h2>Top trends</h2><div class="meta-line" id="meta"></div><ul class="trends" id="trends"></ul></section>
-  </div>
+  <div class="status" id="status"></div>
 
-  <!-- comparison result -->
-  <div id="cmpView" class="hidden">
-    <div class="cmp" id="cmpPanels"></div>
-  </div>
+  <nav class="tabs" role="tablist">
+    <button type="button" class="tab active" role="tab" data-tab="mood">Ánimo</button>
+    <button type="button" class="tab" role="tab" data-tab="trends">Tendencias<span class="count" id="trendsCount">0</span></button>
+    <button type="button" class="tab" role="tab" data-tab="compare">Comparar</button>
+    <button type="button" class="tab" role="tab" data-tab="monitor">Monitoreo</button>
+  </nav>
+
+  <!-- ── Ánimo ── -->
+  <section id="tab-mood" class="tab-panel">
+    <div id="singleView">
+      <div class="card hero" id="moodBox">
+        <div class="welcome" style="grid-column:1/-1">
+          <div class="big mood-face" style="margin:0 auto 10px">😶</div>
+          <h2>Escribe un tema y presiona «Medir ánimo»</h2>
+          <p>Leemos lo que la gente comenta en Reddit, X, Bluesky y foros, y lo que dicen las noticias recientes.</p>
+        </div>
+      </div>
+      <div class="kpis" id="kpis"></div>
+
+      <div class="grid g2" style="margin-top:14px">
+        <section class="card">
+          <h2>Emociones de la gente</h2>
+          <p class="sub">Qué tanto de cada emoción hay en las opiniones (ponderado: una persona = un voto).</p>
+          <div id="emotions"><div class="empty">Sin datos todavía</div></div>
+        </section>
+        <section class="card">
+          <h2>¿De qué hablan?</h2>
+          <p class="sub">Palabras que más aparecen en cada emoción.</p>
+          <div id="drivers"><div class="empty">Sin datos todavía</div></div>
+        </section>
+      </div>
+
+      <section class="card" style="margin-top:14px">
+        <h2>Voces de la gente</h2>
+        <p class="sub">Comentarios representativos de cada emoción.</p>
+        <div class="filters" id="quoteFilters"></div>
+        <div class="quotes" id="quotes"><div class="empty">Sin comentarios todavía</div></div>
+      </section>
+
+      <div class="grid g2" style="margin-top:14px">
+        <section class="card">
+          <h2>Ánimo por fuente</h2>
+          <p class="sub">Índice neto de cada red (−100 negativo · +100 positivo).</p>
+          <div id="bySource"><div class="empty">Sin datos todavía</div></div>
+        </section>
+        <section class="card">
+          <h2>Resumen con IA</h2>
+          <p class="sub">Narrativa ejecutiva generada a partir de los datos.</p>
+          <div id="narrativeBox" class="narrative"><div class="empty">Aparece después de analizar</div></div>
+        </section>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── Tendencias ── -->
+  <section id="tab-trends" class="tab-panel hidden">
+    <section class="card">
+      <h2>Lo más destacado del periodo</h2>
+      <p class="sub" id="meta">Noticias, posts y videos recientes ordenados por relevancia y engagement.</p>
+      <ul class="trends" id="trends"><li class="empty">Analiza un tema para ver sus tendencias</li></ul>
+    </section>
+  </section>
+
+  <!-- ── Comparar ── -->
+  <section id="tab-compare" class="tab-panel hidden">
+    <div id="cmpView">
+      <div class="cmp-grid" id="cmpPanels">
+        <div class="card empty" style="grid-column:1/-1">Activa «Comparar», escribe dos temas y presiona «Medir ánimo».</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── Monitoreo ── -->
+  <section id="tab-monitor" class="tab-panel hidden">
+    <div class="layout">
+      <section class="card">
+        <h2>Temas vigilados</h2>
+        <p class="sub">Se analizan solos cada cierto tiempo.</p>
+        <div class="add-form">
+          <input type="text" id="wlTopic" placeholder="Tema a vigilar">
+          <input type="number" id="wlInterval" class="interval" value="60" min="5" title="minutos">
+          <button class="btn sm" id="wlAdd">Añadir</button>
+        </div>
+        <div id="watchlist"></div>
+      </section>
+      <section class="card" id="historyCard">
+        <h2>Evolución del ánimo · <span id="histTopic">—</span></h2>
+        <p class="sub"><span id="histCount">0</span> mediciones · índice neto por análisis</p>
+        <div class="chart-wrap"><canvas id="historyChart" aria-label="Evolución del índice neto"></canvas></div>
+        <div class="history-list" id="historyList"></div>
+      </section>
+    </div>
+  </section>
 </main>
 
+<div class="tip" id="tip" role="tooltip"></div>
 <script src="/static/dashboard.js"></script>
 
 </body>

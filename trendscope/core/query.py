@@ -8,6 +8,7 @@ from trendscope.config import (
     SENTIMENT_ENGINE_DEFAULT,
     TOP_N,
     GEO_TARGET,
+    MAX_AGE_DAYS,
 )
 
 
@@ -23,6 +24,7 @@ class TrendQuery:
     geo: str = GEO_TARGET
     top_n: int = TOP_N
     sentiment_engine: str = SENTIMENT_ENGINE_DEFAULT
+    max_age_days: int = MAX_AGE_DAYS       # solo contenido reciente
 
     @property
     def keywords(self) -> list[str]:

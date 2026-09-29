@@ -56,6 +56,12 @@ def analyze_items(items: list[dict], query: TrendQuery) -> list[dict]:
             item["sentiment_engine"] = "failed"
             item["emotions"] = {}
 
+    # Emociones por ítem (alegría / enojo / tristeza / miedo / neutral)
+    try:
+        enrich_emotions(items)
+    except Exception as e:
+        logger.warning(f"Emociones fallo: {e}")
+
     # Stance hacia el tema (siempre, aunque el engine falle)
     try:
         from trendscope.sentiment.stance import enrich_stance
@@ -68,4 +74,45 @@ def analyze_items(items: list[dict], query: TrendQuery) -> list[dict]:
             item.setdefault("stance", "unknown")
             item.setdefault("stance_confidence", 0.0)
 
+    return items
+
+
+# Motores cuyo sentimiento viene de un modelo real (no del léxico)
+_MODEL_ENGINES = ("local_es", "local_en", "claude")
+
+
+def enrich_emotions(items: list[dict]) -> list[dict]:
+    """Añade emotion, emotion_dist y polarity (−1…+1) a cada ítem.
+
+    Mezcla la salida del modelo (si existe) con el léxico ES/EN + emojis.
+    """
+    from trendscope.sentiment.emotions import (
+        NEGATIVE_EMOTIONS,
+        analyze_text,
+        blend,
+        dominant_of,
+        from_model_probas,
+    )
+
+    for item in items:
+        text = _item_text(item) if not item.get("text") else (item.get("text") or "")
+        lex = analyze_text(text)
+        model = from_model_probas(item.get("emotions"))
+        dist = blend(lex.distribution, model)
+        emo_pol = dist.get("joy", 0.0) - sum(dist.get(e, 0.0) for e in NEGATIVE_EMOTIONS)
+
+        engine = str(item.get("sentiment_engine") or "")
+        label = item.get("sentiment_label", "neutral")
+        if engine.startswith(_MODEL_ENGINES) and label in ("positive", "negative"):
+            conf = float(item.get("sentiment_score", 0.5) or 0.5)
+            model_pol = conf if label == "positive" else -conf
+            polarity = 0.6 * model_pol + 0.4 * emo_pol
+        elif engine.startswith(_MODEL_ENGINES):
+            polarity = 0.5 * emo_pol
+        else:
+            polarity = emo_pol
+
+        item["emotion_dist"] = {k: round(v, 4) for k, v in dist.items()}
+        item["emotion"] = dominant_of(dist)
+        item["polarity"] = round(max(-1.0, min(1.0, polarity)), 4)
     return items

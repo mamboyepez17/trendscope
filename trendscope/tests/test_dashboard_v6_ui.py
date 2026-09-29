@@ -27,9 +27,12 @@ def test_js_theme_and_conversation():
     assert "ts_theme" in js
 
 
-def test_editorial_not_neon_cyan_only():
+def test_validated_emotion_palette_tokens():
     html = Path("trendscope/dashboard.html").read_text(encoding="utf-8")
-    assert "#d4a054" in html or "#b45309" in html  # brass / terracotta
+    # Emociones + divergente validados (daltonismo) en ambos temas
+    for token in ("--emo-joy", "--emo-sad", "--emo-anger", "--emo-fear", "--pos", "--neg"):
+        assert token in html
+    assert "prefers-color-scheme: dark" in html
 
 
 def test_dashboard_serves(isolated_app):

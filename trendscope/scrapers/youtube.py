@@ -53,7 +53,18 @@ def _parse_published_utc(published: str) -> float | None:
     return time.time() - n * mult
 
 
-def _search_youtube(keyword: str, limit: int = 20) -> list[dict]:
+# Filtro "fecha de subida" + tipo video: hoy / esta semana / este mes / este año
+_YT_UPLOAD_FILTER = {1: "EgQIAhAB", 7: "EgQIAxAB", 31: "EgQIBBAB", 366: "EgQIBRAB"}
+
+
+def _yt_filter(days: float) -> str:
+    for limit_days, code in sorted(_YT_UPLOAD_FILTER.items()):
+        if days <= limit_days:
+            return code
+    return "EgIQAQ=="
+
+
+def _search_youtube(keyword: str, limit: int = 20, max_age_days: float = 7) -> list[dict]:
     """
     Busca videos en YouTube usando el endpoint interno publico.
     No requiere API key — usa el mismo endpoint que usa la pagina de busqueda.
@@ -69,7 +80,7 @@ def _search_youtube(keyword: str, limit: int = 20) -> list[dict]:
             }
         },
         "query": keyword,
-        "params": "EgIQAQ%3D%3D",  # Ordenar por relevance
+        "params": _yt_filter(max_age_days),  # solo videos recientes
     }
 
     try:
@@ -169,7 +180,7 @@ def run(query: TrendQuery) -> list[dict]:
     all_videos: list[dict] = []
 
     for kw in query.keywords[:3]:
-        videos = _search_youtube(kw, limit=20)
+        videos = _search_youtube(kw, limit=20, max_age_days=query.max_age_days)
         all_videos.extend(videos)
         time.sleep(0.5)
 

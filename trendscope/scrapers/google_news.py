@@ -7,6 +7,7 @@ from urllib.parse import quote
 
 from loguru import logger
 
+from trendscope.core.dates import parse_date
 from trendscope.core.http import get_session
 from trendscope.core.query import TrendQuery
 
@@ -20,7 +21,8 @@ def run(query: TrendQuery) -> list[dict]:
     results: list[dict] = []
 
     for keyword in query.keywords[:3]:
-        url = _RSS.format(q=quote(keyword))
+        # when:Nd → Google News solo devuelve artículos de los últimos N días
+        url = _RSS.format(q=quote(f"{keyword} when:{max(1, int(query.max_age_days))}d"))
         try:
             resp = session.get(url, timeout=15, headers={"User-Agent": "TrendScope/1.8"})
             resp.raise_for_status()
@@ -46,6 +48,7 @@ def run(query: TrendQuery) -> list[dict]:
                         "text": title[:250],
                         "url": link,
                         "published_at": pub,
+                        "created_utc": parse_date(pub),
                         "domain": source_name,
                     }
                 )

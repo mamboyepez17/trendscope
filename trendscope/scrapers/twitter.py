@@ -6,6 +6,7 @@ import time
 from loguru import logger
 
 from trendscope.config import TWITTER_AUTH_TOKEN, TWITTER_CT0
+from trendscope.core.dates import since_day
 from trendscope.core.query import TrendQuery
 
 
@@ -75,6 +76,8 @@ def run(query: TrendQuery) -> list[dict]:
             q = _twitter_query(keyword)
             if not q:
                 continue
+            # Solo tweets de la ventana de frescura (Top sin fecha trae virales viejos)
+            q = f"{q} since:{since_day(query.max_age_days)}"
             for mode in ("Latest", "Top"):
                 try:
                     # Latest: recientes del tema; Top: más engagement del tema (ya con comillas)

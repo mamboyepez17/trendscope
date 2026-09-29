@@ -124,7 +124,11 @@ If Twitter cookies are set in `.env`, a full `GET /trends?topic=...` includes th
 
 Start the API (see Quick start), then open **http://localhost:8000/dashboard**.
 
-Dark theme, stats cards, sentiment gauge, source distribution, histogram, top trends table, side-by-side compare, watchlist, history chart (local Chart.js, strict CSP), and WebSocket analysis.
+Spanish UI with tabs: **Ánimo** (mood hero with the −100…+100 index and margin, KPIs,
+emotion bars, what people talk about, representative quotes, mood by source, AI summary),
+**Tendencias** (recent items with age and emotion), **Comparar** (two topics side by side) and
+**Monitoreo** (watchlist + mood history). Light/dark themes follow the OS with a manual toggle;
+emotion colors are validated for color-blind safety. Local Chart.js, strict CSP, WebSocket.
 
 If `API_KEY_REQUIRED=true`, open `/dashboard?api_key=YOUR_KEY` (or store the key in `sessionStorage` as `ts_api_key`).
 
@@ -365,6 +369,33 @@ All local logic — no API keys required for this path.
 | Wikipedia (es) | Search API | Free | No |
 | Bluesky | Public AppView search | Free | No |
 
+## Índice de Ánimo (cómo se siente la gente)
+
+El medidor principal sale de lo que **opina la gente** (comentarios, respuestas y posts
+sociales), no de los titulares. Cada opinión se clasifica en **alegría, enojo, tristeza,
+miedo o neutral** (modelo + léxico ES/EN con jerga colombiana + emojis, con manejo de
+negaciones e intensificadores) y luego se agrega así:
+
+| Paso | Regla |
+|---|---|
+| Peso por tipo | comentario 1.0 · post social 0.7 · noticias 0 (se reportan aparte como *tono de medios*) |
+| Engagement | `1 + min(3, log10(1 + likes))` — un comentario viral pesa hasta 4×, nunca 1000× |
+| Una persona = un voto | el peso de cada autor se divide entre su número de mensajes |
+| Índice neto | `100 · Σ w·polaridad / Σ w`, de −100 a +100, con margen ±95% (`n_eff = (Σw)²/Σw²`) |
+| Ánimo | **Contentos / Enojados / Tristes / Preocupados / Divididos / Neutrales**; el signo del índice manda |
+
+Además entrega: % por emoción, polarización, intensidad, nivel de confianza,
+citas representativas por emoción y palabras que explican cada emoción.
+Está en `meta.mood_index` de `/trends` y en `mood_index` de `/conversation`.
+
+### Solo información reciente
+
+Todas las fuentes piden contenido de los últimos `MAX_AGE_DAYS` días (por defecto 7;
+`?days=1..30` en la API): `when:Nd` en Google News, intervalo en Bing, `timespan` en
+GDELT, `since:` en X, `since` en Bluesky, `t=week` en Reddit, filtros de fecha en HN y
+YouTube. Después, el pipeline normaliza las fechas y **descarta lo más viejo** que la
+ventana (`meta.freshness` dice cuántos ítems se descartaron y la edad mediana).
+
 ## Sentiment Analysis
 
 | Engine | Technology | Cost |
@@ -523,7 +554,10 @@ If you see `OSError: [WinError 4551]`, Windows WDAC is blocking PyTorch DLLs. Tr
 
 ### Reddit returns 403
 
-Reddit blocked the public JSON endpoint. TrendScope uses RSS via `old.reddit.com` which is 100% free. PRAW credentials are optional for better data.
+Reddit blocked the public JSON endpoint. Install the optional `reddit` extra
+(`pip install -e ".[reddit]"`, uses [reddit-actions](https://github.com/mamboyepez17/reddit-actions))
+and set `REDDIT_SESSION_COOKIE` or `REDDIT_COOKIE_HEADER` so comments keep flowing. Without it,
+TrendScope falls back to RSS via `old.reddit.com` and Hacker News comments.
 
 ### Twitter returns 401 or 403
 

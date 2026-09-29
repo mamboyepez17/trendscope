@@ -57,7 +57,7 @@ def test_pipeline_end_to_end_mocked(tmp_path):
                                 ):
                                     with patch(
                                         "trendscope.core.pipeline.export_json",
-                                        side_effect=lambda items, q, ins: {
+                                        side_effect=lambda items, q, ins, **kw: {
                                             "meta": {
                                                 "query": {"topic": "ai", "geo": "CO"},
                                                 "total_analyzed": len(items),
@@ -118,7 +118,8 @@ def test_pipeline_semaphore_raises_when_saturated():
     try:
         query = TrendQuery(mode="free", free_topic="z")
         try:
-            pipeline.run(query)
+            with patch.object(pipeline, "_PIPELINE_WAIT_SECONDS", 0.05):
+                pipeline.run(query)
             raised = False
         except RuntimeError:
             raised = True

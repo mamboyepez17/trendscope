@@ -42,6 +42,7 @@ console = Console(force_terminal=True)
 
 # Límite global de pipelines concurrentes (API + scheduler)
 _PIPELINE_SEMAPHORE = threading.Semaphore(2)
+_PIPELINE_WAIT_SECONDS = 45
 
 SOURCES = [
     ("Reddit", reddit.run),
@@ -78,14 +79,14 @@ _SERIAL_SOURCES = {"Twitter/X", "TweetClaw JSON"}
 
 
 # Bump when scraper logic changes so stale cache entries are ignored
-_CACHE_VERSION = "v8-more-signals-es-narrative"
+_CACHE_VERSION = "v9-mood-index-freshness"
 
 
 def _cache_key(query: TrendQuery) -> str:
     kw_hash = hashlib.sha1("|".join(query.keywords).encode("utf-8")).hexdigest()[:10]
     return (
         f"{_CACHE_VERSION}:{query.mode}:{query.category or query.free_topic}:"
-        f"{query.geo}:{query.sentiment_engine}:{query.top_n}:{kw_hash}"
+        f"{query.geo}:{query.sentiment_engine}:{query.top_n}:{query.max_age_days}d:{kw_hash}"
     )
 
 
@@ -99,7 +100,8 @@ def run(query: TrendQuery) -> tuple[dict, str]:
 
     from trendscope.core import metrics as metrics_mod
 
-    acquired = _PIPELINE_SEMAPHORE.acquire(blocking=False)
+    # Espera un turno (antes fallaba al instante con la 3ra petición simultánea)
+    acquired = _PIPELINE_SEMAPHORE.acquire(timeout=_PIPELINE_WAIT_SECONDS)
     if not acquired:
         metrics_mod.incr("pipeline_saturated")
         raise RuntimeError("Pipeline saturado: demasiados análisis en curso. Reintenta en unos segundos.")
@@ -117,21 +119,21 @@ def run(query: TrendQuery) -> tuple[dict, str]:
 
 
 def _filter_topic_relevant(items: list[dict], topic: str) -> list[dict]:
-    """Mantiene items que mencionan al menos un token significativo del tema."""
-    tokens = [t.lower() for t in topic.split() if len(t) > 3]
+    """Mantiene items que mencionan el tema (palabra completa, sin tildes)."""
+    from trendscope.core.text import mentions, topic_tokens
+
+    tokens = topic_tokens(topic)
     if not tokens:
-        tokens = [topic.lower()]
-    kept = []
-    for item in items:
-        text = (
-            item.get("title")
-            or item.get("keyword")
-            or item.get("text")
-            or ""
-        ).lower()
-        if any(tok in text for tok in tokens):
-            kept.append(item)
-    return kept
+        return items
+    return [
+        item for item in items
+        if mentions(
+            " ".join(
+                str(item.get(k) or "") for k in ("title", "keyword", "text")
+            ),
+            tokens,
+        )
+    ]
 
 
 def _timed_scrape(name: str, fn, query) -> tuple[list[dict], str | None]:
@@ -187,6 +189,13 @@ def _run_unlocked(query: TrendQuery) -> tuple[dict, str]:
     for n in skipped:
         source_errors[n] = "skipped: source health score low"
 
+    # --- Comentarios de la gente (Índice de Ánimo), en paralelo a todo ---
+    comments_pool = None
+    comments_future = None
+    if _collect_comments_enabled():
+        comments_pool = ThreadPoolExecutor(max_workers=1)
+        comments_future = comments_pool.submit(_collect_comments, query)
+
     # --- Fuentes paralelas ---
     if parallel_sources:
         with ThreadPoolExecutor(max_workers=6) as pool:
@@ -232,6 +241,14 @@ def _run_unlocked(query: TrendQuery) -> tuple[dict, str]:
 
     console.print(f"\n[yellow]Recolectado: {len(all_items)} senales[/yellow]")
 
+    # Frescura: solo contenido dentro de la ventana (por defecto 7 días)
+    all_items, freshness = apply_freshness(all_items, query.max_age_days)
+    if freshness["dropped_old"]:
+        console.print(
+            f"[yellow]Descartados {freshness['dropped_old']} items con más de "
+            f"{query.max_age_days} días[/yellow]"
+        )
+
     # Tema libre: descartar ruido que no menciona el tema
     if query.mode == "free" and query.free_topic:
         before = len(all_items)
@@ -253,6 +270,38 @@ def _run_unlocked(query: TrendQuery) -> tuple[dict, str]:
     # Scoring
     scored = enrich_and_score(all_items, query)
 
+    # Comentarios → sentimiento/emociones (no entran al ranking de tendencias)
+    comments: list[dict] = []
+    comment_sources: dict[str, str] = {}
+    if comments_future is not None:
+        try:
+            collected = comments_future.result(timeout=90)
+            comments = collected.get("comments") or []
+            comments, _ = apply_freshness(comments, query.max_age_days)
+            comment_sources = collected.get("sources") or {}
+            if comments:
+                console.print(f"[yellow]Comentarios de la gente: {len(comments)}[/yellow]")
+                comments = analyze_items(comments, query)
+        except Exception as e:
+            logger.warning(f"Comentarios: {e}")
+            comment_sources = {"error": str(e)}
+        finally:
+            comments_pool.shutdown(wait=False)
+
+    # Índice de Ánimo: opiniones de la gente (comentarios + posts sociales)
+    from trendscope.analyzer.mood_index import compute_mood_index, media_tone, overall_label
+
+    topic_label = query.free_topic or query.category
+    mood_index = compute_mood_index(comments + scored, topic=topic_label)
+    if mood_index["sample_size"] == 0:
+        # Sin opiniones: último recurso, índice sobre todas las señales
+        from trendscope.analyzer.mood_index import _item_dist, _item_polarity
+
+        pols = [_item_polarity(i, _item_dist(i)) for i in scored]
+        fallback_net = round(100 * sum(pols) / len(pols), 1) if pols else 0.0
+    else:
+        fallback_net = mood_index["net_score"]
+
     # Insights — el "cerebro" de TrendScope
     console.print(f"[yellow]Generando analisis...[/yellow]")
     labels = [i.get("sentiment_label", "neutral") for i in scored]
@@ -261,7 +310,9 @@ def _run_unlocked(query: TrendQuery) -> tuple[dict, str]:
         "negative": labels.count("negative"),
         "neutral": labels.count("neutral"),
         "engine": query.sentiment_engine,
-        "overall": max(set(labels), key=labels.count) if labels else "neutral",
+        # Antes: la etiqueta más repetida. Ahora: índice neto ponderado.
+        "overall": overall_label(fallback_net),
+        "net_score": fallback_net,
     }
     from trendscope.sentiment.stance import summarize_stances
 
@@ -270,7 +321,7 @@ def _run_unlocked(query: TrendQuery) -> tuple[dict, str]:
     insights = generate_insights(scored, query, sentiment_summary)
 
     # Export
-    json_payload = export_json(scored, query, insights)
+    json_payload = export_json(scored, query, insights, sentiment_summary=sentiment_summary)
     report = export_report(json_payload, query, insights)
 
     if source_errors:
@@ -279,11 +330,83 @@ def _run_unlocked(query: TrendQuery) -> tuple[dict, str]:
     meta["source_health"] = source_health.snapshot()
     meta["stance_summary"] = stance_summary
     meta["sentiment_by_source"] = by_source
+    meta["mood_index"] = mood_index
+    meta["freshness"] = freshness
+    meta["media_tone"] = media_tone(scored)
+    meta["comments"] = {
+        "count": len(comments),
+        "sources": comment_sources,
+    }
 
     # Guardar en cache para futuras consultas (lista, no tuple, por JSON)
     cache_set(cache_key, [json_payload, report])
 
     return json_payload, report
+
+
+# Fuentes que ya son "de ahora" por definición y no traen fecha por ítem
+_TIMELESS_SOURCES = {
+    "google_trends_rss", "google_trends_pytrends", "tiktok_trending",
+    "amazon_bestsellers", "wikipedia",
+}
+
+
+def apply_freshness(items: list[dict], max_age_days: float) -> tuple[list[dict], dict]:
+    """Normaliza fechas (created_utc) y descarta lo más viejo que la ventana.
+
+    - Fechas de RSS/ISO/GDELT en `published_at`/`created_at` → `created_utc`.
+    - Ítems con fecha fuera de la ventana se descartan.
+    - Ítems sin fecha se conservan (marcados `date_unknown`), salvo que la
+      fuente siempre dé fecha; no reciben bonus de recencia.
+    """
+    import time as _time
+
+    from trendscope.core.dates import cutoff_ts, parse_date
+
+    cutoff = cutoff_ts(max_age_days)
+    kept: list[dict] = []
+    dropped = undated = 0
+    ages: list[float] = []
+    now = _time.time()
+    for it in items:
+        ts = parse_date(it.get("created_utc")) or parse_date(
+            it.get("published_at") or it.get("created_at")
+        )
+        if ts:
+            it["created_utc"] = ts
+            if ts < cutoff:
+                dropped += 1
+                continue
+            ages.append(max(0.0, (now - ts) / 3600))
+        elif (it.get("source") or "") not in _TIMELESS_SOURCES:
+            it["date_unknown"] = True
+            undated += 1
+        kept.append(it)
+    ages.sort()
+    return kept, {
+        "max_age_days": max_age_days,
+        "dropped_old": dropped,
+        "undated": undated,
+        "dated": len(ages),
+        "median_age_hours": round(ages[len(ages) // 2], 1) if ages else None,
+        "newest_age_hours": round(ages[0], 1) if ages else None,
+        "oldest_age_hours": round(ages[-1], 1) if ages else None,
+    }
+
+
+def _collect_comments_enabled() -> bool:
+    from trendscope.settings import settings
+
+    return bool(getattr(settings, "pipeline_collect_comments", False))
+
+
+def _collect_comments(query: TrendQuery) -> dict:
+    from trendscope.scrapers import comments as comments_mod
+
+    topic = query.free_topic or (query.keywords[0] if query.keywords else query.category or "")
+    if not topic:
+        return {"posts": [], "comments": [], "sources": {}}
+    return comments_mod.collect(topic, query=query, limit=8, comments_per_post=20)
 
 
 def _sentiment_by_source(items: list[dict]) -> dict:

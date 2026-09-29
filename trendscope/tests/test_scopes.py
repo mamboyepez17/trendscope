@@ -53,3 +53,25 @@ def test_legacy_full_key_still_works():
         with patch("trendscope.api.middleware.settings.api_keys", "legacy-key"):
             w = client.post("/watchlist", headers={"X-API-Key": "legacy-key"})
             assert w.status_code == 200
+
+
+def test_admin_ops_require_admin_scope():
+    app = _app()
+
+    @app.delete("/cache")
+    def clear():
+        return {"ok": True}
+
+    @app.post("/admin/prune-history")
+    def prune():
+        return {"ok": True}
+
+    client = TestClient(app)
+    with patch("trendscope.api.middleware.settings.api_key_required", True):
+        with patch(
+            "trendscope.api.middleware.settings.api_keys",
+            "ro-key|acme|trends:read,boss|acme|admin",
+        ):
+            assert client.delete("/cache", headers={"X-API-Key": "ro-key"}).status_code == 403
+            assert client.post("/admin/prune-history", headers={"X-API-Key": "ro-key"}).status_code == 403
+            assert client.delete("/cache", headers={"X-API-Key": "boss"}).status_code == 200
