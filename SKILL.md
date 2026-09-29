@@ -9,7 +9,7 @@ TrendScope measures **how people feel about any topic, in any country**, and wha
   - Every opinion is classified as joy, anger, sadness, fear or neutral.
   - Weighting: one person = one vote, and viral comments are capped at 4×.
 - **Media tone:** news headlines are measured separately (Google News, Bing, GDELT), so the press never gets mixed up with the public.
-- **Trends:** signals from 13 free sources scored 0–100, plus insights, correlations and recommendations. All local; no paid AI needed.
+- **Trends:** signals from 12 free sources scored 0–100, plus insights, correlations and recommendations. All local; no paid AI needed.
 - **Any country and language:**
   - Per-language lexicons: es, en, pt, fr, de, it.
   - Regional slang that only applies in its own country: CO, MX, AR, UY, CL, PE, VE, ES, BR, US.

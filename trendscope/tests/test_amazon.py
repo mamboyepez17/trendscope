@@ -1,4 +1,4 @@
-"""Amazon (búsqueda por tema, estrellas, captcha) y TikTok (rechazo sin firma)."""
+"""Amazon: búsqueda por tema, estrellas, reseñas y captcha."""
 
 from unittest.mock import MagicMock, patch
 
@@ -6,7 +6,7 @@ from scrapling.parser import Selector
 
 from trendscope.analyzer.scorer import _score_by_source
 from trendscope.core.query import TrendQuery
-from trendscope.scrapers import amazon, tiktok
+from trendscope.scrapers import amazon
 
 SEARCH_HTML = """
 <html><body>
@@ -71,18 +71,3 @@ def test_amazon_score_rewards_reviews_and_stars():
     bad = _score_by_source({"source": "amazon", "reviews": 20000, "rating": 2.0})
     few = _score_by_source({"source": "amazon", "reviews": 3, "rating": 4.8})
     assert good > bad and good > few
-
-
-def test_tiktok_unsigned_rejection_returns_empty():
-    resp = MagicMock(status_code=200)
-    resp.raise_for_status = lambda: None
-    resp.json.return_value = {"code": 40101, "msg": "no permission", "data": None}
-    with patch("trendscope.scrapers.tiktok.requests.get", return_value=resp):
-        assert tiktok._fetch_api("US") == []
-
-
-def test_tiktok_browser_fallback_is_opt_in():
-    with patch("trendscope.scrapers.tiktok._fetch_api", return_value=[]):
-        with patch("trendscope.scrapers.tiktok._fetch_scraping") as scrape:
-            tiktok.run(TrendQuery(mode="free", free_topic="x", geo="US"))
-    scrape.assert_not_called()

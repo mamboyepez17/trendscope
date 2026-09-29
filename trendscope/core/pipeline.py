@@ -21,7 +21,6 @@ import trendscope.scrapers.google_trends as gtrends
 import trendscope.scrapers.twitter as twitter
 import trendscope.scrapers.tweetclaw as tweetclaw
 import trendscope.scrapers.amazon as amazon
-import trendscope.scrapers.tiktok as tiktok
 import trendscope.scrapers.hackernews as hackernews
 import trendscope.scrapers.youtube as youtube
 import trendscope.scrapers.gdelt as gdelt
@@ -50,7 +49,6 @@ SOURCES = [
     ("Twitter/X", twitter.run),
     ("TweetClaw JSON", tweetclaw.run),
     ("Amazon", amazon.run),
-    ("TikTok", tiktok.run),
     ("Hacker News", hackernews.run),
     ("YouTube", youtube.run),
     ("GDELT", gdelt.run),
@@ -65,7 +63,6 @@ _PARALLEL_SOURCES = {
     "Reddit",
     "Google Trends",
     "Amazon",
-    "TikTok",
     "Hacker News",
     "YouTube",
     "GDELT",
@@ -362,7 +359,7 @@ def _run_unlocked(query: TrendQuery) -> tuple[dict, str]:
 
 # Fuentes que ya son "de ahora" por definición y no traen fecha por ítem
 _TIMELESS_SOURCES = {
-    "google_trends_rss", "google_trends_pytrends", "tiktok_trending",
+    "google_trends_rss", "google_trends_pytrends",
     "amazon_bestsellers", "amazon", "wikipedia",
 }
 

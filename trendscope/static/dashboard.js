@@ -266,7 +266,7 @@ function emoLabel(key){ return t('emo.'+(EMO[key]?key:'neutral')); }
 const SOURCE_NAMES = {
   reddit:'Reddit', twitter:'X / Twitter', tweetclaw:'X (TweetClaw)', bluesky:'Bluesky', hackernews:'Hacker News',
   youtube:'YouTube', google_news:'Google News', bing_news:'Bing News', gdelt:'GDELT', wikipedia:'Wikipedia',
-  google_trends_rss:'Google Trends', google_trends_pytrends:'Google Trends', tiktok_trending:'TikTok',
+  google_trends_rss:'Google Trends', google_trends_pytrends:'Google Trends',
   amazon_bestsellers:'Amazon', amazon:'Amazon'
 };
 function srcLabel(name){

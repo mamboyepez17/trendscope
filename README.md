@@ -9,7 +9,7 @@
   <a href="https://github.com/mamboyepez17/trendscope/actions"><img src="https://img.shields.io/badge/tests-375%2B-brightgreen" alt="tests"></a>
   <a href="https://www.python.org/downloads/"><img src="https://img.shields.io/badge/python-3.11%20%7C%203.12-blue" alt="python"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-lightgrey" alt="license"></a>
-  <img src="https://img.shields.io/badge/sources-13%20%2B%20comments-orange" alt="sources">
+  <img src="https://img.shields.io/badge/sources-12%20%2B%20comments-orange" alt="sources">
   <img src="https://img.shields.io/badge/languages-es%20·%20en%20·%20pt%20·%20fr%20·%20de%20·%20it-informational" alt="languages">
 </p>
 
@@ -17,7 +17,7 @@
 
 TrendScope measures **public mood** on any topic to support decisions. It reads what people write — **replies on X, YouTube comments, Reddit and Hacker News threads, Bluesky posts** — classifies every opinion as **joy, anger, sadness, fear or neutral**, and aggregates them into a **Mood Index from −100 to +100** with a margin of error. News headlines are measured separately as *media tone*, so the press never gets mistaken for the public.
 
-It also pulls **recent** signals from Google News, Bing News, GDELT, Google Trends, YouTube, Wikipedia, Amazon (products with star ratings and review counts) and TikTok, scores them 0–100, and produces insights, correlations and recommendations — **locally**, without a paid AI API for the core path.
+It also pulls **recent** signals from Google News, Bing News, GDELT, Google Trends, YouTube, Wikipedia and Amazon (products with star ratings and review counts), scores them 0–100, and produces insights, correlations and recommendations — **locally**, without a paid AI API for the core path.
 
 It works **in any country and language**: per-language lexicons (Spanish, English, Portuguese, French, German, Italian), regional slang packs that only switch on in their own country, your own custom lexicon, country-specific news editions, and a dashboard in Spanish, English and Portuguese.
 
@@ -464,7 +464,6 @@ All local logic; no API keys required for this path.
 | Wikipedia (es) | Search API (context) | Free | No |
 | TweetClaw/OpenClaw | Optional local JSON export | Free | No (bring your own file) |
 | Amazon | Topic search in the country's store (amazon.com.mx, amazon.com.br, amazon.es…; others use amazon.com) with star ratings and review counts; Best Sellers in category mode. Scrapling HTTP fetcher first, stealth browser if a captcha appears | Free | No |
-| TikTok Creative Center | Trending hashtags (API JSON; optional browser fallback). TikTok now rejects unsigned requests, so this source is best-effort | Free | No |
 
 ## Sentiment Analysis
 
@@ -504,7 +503,7 @@ flowchart TD
   subgraph sources [Sources — recent content only]
     N[Google News · Bing · GDELT]
     S[X · Bluesky · Reddit · HN · YouTube]
-    O[Google Trends · Wikipedia · Amazon · TikTok]
+    O[Google Trends · Wikipedia · Amazon]
   end
   subgraph comments [People's comments]
     XR[X replies]
@@ -572,8 +571,6 @@ TOP_N=25
 PIPELINE_COLLECT_COMMENTS=true
 CUSTOM_LEXICON_PATH=        # your own slang/brand lexicon (see docs/lexicon.example.json)
 
-# TikTok browser fallback (slow; requires `scrapling install`)
-TIKTOK_BROWSER_FALLBACK=false
 
 # X/Twitter (DevTools > Application > Cookies on x.com)
 TWITTER_AUTH_TOKEN=your_auth_token
@@ -661,10 +658,6 @@ Your cookies may have expired. Get fresh cookies from x.com → DevTools (F12) �
 - `falta el navegador de Scrapling` → run `scrapling install` once (the browser is only used when Amazon shows a captcha).
 - Amazon results must name the whole topic, so topics that are not products (e.g. a political reform) return no Amazon items. That is expected.
 
-### No TikTok results
-
-TikTok's Creative Center API now rejects unsigned requests (`code=40101`), and TrendScope logs this clearly. Set `TIKTOK_BROWSER_FALLBACK=true` (after `scrapling install`) to scrape the page with a real browser instead; it is slow (~40 s). TikTok only provides generic trending hashtags, which are kept only when they match your topic.
-
 ### No YouTube comments
 
 Some videos have comments disabled. YouTube's internal API can also change without notice; TrendScope then logs a warning and keeps working with the other sources.
@@ -748,6 +741,7 @@ Next:
 - [ ] Bot / coordinated-amplification detection
 - [ ] Hand-labeled evaluation set to measure each engine's accuracy per language
 - [ ] App store reviews (Google Play / App Store) for brands and products
+- [ ] TikTok via a dedicated `tiktok-actions` toolkit (the public Creative Center API now rejects unsigned requests, so TikTok was removed for now)
 - [ ] Postgres adapter / Redis queue (optional scale-out)
 
 ## Related

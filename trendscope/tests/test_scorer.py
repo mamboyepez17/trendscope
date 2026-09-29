@@ -53,16 +53,6 @@ class ScorerTest(unittest.TestCase):
         score = score_item(item, self.query)
         self.assertGreaterEqual(score, 95)  # rank #1 -> high score
 
-    def test_tiktok_score(self):
-        item = {
-            "source": "tiktok_trending",
-            "keyword": "crypto",
-            "video_count": 500000,
-        }
-        score = score_item(item, self.query)
-        self.assertGreater(score, 50)
-        self.assertLessEqual(score, 100)
-
     def test_hackernews_score(self):
         item = {
             "source": "hackernews",

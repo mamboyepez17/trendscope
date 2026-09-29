@@ -158,34 +158,6 @@ def _check_amazon() -> dict:
         return {"status": "error", "message": f"Amazon falló: {e}"}
 
 
-def _check_tiktok() -> dict:
-    """TikTok — API interna del Creative Center (mira el `code`, no solo HTTP 200)."""
-    try:
-        import requests
-        params = {"page": 1, "limit": 1, "period": 7, "country_code": "US", "sort_by": "popular"}
-        headers = {"User-Agent": "Mozilla/5.0", "Accept": "application/json"}
-        resp = requests.get(
-            "https://ads.tiktok.com/creative_radar_api/v1/popular_trend/hashtag/list",
-            params=params, headers=headers, timeout=10,
-        )
-        if resp.status_code != 200:
-            return {"status": "warn", "message": f"TikTok API respondió {resp.status_code}"}
-        try:
-            data = resp.json()
-        except ValueError:
-            return {"status": "warn", "message": "TikTok API no devolvió JSON"}
-        code = data.get("code")
-        if code not in (0, None):
-            return {
-                "status": "warn",
-                "message": f"TikTok rechaza peticiones sin firma (code={code}). "
-                           "Opcional: TIKTOK_BROWSER_FALLBACK=true + scrapling install",
-            }
-        return {"status": "ok", "message": "TikTok Creative Center disponible"}
-    except Exception as e:
-        return {"status": "error", "message": f"TikTok API falló: {e}"}
-
-
 def _check_tweetclaw() -> dict:
     """TweetClaw — archivo JSON local opcional."""
     if not TWEETCLAW_RESULTS_FILE:
@@ -229,7 +201,6 @@ def check_all() -> dict:
         "Hacker News": _check_hackernews,
         "YouTube": _check_youtube,
         "Amazon": _check_amazon,
-        "TikTok": _check_tiktok,
         "TweetClaw": _check_tweetclaw,
         "Sentiment": _check_sentiment,
     }

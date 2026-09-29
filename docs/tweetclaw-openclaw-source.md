@@ -1,6 +1,6 @@
 # TweetClaw OpenClaw Source
 
-TrendScope can score tweet results that were collected by TweetClaw in OpenClaw. Use this path when you want TrendScope to keep its Reddit, Google Trends, Amazon, TikTok, and sentiment pipeline while using a managed OpenClaw plugin for X/Twitter search data.
+TrendScope can score tweet results that were collected by TweetClaw in OpenClaw. Use this path when you want TrendScope to keep its Reddit, Google Trends, Amazon, and sentiment pipeline while using a managed OpenClaw plugin for X/Twitter search data.
 
 TweetClaw is optional. The existing `xactions-py` cookie source remains the default live Twitter/X scraper.
 

@@ -82,13 +82,6 @@ def _score_by_source(item: dict) -> float:
         rank_num = int(re.sub(r"[^0-9]", "", rank_str) or "99")
         return max(0, 100 - rank_num * 1.5)
 
-    elif source == "tiktok_trending":
-        # Si tiene video_count, usar eso como proxy de popularidad
-        video_count = item.get("video_count", 0)
-        if video_count > 0:
-            return min(85, 50 + (video_count / 1000000) * 35)
-        return 65.0
-
     elif source == "hackernews":
         points = min(item.get("score") or 0, 2000)
         comments = min(item.get("comments") or 0, 1000)
