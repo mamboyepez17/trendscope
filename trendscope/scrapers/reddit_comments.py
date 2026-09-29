@@ -124,6 +124,16 @@ def _reddit_actions():
     try:
         import reddit_actions  # noqa: F401
 
+        # reddit-actions lee las cookies del entorno; las de .env no están ahí
+        import os
+
+        from trendscope.settings import settings
+
+        for env, val in (("REDDIT_SESSION_COOKIE", settings.reddit_session_cookie),
+                         ("REDDIT_COOKIE_HEADER", settings.reddit_cookie_header)):
+            if val and not os.environ.get(env):
+                os.environ[env] = val
+
         return reddit_actions
     except ImportError:
         return None

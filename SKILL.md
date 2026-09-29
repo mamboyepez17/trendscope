@@ -106,7 +106,7 @@ Files generated in `data/`: `trends_DATE_TOPIC.json` and `report_DATE_TOPIC.md`.
 
 ## Configuration
 
-Copy `.env.example` to `.env`. All credentials are optional; without any, TrendScope still reads YouTube comments, Hacker News, Reddit, Bluesky and the news sources.
+Run `trendscope setup` (guided: AI provider/key/model, X cookies, Reddit — writes `.env`), or copy `.env.example` to `.env`. `trendscope setup --status` shows what is configured without revealing secrets. All credentials are optional; without any, TrendScope still reads YouTube comments, Hacker News, Reddit, Bluesky and the news sources.
 
 - X/Twitter replies: set `TWITTER_AUTH_TOKEN` and `TWITTER_CT0` (x.com cookies). Optional: `pip install -e ".[x]"`.
 - Reddit comments: optional `pip install -e ".[reddit]"`; set `REDDIT_SESSION_COOKIE` if Reddit returns 403.

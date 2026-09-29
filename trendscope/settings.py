@@ -17,6 +17,9 @@ class Settings(BaseSettings):
     reddit_client_id: str = ""
     reddit_client_secret: str = ""
     reddit_user_agent: str = "TrendScope/1.5.0"
+    # Cookie de sesión para reddit-actions cuando Reddit responde 403
+    reddit_session_cookie: str = ""
+    reddit_cookie_header: str = ""
 
     # Twitter/X
     twitter_auth_token: str = ""

@@ -205,6 +205,10 @@ def main() -> None:
     """Entry point del CLI."""
     if len(sys.argv) > 1:
         args = sys.argv[1:]
+        if args[0] == "setup":
+            from trendscope.setup_wizard import main as setup_main
+
+            sys.exit(setup_main(args[1:]))
         if "--doctor" in args or "--smoke" in args or "--live" in args:
             from trendscope.ops import main as ops_main
 

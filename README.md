@@ -66,8 +66,19 @@ pip install -e ".[x]"        # latest xactions-py for X/Twitter
 pip install -e ".[reddit]"   # reddit-actions for Reddit comments
 scrapling install            # one-time browser download, used when Amazon shows a captcha
 
-cp .env.example .env   # Windows: copy .env.example .env
+# Guided setup: asks for your AI provider + key + model, X cookies and Reddit,
+# explains where to get each one, and writes .env for you
+trendscope setup
 ```
+
+`trendscope setup` walks you through everything step by step (Spanish or English, `--lang es|en`):
+
+- **Country and time window** — default `GEO_TARGET` and `MAX_AGE_DAYS`.
+- **AI** — pick OpenAI, Claude, DeepSeek, OpenCode, OpenRouter, Gemini, Groq, Mistral, xAI, Ollama or any OpenAI-compatible API; it shows where to get the key, fetches the provider's live model list (with a filter for long lists) and lets you choose the model.
+- **X** — step-by-step instructions to copy the `auth_token` and `ct0` cookies from your browser, with a format check.
+- **Reddit** — optional; the `reddit_session` cookie (fixes 403) and/or an app's client id/secret.
+
+Secrets are hidden while typing, `.env` keeps its comments and gets `chmod 600`, and the previous version is saved as `.env.bak`. Run a single part with `trendscope setup ai` (or `x`, `reddit`, `general`), and check what's configured — without showing secrets — with `trendscope setup --status`. Prefer editing by hand? `cp .env.example .env` works too.
 
 Start the API and open the dashboard:
 
@@ -92,6 +103,9 @@ Windows shortcuts included: `run_tests.bat`, `start_api.bat`, `start_cli.bat`.
 ## Try it in 5 minutes
 
 ```bash
+# 0. Configure keys and cookies (guided)
+trendscope setup
+
 # 1. Diagnose data sources (network)
 trendscope --doctor
 # or:  .venv/bin/python -m trendscope.ops --doctor
@@ -594,7 +608,7 @@ Source health scores live in memory and can skip unhealthy sources automatically
 
 ## Configuration
 
-Copy `.env.example` to `.env` and fill in what you need:
+Run `trendscope setup` for a guided configuration, or copy `.env.example` to `.env` and fill in what you need:
 
 ```env
 # Country and freshness
@@ -616,8 +630,8 @@ TWITTER_CT0=your_ct0
 REDDIT_CLIENT_ID=
 REDDIT_CLIENT_SECRET=
 REDDIT_USER_AGENT=TrendScope/1.5.0
-# With the [reddit] extra, if Reddit returns 403:
-# REDDIT_SESSION_COOKIE=
+# If Reddit returns 403 (browser cookie "reddit_session"):
+REDDIT_SESSION_COOKIE=
 # REDDIT_COOKIE_HEADER=
 
 # TweetClaw/OpenClaw optional JSON export path
