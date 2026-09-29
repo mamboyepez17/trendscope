@@ -1,4 +1,4 @@
-"""Wikipedia search (es) — free, no API key."""
+"""Wikipedia search in the country's language — free, no API key."""
 
 from __future__ import annotations
 
@@ -7,11 +7,19 @@ from loguru import logger
 from trendscope.core.http import get_session
 from trendscope.core.query import TrendQuery
 
-API = "https://es.wikipedia.org/w/api.php"
+
+
+def wiki_lang(query: TrendQuery) -> str:
+    """Idioma de Wikipedia: el pedido (lang) o el del país; antes era siempre 'es'."""
+    from trendscope.core.locale import SUPPORTED_LANGS, language_for
+
+    lang = (query.lang or "").lower()
+    return lang if lang in SUPPORTED_LANGS else language_for(query.geo)
 
 
 def run(query: TrendQuery) -> list[dict]:
     session = get_session()
+    base = f"https://{wiki_lang(query)}.wikipedia.org"
     results: list[dict] = []
     # Solo el keyword principal (Wikipedia no necesita 3 variantes)
     keyword = (query.keywords[0] if query.keywords else query.free_topic or "").strip()
@@ -19,7 +27,7 @@ def run(query: TrendQuery) -> list[dict]:
         return []
     try:
         resp = session.get(
-            API,
+            f"{base}/w/api.php",
             params={
                 "action": "query",
                 "list": "search",
@@ -42,7 +50,7 @@ def run(query: TrendQuery) -> list[dict]:
                     "keyword": keyword,
                     "title": title,
                     "text": snippet[:300],
-                    "url": f"https://es.wikipedia.org/wiki/{title.replace(' ', '_')}",
+                    "url": f"{base}/wiki/{title.replace(' ', '_')}",
                     "wordcount": h.get("wordcount", 0),
                 }
             )

@@ -19,7 +19,7 @@ TrendScope measures **public mood** on any topic to support decisions. It reads 
 
 It also pulls **recent** signals from Google News, Bing News, GDELT, Google Trends, YouTube, Wikipedia and Amazon (products with star ratings and review counts), scores them 0–100, and produces insights, correlations and recommendations — **locally**, without a paid AI API for the core path. When you want an AI summary or AI emotion reading, plug in **any provider and pick the model** (OpenAI, Claude, DeepSeek, OpenCode, Qwen, GLM, Kimi, MiMo, Gemini, local Ollama…), and `trendscope setup` walks you through the keys and cookies.
 
-It works **in any country and language**: per-language lexicons (Spanish, English, Portuguese, French, German, Italian), regional slang packs that only switch on in their own country, your own custom lexicon, country-specific news editions, and a dashboard in Spanish, English and Portuguese.
+It works **in any country and language**: per-language lexicons (Spanish, English, Portuguese, French, German, Italian), regional slang packs that only switch on in their own country, your own custom lexicon, country-specific news editions and Wikipedia, results and AI summaries in Spanish, English or Portuguese, and a dashboard in those three languages. For languages without a lexicon, any AI provider can read the emotions.
 
 **Why it exists:** expensive social-listening suites lock you into their data and pricing. TrendScope is free-source-first, agent-friendly (REST + WebSocket + MCP), and meant to run on your machine or a single VPS.
 
@@ -170,14 +170,18 @@ If you log out of X the cookies stop working; run `trendscope setup x` again.
 ### CLI
 
 ```bash
-# macOS / Linux
-.venv/bin/trendscope
-.venv/bin/python -m trendscope
+trendscope                 # interactive analysis (asks topic/category and engine)
+trendscope setup           # guided configuration (see "Guided setup")
+trendscope setup --status  # what is configured, without showing secrets
+trendscope --doctor        # probe every data source
+trendscope --smoke         # offline pipeline check (add --live for a light online check)
 
-# Windows
-.venv\Scripts\trendscope.exe
-.venv\Scripts\python.exe -m trendscope
+# If the venv is not activated:
+.venv/bin/trendscope              # Windows: .venv\Scripts\trendscope.exe
+.venv/bin/python -m trendscope    # Windows: .venv\Scripts\python.exe -m trendscope
 ```
+
+The interactive CLI talks in Spanish; the setup wizard in Spanish or English.
 
 ### Web dashboard
 
@@ -197,8 +201,7 @@ If `API_KEY_REQUIRED=true`, open `/dashboard?api_key=YOUR_KEY` (or store the key
 ### Doctor (diagnose sources)
 
 ```bash
-.venv/bin/python -c "from trendscope.core.doctor import run_doctor; from rich.console import Console; Console().print(run_doctor())"
-# Windows: .venv\Scripts\python.exe -c "..."
+trendscope --doctor
 ```
 
 Or `GET /doctor`. Real probes on each source with actionable fix instructions.
@@ -206,7 +209,7 @@ Or `GET /doctor`. Real probes on each source with actionable fix instructions.
 ### Docker
 
 ```bash
-cp .env.example .env
+trendscope setup        # or: cp .env.example .env  and edit it
 docker compose up -d
 docker compose logs -f
 ```
@@ -227,11 +230,11 @@ docker compose exec trendscope pytest trendscope/tests/ -v
 
 Available tools (MCP SDK 2.x):
 
-- `analyze_trends` — Multi-source analysis with sentiment and mood
+- `analyze_trends` — Mood Index and trends for a topic or category (`geo`, `days`, `lang`, `sentiment_engine`, `llm_provider`, `llm_model`)
 - `get_categories` — Predefined categories
 - `get_latest_report` — Latest Markdown report
-- `narrate_trends` — AI narrative (executive/creative/technical/alert)
-- `compare_topics` — Side-by-side comparison
+- `narrate_trends` — AI narrative (executive/creative/technical/alert) with any provider and model (`llm_provider`, `llm_model`, `lang`)
+- `compare_topics` — Side-by-side comparison (`geo`, `days`, `lang`)
 - `doctor` — Source health probes
 - `watchlist_add` · `watchlist_list` · `watchlist_run`
 - `history_get` — Historical snapshots (no full payload)
@@ -244,7 +247,7 @@ TrendScope includes a `SKILL.md` file that AI agents (Claude Code, OpenClaw, Her
 
 The main meter comes from **what people say** (comments, replies and social posts), not from headlines. Every opinion gets an emotion distribution over **joy, anger, sadness, fear and neutral**:
 
-- **Inputs:** a model when available (pysentimiento or Claude), blended with a per-language lexicon, regional slang and emojis.
+- **Inputs:** a model when available (pysentimiento, Claude or the AI you chose), blended with a per-language lexicon, regional slang and emojis.
 - **Language handling:** negations ("not happy", "no estoy feliz") and intensifiers ("very", "!!!", ALL CAPS) are handled.
 
 Opinions are then aggregated like this:
@@ -278,13 +281,15 @@ TrendScope works for any country (`?geo=XX`, ISO 3166-1 alpha-2) and adapts auto
 
 | What | How |
 |---|---|
-| Text language | Detected per text: **es, en, pt, fr, de, it**, each with its own lexicon |
+| Text language | Detected per text: **es, en, pt, fr, de, it**, each with its own lexicon (no setting needed) |
 | Local slang | Regional packs that only switch on in their own country: **CO, MX, AR, UY, CL, PE, VE, ES, BR, US** (e.g. *"qué chimba"* is joy in Colombia and neutral in Mexico) |
 | Your own slang | `CUSTOM_LEXICON_PATH=my_lexicon.json`: words or multi-word phrases by language or country ([example](docs/lexicon.example.json)) |
-| News | Google News edition of the country (`hl`/`gl`/`ceid`) and YouTube in its language |
+| News & context | Google News edition of the country (`hl`/`gl`/`ceid`), YouTube in its language, Wikipedia in the country's language (or `?lang=`) |
 | Reddit | Also searches the country's subreddit (r/Colombia, r/mexico, r/brasil…) |
 | Index labels & AI summary | `?lang=es\|en\|pt` (defaults to the country's language; other languages fall back to English) |
 | Dashboard | Español / English / Português; language and country default to the browser's |
+| Setup wizard | Español / English (`trendscope setup --lang es\|en`, default: your system language) |
+| Languages without a lexicon | Japanese, Arabic, Hindi…: use an AI engine (`sentiment_engine=claude` or `llm`) — they read any language |
 
 Custom lexicon format (every key is optional):
 
@@ -298,7 +303,7 @@ Custom lexicon format (every key is optional):
 
 Categories: `joy`, `anger`, `sadness`, `fear`, `neg` (generic negative), `negations`, `intensifiers`.
 
-- **Languages without a lexicon** (Japanese, Arabic…): emojis still count, and the `claude` engine is multilingual, so use `?sentiment_engine=claude`.
+- **Languages without a lexicon** (Japanese, Arabic…): emojis still count, and the AI engines are multilingual, so use `?sentiment_engine=claude` or `?sentiment_engine=llm&llm_provider=...`.
 - **Contributing slang for a new country:** add an entry to `trendscope/sentiment/lexicons/regional.py`. Only include words that are unambiguous in that country.
 
 ## Where people's comments come from
@@ -348,7 +353,9 @@ GET    /trends?topic=health+reform&geo=CO&days=7&lang=en
 GET    /trends?topic=AI&async=true     — 202 + job_id
 GET    /trends?category=technology&sentiment_engine=claude
 GET    /conversation?topic=...&geo=MX&days=3&lang=es  — posts + comments + mood_index
-GET    /narrate?topic=...&style=executive&lang=pt
+GET    /narrate?topic=...&style=executive&lang=pt[&llm_provider=...&llm_model=...]
+GET    /llm/providers                 — AI providers and which are configured (no keys)
+GET    /llm/models?provider=openai    — live model list of a provider
 GET    /demo                          — offline sample payload
 GET    /smoke                         — doctor + offline smoke
 GET    /discover?geo=CO|US|GLOBAL     — trending topics
@@ -368,7 +375,7 @@ POST   /watchlist?topic=...&geo=...&alert_webhook=...&alert_min_score=80
 POST   /watchlist/{id}/run[?background=true]
 PUT    /watchlist/{id} · DELETE /watchlist/{id}
 POST   /admin/prune-history            — requires the admin scope
-WS     /ws[?api_key=...]               — send {"topic", "geo", "days", "lang", ...}
+WS     /ws[?api_key=...]               — send {"topic", "geo", "days", "lang", "sentiment_engine", "llm_provider", "llm_model"}
 ```
 
 Common query parameters:
@@ -533,7 +540,7 @@ curl "http://localhost:8000/jobs/{job_id}"
 curl -N "http://localhost:8000/jobs/{job_id}/events"   # SSE
 ```
 
-## AI-Powered Analysis
+## Built-in analysis (no AI key needed)
 
 TrendScope doesn't just collect data, it **analyzes it**:
 
@@ -543,7 +550,7 @@ TrendScope doesn't just collect data, it **analyzes it**:
 4. **Emerging vs established**: signals seen in one source vs several distinct sources
 5. **Recommendations**: concrete next steps
 
-All local logic; no API keys required for this path.
+All local logic; no API keys required. For a written summary by an AI, see [AI-Powered Narrative Generation](#ai-powered-narrative-generation).
 
 ## Data Sources
 
@@ -558,7 +565,7 @@ All local logic; no API keys required for this path.
 | Bing News | RSS search, exact phrase, interval filter | Free | No |
 | GDELT | DOC API 2.0 (global news, `timespan`) | Free | No |
 | Google Trends | RSS primary + pytrends + relevance scoring | Free | No |
-| Wikipedia (es) | Search API (context) | Free | No |
+| Wikipedia | Search API in the country's language (context) | Free | No |
 | TweetClaw/OpenClaw | Optional local JSON export | Free | No (bring your own file) |
 | Amazon | Topic search in the country's store (amazon.com.mx, amazon.com.br, amazon.es…; others use amazon.com) with star ratings and review counts; Best Sellers in category mode. Scrapling HTTP fetcher first, stealth browser if a captcha appears | Free | No |
 

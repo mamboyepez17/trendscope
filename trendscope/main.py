@@ -61,9 +61,10 @@ def choose_sentiment() -> str:
     console.print("\n[bold]Motor de sentimiento:[/bold]")
     console.print("  [cyan]1[/cyan] - Local (pysentimiento, gratis)")
     console.print("  [cyan]2[/cyan] - Claude API (premium, mas preciso)")
+    console.print("  [cyan]3[/cyan] - La IA de LLM_PROVIDER (configurala con: trendscope setup ai)")
     console.print(f"  [dim]Enter = default del .env ({SENTIMENT_ENGINE_DEFAULT})[/dim]\n")
-    choice = Prompt.ask("Motor", choices=["1", "2", ""], default="")
-    return {"1": "local", "2": "claude"}.get(choice, SENTIMENT_ENGINE_DEFAULT)
+    choice = Prompt.ask("Motor", choices=["1", "2", "3", ""], default="")
+    return {"1": "local", "2": "claude", "3": "llm"}.get(choice, SENTIMENT_ENGINE_DEFAULT)
 
 
 def show_results(payload: dict, query: TrendQuery) -> None:

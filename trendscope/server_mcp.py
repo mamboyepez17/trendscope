@@ -13,23 +13,43 @@ from trendscope.core.query import TrendQuery
 app = MCPServer("trendscope")
 
 
+def _query(topic=None, category=None, geo="CO", days=None, lang=None,
+           sentiment_engine="local", top_n=25, llm_provider=None, llm_model=None) -> TrendQuery:
+    from trendscope.config import MAX_AGE_DAYS
+
+    return TrendQuery(
+        mode="category" if category else "free",
+        category=category,
+        free_topic=topic,
+        geo=(geo or "CO").upper(),
+        sentiment_engine=sentiment_engine,
+        top_n=max(1, min(100, int(top_n))),
+        max_age_days=max(1, min(30, int(days or MAX_AGE_DAYS))),
+        lang=lang or None,
+        llm_provider=llm_provider or None,
+        llm_model=llm_model or None,
+    )
+
+
 @app.tool()
 async def analyze_trends(
     topic: str | None = None,
     category: str | None = None,
     geo: str = "CO",
+    days: int | None = None,
+    lang: str | None = None,
     sentiment_engine: str = "local",
     top_n: int = 25,
+    llm_provider: str | None = None,
+    llm_model: str | None = None,
 ) -> dict:
-    """Analiza tendencias multi-fuente con sentimiento. topic o category."""
-    query = TrendQuery(
-        mode="category" if category else "free",
-        category=category,
-        free_topic=topic,
-        geo=geo,
-        sentiment_engine=sentiment_engine,
-        top_n=max(1, min(100, int(top_n))),
-    )
+    """Analiza cómo se siente la gente sobre un tema (topic o category).
+
+    geo: país ISO (CO, US, BR…). days: ventana reciente 1-30. lang: idioma de
+    etiquetas es/en/pt. sentiment_engine: local | claude | llm (con
+    llm_provider/llm_model: openai, claude, deepseek, qwen, glm, kimi, mimo…).
+    """
+    query = _query(topic, category, geo, days, lang, sentiment_engine, top_n, llm_provider, llm_model)
     loop = asyncio.get_running_loop()
     payload, _ = await loop.run_in_executor(None, run_pipeline, query)
     return payload
@@ -65,29 +85,32 @@ async def narrate_trends(
     category: str | None = None,
     style: str = "executive",
     geo: str = "CO",
+    days: int | None = None,
+    lang: str | None = None,
+    llm_provider: str | None = None,
+    llm_model: str | None = None,
 ) -> dict:
-    """Genera una narrativa inteligente sobre un tema."""
-    query = TrendQuery(
-        mode="category" if category else "free",
-        category=category,
-        free_topic=topic,
-        geo=geo,
-    )
+    """Resumen con IA (executive/creative/technical/alert) en el idioma pedido.
+
+    llm_provider/llm_model eligen la IA (por defecto la de LLM_PROVIDER).
+    """
+    query = _query(topic, category, geo, days, lang)
     loop = asyncio.get_running_loop()
     payload, _ = await loop.run_in_executor(None, run_pipeline, query)
     from trendscope.narrator.engine import generate_summary
 
-    return generate_summary(payload, style=style)
+    return generate_summary(payload, style=style, provider=llm_provider, model=llm_model)
 
 
 @app.tool()
-async def compare_topics(topic1: str, topic2: str) -> dict:
-    """Compara dos temas lado a lado."""
+async def compare_topics(topic1: str, topic2: str, geo: str = "CO", days: int | None = None,
+                         lang: str | None = None) -> dict:
+    """Compara dos temas lado a lado (mismo país, ventana e idioma)."""
     loop = asyncio.get_running_loop()
 
     def _run_both():
-        q1 = TrendQuery(mode="free", free_topic=topic1)
-        q2 = TrendQuery(mode="free", free_topic=topic2)
+        q1 = _query(topic1, None, geo, days, lang)
+        q2 = _query(topic2, None, geo, days, lang)
         p1, _ = run_pipeline(q1)
         p2, _ = run_pipeline(q2)
         return {
