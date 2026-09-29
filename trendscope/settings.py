@@ -47,6 +47,8 @@ class Settings(BaseSettings):
     # Léxico propio (JSON) para jerga local, marcas o sectores. Ver
     # trendscope/sentiment/lexicons/__init__.py para el formato.
     custom_lexicon_path: str = ""
+    # TikTok: respaldo con navegador (lento; requiere `scrapling install`)
+    tiktok_browser_fallback: bool = False
     # /trends también recolecta comentarios para el Índice de Ánimo
     pipeline_collect_comments: bool = True
 

@@ -1,7 +1,9 @@
 # Synced from pyproject.toml — single source of truth is pyproject.toml
 
 # Scraping adaptativo
-scrapling
+# fetchers = HTTP con huella de Chrome + navegador sigiloso (Amazon, TikTok)
+# Para el navegador, ejecutar una vez: scrapling install
+scrapling[fetchers]>=0.3
 requests>=2.31.0
 
 # Reddit

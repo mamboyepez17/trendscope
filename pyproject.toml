@@ -22,7 +22,7 @@ classifiers = [
     "Programming Language :: Python :: 3.12",
 ]
 dependencies = [
-    "scrapling",
+    "scrapling[fetchers]>=0.3",
     "requests>=2.31.0",
     "praw>=7.8.1",
     "pytrends>=4.9.2",

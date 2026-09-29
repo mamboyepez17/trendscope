@@ -267,7 +267,7 @@ const SOURCE_NAMES = {
   reddit:'Reddit', twitter:'X / Twitter', tweetclaw:'X (TweetClaw)', bluesky:'Bluesky', hackernews:'Hacker News',
   youtube:'YouTube', google_news:'Google News', bing_news:'Bing News', gdelt:'GDELT', wikipedia:'Wikipedia',
   google_trends_rss:'Google Trends', google_trends_pytrends:'Google Trends', tiktok_trending:'TikTok',
-  amazon_bestsellers:'Amazon'
+  amazon_bestsellers:'Amazon', amazon:'Amazon'
 };
 function srcLabel(name){
   const loc = t('src.'+name);
@@ -505,6 +505,7 @@ function trendsHTML(trends, maxShow){
     if(sig.comments) eng.push(`💬 ${fmt(sig.comments)}`);
     if(sig.youtube_views) eng.push(`▶ ${fmt(sig.youtube_views)}`);
     if(sig.google_traffic) eng.push(`📈 ${esc(sig.google_traffic)}`);
+    if(sig.rating) eng.push(`⭐ ${Number(sig.rating).toFixed(1)}${sig.reviews?` (${fmt(sig.reviews)})`:''}`);
     const title = x.url?`<a href="${esc(x.url)}" target="_blank" rel="noopener">${esc(trunc(x.title,160))}</a>`:esc(trunc(x.title,160));
     return `<li class="trend">
       <div class="rank num">${x.rank||i+1}</div>

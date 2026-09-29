@@ -67,6 +67,22 @@ def youtube_client(geo: str | None) -> dict[str, str]:
     return {"hl": language_for(cc), "gl": cc}
 
 
+# Tienda de Amazon por país. Países sin tienda propia (CO, AR, CL, PE…) usan
+# amazon.com, que es la que usa la gente allí.
+AMAZON_DOMAINS: dict[str, str] = {
+    "US": "amazon.com", "MX": "amazon.com.mx", "BR": "amazon.com.br", "ES": "amazon.es",
+    "GB": "amazon.co.uk", "DE": "amazon.de", "FR": "amazon.fr", "IT": "amazon.it",
+    "CA": "amazon.ca", "JP": "amazon.co.jp", "IN": "amazon.in", "AU": "amazon.com.au",
+    "NL": "amazon.nl", "SE": "amazon.se", "PL": "amazon.pl", "BE": "amazon.com.be",
+    "TR": "amazon.com.tr", "SA": "amazon.sa", "AE": "amazon.ae", "SG": "amazon.sg",
+    "EG": "amazon.eg",
+}
+
+
+def amazon_domain(geo: str | None) -> str:
+    return AMAZON_DOMAINS.get(country(geo), "amazon.com")
+
+
 # Subreddits de conversación local por país (opiniones en el idioma del país)
 COUNTRY_SUBREDDITS: dict[str, list[str]] = {
     "CO": ["Colombia"], "MX": ["mexico"], "AR": ["argentina"], "CL": ["chile"],

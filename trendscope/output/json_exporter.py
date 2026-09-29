@@ -74,6 +74,8 @@ def export(
                     "retweets": i.get("retweets"),
                     "google_traffic": i.get("approx_traffic"),
                     "amazon_rank": i.get("rank"),
+                    "rating": i.get("rating"),
+                    "reviews": i.get("reviews"),
                     "price": i.get("price"),
                     "hn_points": i.get("hn_points"),
                     "youtube_views": i.get("views"),

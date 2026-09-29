@@ -17,7 +17,7 @@
 
 TrendScope measures **public mood** on any topic to support decisions. It reads what people write — **replies on X, YouTube comments, Reddit and Hacker News threads, Bluesky posts** — classifies every opinion as **joy, anger, sadness, fear or neutral**, and aggregates them into a **Mood Index from −100 to +100** with a margin of error. News headlines are measured separately as *media tone*, so the press never gets mistaken for the public.
 
-It also pulls **recent** signals from Google News, Bing News, GDELT, Google Trends, YouTube, Wikipedia, Amazon and TikTok, scores them 0–100, and produces insights, correlations and recommendations — **locally**, without a paid AI API for the core path.
+It also pulls **recent** signals from Google News, Bing News, GDELT, Google Trends, YouTube, Wikipedia, Amazon (products with star ratings and review counts) and TikTok, scores them 0–100, and produces insights, correlations and recommendations — **locally**, without a paid AI API for the core path.
 
 It works **in any country and language**: per-language lexicons (Spanish, English, Portuguese, French, German, Italian), regional slang packs that only switch on in their own country, your own custom lexicon, country-specific news editions, and a dashboard in Spanish, English and Portuguese.
 
@@ -63,6 +63,7 @@ pip install -e ".[dev]"
 # Optional extras
 pip install -e ".[x]"        # latest xactions-py for X/Twitter
 pip install -e ".[reddit]"   # reddit-actions for Reddit comments
+scrapling install            # one-time browser download, used when Amazon shows a captcha
 
 cp .env.example .env   # Windows: copy .env.example .env
 ```
@@ -462,8 +463,8 @@ All local logic; no API keys required for this path.
 | Google Trends | RSS primary + pytrends + relevance scoring | Free | No |
 | Wikipedia (es) | Search API (context) | Free | No |
 | TweetClaw/OpenClaw | Optional local JSON export | Free | No (bring your own file) |
-| Amazon Best Sellers | Scrapling StealthyFetcher | Free | No |
-| TikTok Creative Center | API JSON + Scrapling fallback | Free | No |
+| Amazon | Topic search in the country's store (amazon.com.mx, amazon.com.br, amazon.es…; others use amazon.com) with star ratings and review counts; Best Sellers in category mode. Scrapling HTTP fetcher first, stealth browser if a captcha appears | Free | No |
+| TikTok Creative Center | Trending hashtags (API JSON; optional browser fallback). TikTok now rejects unsigned requests, so this source is best-effort | Free | No |
 
 ## Sentiment Analysis
 
@@ -548,7 +549,7 @@ Source health scores live in memory and can skip unhealthy sources automatically
 |---|---|
 | Runtime | Python 3.11–3.12 |
 | API | FastAPI + uvicorn |
-| Scraping | requests · Scrapling · xactions-py (vendored or package) · reddit-actions (optional) |
+| Scraping | requests · Scrapling 0.4 (HTTP fetcher + stealth browser) · xactions-py (vendored or package) · reddit-actions (optional) |
 | Sentiment | pysentimiento (ES/EN) · per-language lexicons + regional slang + emojis · Claude optional |
 | Narrative | DeepSeek · OpenRouter · Claude · Ollama · statistical fallback |
 | Persistence | SQLite (WAL): cache, watchlist, history, jobs |
@@ -570,6 +571,9 @@ TOP_N=25
 # People's comments for the Mood Index
 PIPELINE_COLLECT_COMMENTS=true
 CUSTOM_LEXICON_PATH=        # your own slang/brand lexicon (see docs/lexicon.example.json)
+
+# TikTok browser fallback (slow; requires `scrapling install`)
+TIKTOK_BROWSER_FALLBACK=false
 
 # X/Twitter (DevTools > Application > Cookies on x.com)
 TWITTER_AUTH_TOKEN=your_auth_token
@@ -650,6 +654,16 @@ Reddit blocked the public JSON endpoint. Install the optional `reddit` extra (`p
 ### X returns 401 or 403
 
 Your cookies may have expired. Get fresh cookies from x.com → DevTools (F12) → Application → Cookies → x.com and copy `auth_token` and `ct0` into your `.env`. Installing the `x` extra keeps xactions-py up to date with X's latest request signing.
+
+### No Amazon results
+
+- `Amazon: falta Scrapling con fetchers` → `pip install "scrapling[fetchers]"`.
+- `falta el navegador de Scrapling` → run `scrapling install` once (the browser is only used when Amazon shows a captcha).
+- Amazon results must name the whole topic, so topics that are not products (e.g. a political reform) return no Amazon items. That is expected.
+
+### No TikTok results
+
+TikTok's Creative Center API now rejects unsigned requests (`code=40101`), and TrendScope logs this clearly. Set `TIKTOK_BROWSER_FALLBACK=true` (after `scrapling install`) to scrape the page with a real browser instead; it is slow (~40 s). TikTok only provides generic trending hashtags, which are kept only when they match your topic.
 
 ### No YouTube comments
 

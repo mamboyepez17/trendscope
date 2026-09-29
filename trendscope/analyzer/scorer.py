@@ -68,6 +68,15 @@ def _score_by_source(item: dict) -> float:
         reposts = min(item.get("reposts", 0) or 0, 5000)
         return 25.0 + (likes / 10000 * 30) + (reposts / 5000 * 20)
 
+    elif source == "amazon":
+        # Producto buscado por tema: popularidad = reseñas (log), calidad = estrellas
+        reviews = max(0, int(item.get("reviews") or 0))
+        rating = float(item.get("rating") or 0)
+        base = 25.0 + min(45.0, math.log10(1 + reviews) * 11)
+        if rating:
+            base += (rating - 3.0) * 6  # 5★ +12 · 3★ 0 · 1★ −12
+        return max(0.0, min(90.0, base))
+
     elif source == "amazon_bestsellers":
         rank_str = item.get("rank", "#99")
         rank_num = int(re.sub(r"[^0-9]", "", rank_str) or "99")

@@ -121,7 +121,7 @@ def run(query: TrendQuery) -> tuple[dict, str]:
 
 # Titulares de prensa/video: deben nombrar el tema completo. Sin esto,
 # "reforma tributaria" o "salud mental" pasaban por "reforma a la salud".
-_STRICT_RELEVANCE_SOURCES = {"google_news", "bing_news", "gdelt", "youtube", "hackernews"}
+_STRICT_RELEVANCE_SOURCES = {"google_news", "bing_news", "gdelt", "youtube", "hackernews", "amazon"}
 
 
 def _filter_topic_relevant(items: list[dict], topic: str) -> list[dict]:
@@ -363,7 +363,7 @@ def _run_unlocked(query: TrendQuery) -> tuple[dict, str]:
 # Fuentes que ya son "de ahora" por definición y no traen fecha por ítem
 _TIMELESS_SOURCES = {
     "google_trends_rss", "google_trends_pytrends", "tiktok_trending",
-    "amazon_bestsellers", "wikipedia",
+    "amazon_bestsellers", "amazon", "wikipedia",
 }
 
 

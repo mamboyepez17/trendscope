@@ -34,9 +34,18 @@ def _fetch_api(country_code: str = "CO", count: int = 20) -> list[dict]:
         resp = requests.get(TIKTOK_API_URL, params=params, headers=headers, timeout=15)
         resp.raise_for_status()
         data = resp.json()
+        code = data.get("code")
+        if code not in (0, None):
+            # TikTok ahora exige peticiones firmadas; sin firma responde p. ej.
+            # {"code": 40101, "msg": "no permission"} con HTTP 200.
+            logger.warning(
+                f"TikTok Creative Center rechazó la petición (code={code}, "
+                f"msg={data.get('msg')!r}): la API pública ya no responde sin firma"
+            )
+            return []
 
         results = []
-        items = data.get("data", {}).get("list", [])
+        items = (data.get("data") or {}).get("list") or []
         for item in items:
             hashtag = item.get("hashtag_name", "").strip()
             if hashtag:
@@ -71,6 +80,9 @@ def _fetch_scraping() -> list[dict]:
             network_idle=True,
             timeout=40000,
         )
+        if getattr(page, "status", 200) >= 400:
+            logger.warning(f"TikTok (navegador): HTTP {page.status}")
+            return []
 
         selectors = [
             "[class*='hashtagName']",
@@ -107,9 +119,14 @@ def run(query: TrendQuery) -> list[dict]:
     # Primario: API JSON
     results = _fetch_api(country_code=country)
 
-    # Fallback: scraping con DynamicFetcher
+    # Fallback: navegador (lento, ~40 s; requiere `scrapling install`). Opt-in.
     if not results:
-        results = _fetch_scraping()
+        from trendscope.settings import settings
+
+        if getattr(settings, "tiktok_browser_fallback", False):
+            results = _fetch_scraping()
+        else:
+            logger.info("TikTok: sin datos; TIKTOK_BROWSER_FALLBACK=true activa el navegador")
 
     logger.info(f"TikTok: {len(results)} hashtags trending")
     return results
