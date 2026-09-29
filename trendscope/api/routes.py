@@ -44,6 +44,7 @@ def _run_pipeline_query(
     sentiment_engine: str = "local",
     top_n: int = 25,
     days: int | None = None,
+    lang: str | None = None,
 ) -> dict:
     if not topic and not category:
         raise HTTPException(
@@ -65,6 +66,7 @@ def _run_pipeline_query(
     )
     if days:
         query.max_age_days = days
+    query.lang = lang
     try:
         payload, _ = run_pipeline(query)
     except RuntimeError as e:
@@ -88,6 +90,9 @@ def register_routes(app: FastAPI, state) -> None:
         sentiment_engine: str = QParam("local", description="local | claude"),
         top_n: int = QParam(25, ge=1, le=100, description="Numero de resultados"),
         days: int | None = QParam(None, ge=1, le=30, description="Últimos N días"),
+        lang: str | None = QParam(
+            None, description="Idioma de etiquetas/titulares: es | en | pt (default: el del país)"
+        ),
     ):
         """Genera una narrativa inteligente sobre un tema usando el proveedor configurado."""
         if not topic and not category:
@@ -105,7 +110,7 @@ def register_routes(app: FastAPI, state) -> None:
                 status_code=400,
                 detail=f"Estilo '{style}' no valido. Opciones: {', '.join(NARRATIVE_STYLES.keys())}",
             )
-        payload = _run_pipeline_query(topic, category, geo, sentiment_engine, top_n, days)
+        payload = _run_pipeline_query(topic, category, geo, sentiment_engine, top_n, days, lang)
         result = generate_summary(payload, style=style)
         return {
             "topic": topic or category,
@@ -242,6 +247,9 @@ def register_routes(app: FastAPI, state) -> None:
         days: int | None = QParam(
             None, ge=1, le=30, description="Solo contenido de los últimos N días (default 7)"
         ),
+        lang: str | None = QParam(
+            None, description="Idioma de etiquetas/titulares: es | en | pt (default: el del país)"
+        ),
         async_mode: bool = QParam(
             False, alias="async", description="Si true, devuelve 202 + job_id"
         ),
@@ -261,6 +269,7 @@ def register_routes(app: FastAPI, state) -> None:
                 top_n=top_n,
                 org_id=_org_id(request),
                 days=days,
+                lang=lang,
             )
             return JSONResponse(
                 status_code=202,
@@ -270,7 +279,7 @@ def register_routes(app: FastAPI, state) -> None:
                     "poll": f"/jobs/{job_id}",
                 },
             )
-        return _run_pipeline_query(topic, category, geo, sentiment_engine, top_n, days)
+        return _run_pipeline_query(topic, category, geo, sentiment_engine, top_n, days, lang)
 
     @app.get("/jobs/{job_id}", tags=["jobs"], summary="Poll async job status")
     def get_job(request: Request, job_id: str):
@@ -593,6 +602,10 @@ def register_routes(app: FastAPI, state) -> None:
         days: int | None = QParam(
             None, ge=1, le=30, description="Solo comentarios de los últimos N días"
         ),
+        geo: str = QParam("CO", description="Código ISO del país"),
+        lang: str | None = QParam(
+            None, description="Idioma de etiquetas/titulares: es | en | pt (default: el del país)"
+        ),
     ):
         """Recolecta comentarios (Reddit + HN + X) y mide el ánimo de la gente."""
         from trendscope.analyzer.conversation import analyze_conversation
@@ -601,7 +614,7 @@ def register_routes(app: FastAPI, state) -> None:
         from trendscope.scrapers import comments as comments_mod
         from trendscope.sentiment import analyze_items
 
-        q = TrendQuery(mode="free", free_topic=topic, geo="CO")
+        q = TrendQuery(mode="free", free_topic=topic, geo=(geo or "CO").upper(), lang=lang)
         if days:
             q.max_age_days = days
         collected = comments_mod.collect(
@@ -614,7 +627,7 @@ def register_routes(app: FastAPI, state) -> None:
             analyze_items(all_comments + posts, q)
 
         mood = analyze_conversation(all_comments, posts=posts)
-        mood_index = compute_mood_index(all_comments + posts, topic=topic)
+        mood_index = compute_mood_index(all_comments + posts, topic=topic, lang=q.ui_lang)
         return {
             "topic": topic,
             "posts": posts[:limit],
@@ -704,6 +717,9 @@ def register_routes(app: FastAPI, state) -> None:
                     days = 0
                 if 1 <= days <= 30:
                     query.max_age_days = days
+                lang = params.get("lang")
+                if isinstance(lang, str) and lang.isalpha() and len(lang) <= 5:
+                    query.lang = lang
 
                 try:
                     loop = asyncio.get_running_loop()

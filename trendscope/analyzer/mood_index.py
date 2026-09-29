@@ -39,21 +39,88 @@ COMMENT_SOURCES = {
 SOCIAL_POST_SOURCES = {"twitter", "tweetclaw", "bluesky", "reddit"}
 NEWS_SOURCES = {"google_news", "bing_news", "gdelt"}
 
-MOODS: dict[str, tuple[str, str, str]] = {
-    # clave: (emoji, etiqueta, descripción corta)
-    "happy": ("😊", "Contentos", "La gente habla con alegría y aprobación"),
-    "angry": ("😠", "Enojados", "Predomina el enojo, la indignación o el rechazo"),
-    "sad": ("😢", "Tristes", "Predomina la tristeza, la decepción o el pesar"),
-    "afraid": ("😨", "Preocupados", "Predomina el miedo o la incertidumbre"),
-    "divided": ("⚖️", "Divididos", "Opiniones fuertes a favor y en contra a la vez"),
-    "neutral": ("😐", "Neutrales", "Conversación informativa, sin emoción marcada"),
-    "quiet": ("😶", "Sin datos", "No hay suficientes opiniones para medir"),
+MOOD_EMOJI = {
+    "happy": "😊", "angry": "😠", "sad": "😢", "afraid": "😨",
+    "divided": "⚖️", "neutral": "😐", "quiet": "😶",
 }
 
-EMOTION_LABELS_ES = {
-    "joy": "Alegría", "anger": "Enojo", "sadness": "Tristeza",
-    "fear": "Miedo", "neutral": "Neutral",
+# Textos por idioma (es / en / pt). Idiomas sin traducción usan inglés.
+TEXTS: dict[str, dict] = {
+    "es": {
+        "moods": {
+            "happy": ("Contentos", "La gente habla con alegría y aprobación"),
+            "angry": ("Enojados", "Predomina el enojo, la indignación o el rechazo"),
+            "sad": ("Tristes", "Predomina la tristeza, la decepción o el pesar"),
+            "afraid": ("Preocupados", "Predomina el miedo o la incertidumbre"),
+            "divided": ("Divididos", "Opiniones fuertes a favor y en contra a la vez"),
+            "neutral": ("Neutrales", "Conversación informativa, sin emoción marcada"),
+            "quiet": ("Sin datos", "No hay suficientes opiniones para medir"),
+        },
+        "emotions": {"joy": "alegría", "anger": "enojo", "sadness": "tristeza",
+                     "fear": "miedo", "neutral": "neutral"},
+        "adj": {"happy": "contenta", "angry": "enojada", "sad": "triste", "afraid": "preocupada"},
+        "the_topic": "el tema",
+        "empty": "Aún no hay opiniones suficientes para medir el ánimo.",
+        "quiet": "Todavía hay muy pocas opiniones sobre {t} para medir el ánimo.",
+        "base": "Índice neto {net} (±{m}) con {n} opiniones de {s} fuente(s).",
+        "neutral": "La gente habla de {t} sin emoción marcada ({p}% neutral). {base}",
+        "divided": "La opinión sobre {t} está dividida: {joy}% alegría vs {neg}% emociones negativas. {base}",
+        "mood": "La gente se siente mayormente {adj} con {t} ({p}% {emo}). {base}",
+    },
+    "en": {
+        "moods": {
+            "happy": ("Happy", "People talk with joy and approval"),
+            "angry": ("Angry", "Anger, outrage or rejection dominate"),
+            "sad": ("Sad", "Sadness, disappointment or grief dominate"),
+            "afraid": ("Worried", "Fear or uncertainty dominate"),
+            "divided": ("Divided", "Strong opinions for and against at the same time"),
+            "neutral": ("Neutral", "Informative conversation, no strong emotion"),
+            "quiet": ("No data", "Not enough opinions to measure"),
+        },
+        "emotions": {"joy": "joy", "anger": "anger", "sadness": "sadness",
+                     "fear": "fear", "neutral": "neutral"},
+        "adj": {"happy": "happy", "angry": "angry", "sad": "sad", "afraid": "worried"},
+        "the_topic": "the topic",
+        "empty": "Not enough opinions yet to measure the mood.",
+        "quiet": "There are still very few opinions about {t} to measure the mood.",
+        "base": "Net index {net} (±{m}) from {n} opinions across {s} source(s).",
+        "neutral": "People talk about {t} without strong emotion ({p}% neutral). {base}",
+        "divided": "Opinion on {t} is divided: {joy}% joy vs {neg}% negative emotions. {base}",
+        "mood": "People feel mostly {adj} about {t} ({p}% {emo}). {base}",
+    },
+    "pt": {
+        "moods": {
+            "happy": ("Contentes", "As pessoas falam com alegria e aprovação"),
+            "angry": ("Irritados", "Predominam a raiva, a indignação ou a rejeição"),
+            "sad": ("Tristes", "Predominam a tristeza, a decepção ou o pesar"),
+            "afraid": ("Preocupados", "Predominam o medo ou a incerteza"),
+            "divided": ("Divididos", "Opiniões fortes a favor e contra ao mesmo tempo"),
+            "neutral": ("Neutros", "Conversa informativa, sem emoção marcante"),
+            "quiet": ("Sem dados", "Não há opiniões suficientes para medir"),
+        },
+        "emotions": {"joy": "alegria", "anger": "raiva", "sadness": "tristeza",
+                     "fear": "medo", "neutral": "neutro"},
+        "adj": {"happy": "contentes", "angry": "irritadas", "sad": "tristes", "afraid": "preocupadas"},
+        "the_topic": "o tema",
+        "empty": "Ainda não há opiniões suficientes para medir o humor.",
+        "quiet": "Ainda há muito poucas opiniões sobre {t} para medir o humor.",
+        "base": "Índice líquido {net} (±{m}) com {n} opiniões de {s} fonte(s).",
+        "neutral": "As pessoas falam de {t} sem emoção marcante ({p}% neutro). {base}",
+        "divided": "A opinião sobre {t} está dividida: {joy}% alegria vs {neg}% emoções negativas. {base}",
+        "mood": "As pessoas estão principalmente {adj} com {t} ({p}% {emo}). {base}",
+    },
 }
+
+
+def _texts(lang: str | None) -> dict:
+    return TEXTS.get((lang or "es").lower().split("-")[0], TEXTS["en"])
+
+
+# Compatibilidad: etiquetas en español (antes MOODS / EMOTION_LABELS_ES)
+MOODS: dict[str, tuple[str, str, str]] = {
+    k: (MOOD_EMOJI[k], *v) for k, v in TEXTS["es"]["moods"].items()
+}
+EMOTION_LABELS_ES = {k: v.capitalize() for k, v in TEXTS["es"]["emotions"].items()}
 
 _EMOTION_TO_MOOD = {"joy": "happy", "anger": "angry", "sadness": "sad", "fear": "afraid"}
 
@@ -162,21 +229,25 @@ def _drivers(texts_by_emotion: dict[str, list[str]], all_texts: list[str],
 
 
 def compute_mood_index(items: list[dict], topic: str | None = None,
-                       quotes_per_emotion: int = 2) -> dict:
-    """Agrega las opiniones en un Índice de Ánimo serializable a JSON."""
+                       quotes_per_emotion: int = 2, lang: str = "es") -> dict:
+    """Agrega las opiniones en un Índice de Ánimo serializable a JSON.
+
+    lang: idioma de las etiquetas y del titular (es / en / pt; otros → en).
+    """
+    tx = _texts(lang)
     opinions = [i for i in items if is_opinion(i) and len(_text(i)) >= 3]
     weights = _weights(opinions)
     pairs = [(it, w) for it, w in zip(opinions, weights) if w > 0]
 
     if not pairs:
-        emoji, label, desc = MOODS["quiet"]
+        label, desc = tx["moods"]["quiet"]
         return {
-            "mood": "quiet", "emoji": emoji, "label": label, "description": desc,
-            "net_score": 0.0, "margin": None, "confidence": "baja",
+            "mood": "quiet", "emoji": MOOD_EMOJI["quiet"], "label": label, "description": desc,
+            "net_score": 0.0, "margin": None, "confidence": "low",
             "sample_size": 0, "effective_n": 0.0, "authors": 0,
             "emotions": {e: 0.0 for e in EMOTIONS}, "dominant_emotion": "neutral",
             "polarization": 0.0, "intensity": 0.0, "by_source": {},
-            "quotes": {}, "drivers": {}, "headline": "Aún no hay opiniones suficientes para medir el ánimo.",
+            "quotes": {}, "drivers": {}, "headline": tx["empty"], "lang": lang,
             "method": "mood_index_v1",
         }
 
@@ -232,11 +303,11 @@ def compute_mood_index(items: list[dict], topic: str | None = None,
     top_emo = {"happy": "joy", "angry": "anger", "sad": "sadness", "afraid": "fear"}.get(mood, "neutral")
 
     if n_eff >= 50 and margin <= 15:
-        confidence = "alta"
+        confidence = "high"
     elif n_eff >= 15 and margin <= 30:
-        confidence = "media"
+        confidence = "medium"
     else:
-        confidence = "baja"
+        confidence = "low"
 
     # Citas representativas y "de qué hablan" por emoción
     quotes: dict[str, list[dict]] = {}
@@ -278,8 +349,9 @@ def compute_mood_index(items: list[dict], topic: str | None = None,
     }
     authors = len({(it.get("author") or "").lower() for it, *_ in per_item if it.get("author")})
 
-    emoji, label, desc = MOODS[mood]
-    headline = _headline(mood, label, emotions, net, margin, len(pairs), len(src_out), topic)
+    label, desc = tx["moods"][mood]
+    emoji = MOOD_EMOJI[mood]
+    headline = _headline(tx, mood, emotions, net, margin, len(pairs), len(src_out), topic)
 
     return {
         "mood": mood,
@@ -301,28 +373,26 @@ def compute_mood_index(items: list[dict], topic: str | None = None,
         "drivers": drivers,
         "headline": headline,
         "method": "mood_index_v1",
+        "lang": lang,
     }
 
 
-def _headline(mood: str, label: str, emotions: dict, net: float, margin: float,
+def _headline(tx: dict, mood: str, emotions: dict, net: float, margin: float,
               n: int, n_sources: int, topic: str | None) -> str:
-    tema = f"«{topic}»" if topic else "el tema"
+    t = f"«{topic}»" if topic else tx["the_topic"]
     if mood == "quiet":
-        return f"Todavía hay muy pocas opiniones sobre {tema} para medir el ánimo."
+        return tx["quiet"].format(t=t)
     pct = {e: round(100 * v) for e, v in emotions.items()}
-    sign = "+" if net > 0 else ""
-    base = f"Índice neto {sign}{net:.0f} (±{margin:.0f}) con {n} opiniones de {n_sources} fuente(s)."
+    base = tx["base"].format(
+        net=f"{'+' if net > 0 else ''}{net:.0f}", m=f"{margin:.0f}", n=n, s=n_sources
+    )
     if mood == "neutral":
-        return f"La gente habla de {tema} sin emoción marcada ({pct['neutral']}% neutral). {base}"
+        return tx["neutral"].format(t=t, p=pct["neutral"], base=base)
     if mood == "divided":
-        return (f"La opinión sobre {tema} está dividida: {pct['joy']}% alegría vs "
-                f"{pct['anger'] + pct['sadness'] + pct['fear']}% emociones negativas. {base}")
-    emo, adj = {
-        "happy": ("joy", "contenta"), "angry": ("anger", "enojada"),
-        "sad": ("sadness", "triste"), "afraid": ("fear", "preocupada"),
-    }[mood]
-    return (f"La gente se siente mayormente {adj} con {tema} "
-            f"({pct[emo]}% {EMOTION_LABELS_ES[emo].lower()}). {base}")
+        neg = pct["anger"] + pct["sadness"] + pct["fear"]
+        return tx["divided"].format(t=t, joy=pct["joy"], neg=neg, base=base)
+    emo = {"happy": "joy", "angry": "anger", "sad": "sadness", "afraid": "fear"}[mood]
+    return tx["mood"].format(adj=tx["adj"][mood], t=t, p=pct[emo], emo=tx["emotions"][emo], base=base)
 
 
 def media_tone(items: list[dict]) -> dict:

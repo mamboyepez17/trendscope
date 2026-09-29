@@ -76,12 +76,28 @@ def _build_context(payload: dict) -> str:
     return json.dumps(context, ensure_ascii=False, indent=2)
 
 
+# Idioma de la narrativa: el del análisis (meta.lang) o el del país.
+_LANG_RULE = {
+    "es": "IMPORTANTE: Responde exclusivamente en español.",
+    "en": "IMPORTANT: Reply exclusively in English.",
+    "pt": "IMPORTANTE: Responda exclusivamente em português.",
+}
+
+
+def _narrative_lang(payload: dict) -> str:
+    from trendscope.core.locale import ui_language
+
+    meta = payload.get("meta", {}) or {}
+    return ui_language(meta.get("lang"), (meta.get("query") or {}).get("geo"))
+
+
 def _build_prompt(payload: dict, style: str) -> str:
     system = NARRATIVE_STYLES.get(style, NARRATIVE_STYLES["executive"])
     context = _build_context(payload)
+    rule = _LANG_RULE.get(_narrative_lang(payload), _LANG_RULE["en"])
     return (
         f"{system}\n\n"
-        "IMPORTANTE: Responde exclusivamente en español. "
+        f"{rule} "
         "Analiza los siguientes datos de tendencias y genera un resumen. "
         "Sé concreto, accionable y basado estrictamente en los datos proporcionados.\n\n"
         f"{context}"
@@ -239,10 +255,10 @@ def _call_deepseek(prompt: str) -> str:
                 {
                     "role": "system",
                     "content": (
-                        "Eres un analista senior de tendencias en español. "
-                        "Responde SIEMPRE en español de España/Latinoamérica, "
-                        "nunca en inglés. Entrega un análisis COMPLETO y cerrado "
-                        "(no lo dejes a medias)."
+                        "Eres un analista senior de tendencias. "
+                        "Responde SIEMPRE en el idioma que indica el mensaje del "
+                        "usuario (por defecto español) y nunca mezcles idiomas. "
+                        "Entrega un análisis COMPLETO y cerrado (no lo dejes a medias)."
                     ),
                 },
                 {"role": "user", "content": prompt},

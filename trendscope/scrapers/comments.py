@@ -14,10 +14,21 @@ from loguru import logger
 from trendscope.core.query import TrendQuery
 
 
-def _reddit(topic: str, limit: int, comments_per_post: int, days: float) -> tuple[list, list, str]:
+def _reddit(topic: str, limit: int, comments_per_post: int, days: float,
+            geo: str | None = None) -> tuple[list, list, str]:
+    from trendscope.core.locale import country_subreddits
     from trendscope.scrapers import reddit_comments
 
     posts = reddit_comments.search_public_posts(topic, limit=limit, max_age_days=days)
+    # Conversación local: el subreddit del país (r/Colombia, r/mexico, r/brasil…)
+    seen = {p.get("reddit_id") for p in posts}
+    for sub in country_subreddits(geo)[:1]:
+        for p in reddit_comments.search_public_posts(
+            topic, subreddit=sub, limit=max(3, limit // 2), max_age_days=days
+        ):
+            if p.get("reddit_id") not in seen:
+                seen.add(p.get("reddit_id"))
+                posts.append(p)
     comments: list[dict] = []
     # Los hilos con más comentarios primero: ahí está la conversación
     ranked = sorted(posts, key=lambda p: p.get("comments") or 0, reverse=True)
@@ -58,7 +69,7 @@ def collect(topic: str, query: TrendQuery | None = None, limit: int = 8,
     query = query or TrendQuery(mode="free", free_topic=topic)
     days = query.max_age_days
     jobs = {
-        "reddit": lambda: _reddit(topic, limit, comments_per_post, days),
+        "reddit": lambda: _reddit(topic, limit, comments_per_post, days, query.geo),
         "hackernews": lambda: _hn(topic, limit, comments_per_post, days),
         "youtube": lambda: _youtube(query, comments_per_post),
         "x": lambda: _x(query),

@@ -91,16 +91,16 @@ def _load() -> None:
         _use_fallback = True
 
 
-def _analyze_fallback(text: str) -> SentimentResult:
-    """Sentimiento por léxico bilingüe (tildes, puntuación, negación, emojis).
+def _analyze_fallback(text: str, geo: str | None = None) -> SentimentResult:
+    """Sentimiento por léxico del idioma + jerga del país (negación, emojis).
 
     Usa el detector de emociones: polaridad = alegría − (enojo+tristeza+miedo).
     """
     from trendscope.sentiment.cache import calibrate_score
     from trendscope.sentiment.emotions import analyze_text
 
-    lang = _detect_language(text)
-    emo = analyze_text(text)
+    lang = _full_language(text, geo)
+    emo = analyze_text(text, lang=lang, geo=geo)
     if emo.polarity >= 0.15:
         label = "positive"
     elif emo.polarity <= -0.15:
@@ -118,8 +118,24 @@ def _analyze_fallback(text: str) -> SentimentResult:
     )
 
 
-def analyze(texts: list[str], batch_size: int = 32, batch_timeout: float = 20.0) -> list[SentimentResult]:
-    """Analiza sentimiento de una lista de textos (autodeteccion ES/EN).
+def _full_language(text: str, geo: str | None = None) -> str:
+    """Idioma entre es/en/pt/fr/de/it; por defecto el del país del análisis."""
+    from trendscope.core.locale import language_for
+    from trendscope.sentiment.lang import detect
+
+    return detect(text, default=language_for(geo) if geo else "es")
+
+
+def analyze(
+    texts: list[str],
+    batch_size: int = 32,
+    batch_timeout: float = 20.0,
+    geo: str | None = None,
+) -> list[SentimentResult]:
+    """Analiza sentimiento de una lista de textos (idioma autodetectado).
+
+    - es/en: modelos pysentimiento (si están instalados)
+    - pt/fr/de/it u otros: léxico del idioma + jerga del país (geo)
 
     - Cache LRU por texto
     - Batches para no saturar el modelo
@@ -143,17 +159,17 @@ def analyze(texts: list[str], batch_size: int = 32, batch_timeout: float = 20.0)
                 engine="local_skipped",
                 emotions={},
             )
-        engine_tag = "fallback" if _use_fallback else "pysentimiento"
+        engine_tag = f"{'fallback' if _use_fallback else 'pysentimiento'}:{geo or ''}"
         cached = cache_get(text, engine_tag)
         if cached is not None:
             return cached
 
         try:
             text_clean = text[:512]
-            lang = _detect_language(text_clean)
+            lang = _full_language(text_clean, geo)
 
-            if _use_fallback:
-                result = _analyze_fallback(text_clean)
+            if _use_fallback or lang not in ("es", "en"):
+                result = _analyze_fallback(text_clean, geo=geo)
             else:
                 if lang == "es":
                     sent_model = _sentiment_model_es
@@ -177,7 +193,7 @@ def analyze(texts: list[str], batch_size: int = 32, batch_timeout: float = 20.0)
             return result
         except Exception as e:
             logger.warning(f"Local sentiment '{text[:40]}': {e}")
-            return _analyze_fallback(text)
+            return _analyze_fallback(text, geo=geo)
 
     # Procesar por batches (modelo transformers más estable así)
     for start in range(0, len(texts), batch_size):
@@ -187,7 +203,7 @@ def analyze(texts: list[str], batch_size: int = 32, batch_timeout: float = 20.0)
             if _time.perf_counter() - t0 > batch_timeout:
                 # Timeout: resto con fallback rápido (por posición, no por valor)
                 for rest in chunk[idx:]:
-                    results.append(_analyze_fallback(rest))
+                    results.append(_analyze_fallback(rest, geo=geo))
                 break
             results.append(_one(text))
 

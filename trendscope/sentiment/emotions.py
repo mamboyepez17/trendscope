@@ -1,4 +1,4 @@
-"""Detector de emociones por comentario (ES/EN + jerga LatAm + emojis).
+"""Detector de emociones por comentario (6 idiomas + jerga por país + emojis).
 
 Clasifica cada texto en una distribución sobre cinco estados de ánimo:
 
@@ -6,8 +6,11 @@ Clasifica cada texto en una distribución sobre cinco estados de ánimo:
 
 Es 100% local y determinista. Se usa:
   - como motor principal cuando pysentimiento/torch no están instalados;
-  - como complemento del modelo (los emojis y la jerga colombiana los
-    captura mejor un léxico que un modelo entrenado en tweets genéricos).
+  - como complemento del modelo (los emojis y la jerga local los captura
+    mejor un léxico que un modelo entrenado en tweets genéricos).
+
+Los léxicos viven en sentiment/lexicons: idioma base (es, en, pt, fr, de, it)
++ jerga del país del análisis + léxico propio (CUSTOM_LEXICON_PATH).
 
 Reglas:
   - Texto normalizado (minúsculas, sin tildes) y tokenizado por palabra,
@@ -25,6 +28,7 @@ from __future__ import annotations
 import re
 import unicodedata
 from dataclasses import dataclass, field
+from functools import lru_cache
 
 EMOTIONS: tuple[str, ...] = ("joy", "anger", "sadness", "fear", "neutral")
 NEGATIVE_EMOTIONS: tuple[str, ...] = ("anger", "sadness", "fear")
@@ -42,92 +46,7 @@ def tokenize(text: str) -> list[str]:
     return re.findall(r"[a-z0-9]+", normalize(text))
 
 
-# ── Léxicos (se escriben con o sin tilde; se normalizan al importar) ─────────
-# Cada entrada: palabra o raíz. Raíces ≥5 letras hacen match por prefijo.
-
-_LEX_RAW: dict[str, set[str]] = {
-    "joy": {
-        # ES
-        "feliz", "felices", "felicidad", "alegr", "contento", "contenta", "contentos", "encant",
-        "amo", "amor", "genial", "excelente", "increible", "maravill", "fantastic",
-        "hermos", "brillante", "perfecto", "perfecta", "bueno", "buena", "buenisim",
-        "gracias", "agradec", "orgull", "celebr", "felicit", "exito",
-        "logro", "victoria", "gano", "ganamos", "bravo", "espectacular",
-        "recomiend", "satisfech", "emocion", "ilusion", "esperanz", "disfrut",
-        # jerga LatAm / Colombia
-        "chevere", "bacan", "chimba", "berraquera", "melo", "brutal", "crack",
-        "top", "lindo", "linda", "divin", "jaja", "jajaja", "jeje", "xd",
-        # EN
-        "happy", "glad", "love", "loved", "great", "awesome", "amazing",
-        "excellent", "wonderful", "fantastic", "best", "good", "nice", "thanks",
-        "thank", "proud", "excited", "enjoy", "beautiful", "perfect", "win",
-        "winning", "lol", "haha", "yay", "congrat",
-    },
-    "anger": {
-        # ES
-        "enojad", "enoja", "rabia", "furios", "odio", "odia",
-        "odiar", "odian", "indign", "harto", "harta", "jarto", "hartera",
-        "cansad", "fastid", "molest", "asco", "asquer", "verguenza", "vergonz",
-        "ladron", "ladrones", "rata", "ratas", "corrupt", "estafa", "estafador",
-        "robo", "robar", "roban", "mentir", "mentiros", "mentira", "abuso",
-        "pesimo", "pesima", "horrible", "terrible", "basura", "porqueria",
-        "inutil", "incompetent", "descarad", "sinverguenz", "cinic", "burla",
-        "exijo", "exigimos", "renuncie", "protest",
-        # insultos / jerga Colombia
-        "hp", "hijueputa", "malparid", "gonorrea", "piedra", "emberracad",
-        "mierda", "maldit", "idiota", "imbecil", "estupid", "payaso", "bruto",
-        "bruta",
-        # EN
-        "angry", "anger", "mad", "furious", "rage", "hate", "hated", "pissed",
-        "annoy", "outrage", "disgust", "disgusting", "sick", "scam", "fraud",
-        "liar", "lie", "lies", "corrupt", "awful", "worst", "trash", "garbage",
-        "stupid", "idiot", "pathetic", "ridiculous", "wtf", "shame",
-    },
-    "sadness": {
-        # ES
-        "triste", "tristeza", "entristec", "lament",
-        "llora", "lloro", "llorar", "llorando", "dolor", "duele", "doloros", "deprim", "depresion", "decepcion",
-        "decepcionad", "desilusion", "desanim", "perdimos", "perdida",
-        "luto", "fallec", "murio", "muerte", "tragedia", "tragic", "sufre",
-        "sufrir", "sufriendo", "soledad", "desesper", "rip", "guayabo", "achicopal",
-        # EN
-        "sad", "sadly", "sadness", "cry", "crying", "tears", "heartbroken",
-        "depress", "disappoint", "miss", "lonely", "grief", "tragic",
-        "unfortunately", "sorry", "loss", "died", "death",
-    },
-    "fear": {
-        # ES
-        "miedo", "temor", "asust", "susto", "panico", "aterr",
-        "preocup", "angusti", "ansied", "ansios", "nervios", "insegur",
-        "peligr", "riesgo", "amenaz", "alarm", "incertidumbre", "crisis",
-        "colaps", "quiebra", "inflacion", "desempleo", "violencia",
-        # EN
-        "fear", "afraid", "scared", "scary", "terrified", "panic", "worried",
-        "worry", "anxious", "anxiety", "nervous", "danger", "dangerous",
-        "threat", "risk", "risky", "uncertain", "crisis", "collapse",
-    },
-}
-
-# Evaluaciones positivas/negativas sin emoción específica: se asignan a
-# alegría (positivas) o se reparten entre enojo/tristeza (negativas).
-_NEG_GENERIC_RAW = {
-    "malo", "mala", "malos", "malas", "mal", "peor", "peores", "fracaso", "fracas", "desastre", "error",
-    "fallo", "falla", "problema", "caro", "carisimo", "lento", "bad", "poor",
-    "fail", "failure", "broken", "problem", "expensive", "slow", "sucks",
-}
-
-_NEGATIONS_RAW = {
-    "no", "ni", "nunca", "jamas", "tampoco", "sin", "nada", "not", "never",
-    "no", "dont", "don", "isnt", "wasnt", "aint", "cant", "nobody", "without",
-}
-
-_INTENSIFIERS_RAW = {
-    "muy", "demasiado", "super", "re", "tan", "tanto", "bastante", "sumamente",
-    "extremadamente", "totalmente", "absolutamente", "completamente", "mega",
-    "very", "so", "really", "extremely", "totally", "absolutely", "too",
-}
-
-# Emojis → emoción (peso fuerte: en comentarios son muy explícitos)
+# Emojis → emoción (universales; peso fuerte: en comentarios son muy explícitos)
 EMOJI_EMOTION: dict[str, str] = {
     "😀": "joy", "😃": "joy", "😄": "joy", "😁": "joy", "😆": "joy", "😂": "joy",
     "🤣": "joy", "😊": "joy", "😍": "joy", "🥰": "joy", "😘": "joy", "🤩": "joy",
@@ -145,22 +64,29 @@ EMOJI_EMOTION: dict[str, str] = {
 }
 
 
-def _norm_set(words: set[str]) -> set[str]:
-    return {normalize(w) for w in words}
+@lru_cache(maxsize=128)
+def _compile(lang: str, geo: str | None):
+    """Léxico del idioma/país separado en exactas y raíces (cacheado)."""
+    from trendscope.sentiment.lexicons import build_pack
+
+    pack = build_pack(lang, geo)
+    words = {k: {w for w in v if " " not in w} for k, v in pack.items()}
+    exact = {k: {w for w in v if len(w) < 5} for k, v in words.items()}
+    stems = {k: tuple(sorted(w for w in v if len(w) >= 5)) for k, v in words.items()}
+    # Frases de varias palabras ("poca madre", "saco cheio"): coincidencia exacta
+    phrases = {
+        k: tuple(re.compile(r"\b" + re.escape(p) + r"\b") for p in v if " " in p)
+        for k, v in pack.items()
+        if k in ("joy", "anger", "sadness", "fear", "neg")
+    }
+    return exact, stems, pack["negations"], pack["intensifiers"], phrases
 
 
-LEXICON: dict[str, set[str]] = {k: _norm_set(v) for k, v in _LEX_RAW.items()}
-NEG_GENERIC = _norm_set(_NEG_GENERIC_RAW)
-NEGATIONS = _norm_set(_NEGATIONS_RAW)
-INTENSIFIERS = _norm_set(_INTENSIFIERS_RAW)
+def clear_cache() -> None:
+    from trendscope.sentiment.lexicons import clear_cache as _clear_packs
 
-# Separar exactas vs. raíces (prefijo) para matching rápido
-_EXACT: dict[str, set[str]] = {k: {w for w in v if len(w) < 5} for k, v in LEXICON.items()}
-_STEMS: dict[str, tuple[str, ...]] = {
-    k: tuple(sorted(w for w in v if len(w) >= 5)) for k, v in LEXICON.items()
-}
-_NEG_EXACT = {w for w in NEG_GENERIC if len(w) < 5}
-_NEG_STEMS = tuple(sorted(w for w in NEG_GENERIC if len(w) >= 5))
+    _compile.cache_clear()
+    _clear_packs()
 
 
 def _match(token: str, exact: set[str], stems: tuple[str, ...]) -> bool:
@@ -169,13 +95,11 @@ def _match(token: str, exact: set[str], stems: tuple[str, ...]) -> bool:
     return any(token.startswith(s) for s in stems)
 
 
-def _token_emotion(token: str) -> str | None:
+def _token_emotion(token: str, exact, stems) -> str | None:
     """Emoción léxica de un token (o 'neg' genérico, o None)."""
-    for emo in NEGATIVE_EMOTIONS + ("joy",):
-        if _match(token, _EXACT[emo], _STEMS[emo]):
+    for emo in NEGATIVE_EMOTIONS + ("joy", "neg"):
+        if _match(token, exact[emo], stems[emo]):
             return emo
-    if _match(token, _NEG_EXACT, _NEG_STEMS):
-        return "neg"
     return None
 
 
@@ -187,6 +111,7 @@ class EmotionResult:
     polarity: float           # −1 (muy negativo) … +1 (muy positivo)
     hits: dict[str, float] = field(default_factory=dict)
     emojis: int = 0
+    lang: str = "es"
 
 
 def dominant_of(dist: dict[str, float], min_emotion: float = 0.45) -> str:
@@ -196,11 +121,32 @@ def dominant_of(dist: dict[str, float], min_emotion: float = 0.45) -> str:
     return max(NEGATIVE_EMOTIONS + ("joy",), key=lambda e: dist.get(e, 0.0))
 
 
-def analyze_text(text: str) -> EmotionResult:
-    """Distribución de emociones de un texto (sin modelos, determinista)."""
+def analyze_text(text: str, lang: str | None = None, geo: str | None = None) -> EmotionResult:
+    """Distribución de emociones de un texto (sin modelos, determinista).
+
+    lang: idioma del texto (se detecta si no se pasa; por defecto el del país).
+    geo:  país del análisis → activa su jerga regional.
+    """
     raw = text or ""
     tokens = tokenize(raw)
+    geo = (geo or "").upper() or None
+    if lang is None:
+        from trendscope.core.locale import language_for
+        from trendscope.sentiment.lang import detect
+
+        lang = detect(raw, default=language_for(geo) if geo else "es")
+    exact, stems, negations, intensifiers, phrases = _compile(lang, geo)
     scores = {"joy": 0.0, "anger": 0.0, "sadness": 0.0, "fear": 0.0}
+
+    norm_text = " ".join(tokens)
+    for emo, pats in phrases.items():
+        for pat in pats:
+            if pat.search(norm_text):
+                if emo == "neg":
+                    scores["anger"] += 0.6
+                    scores["sadness"] += 0.4
+                else:
+                    scores[emo] += 1.0
 
     # Emojis (peso 1.2 cada uno, máx. 3 por tipo para no saturar)
     emoji_count = 0
@@ -222,14 +168,14 @@ def analyze_text(text: str) -> EmotionResult:
         shout += 0.35
 
     for i, tok in enumerate(tokens):
-        emo = _token_emotion(tok)
+        emo = _token_emotion(tok, exact, stems)
         if emo is None:
             continue
         weight = 1.0
         window = tokens[max(0, i - 3):i]
-        if any(w in INTENSIFIERS for w in window):
+        if any(w in intensifiers for w in window):
             weight *= 1.5
-        negated = any(w in NEGATIONS for w in window)
+        negated = any(w in negations for w in window)
 
         if emo == "neg":
             if negated:  # "no es malo" → leve positivo
@@ -251,7 +197,7 @@ def analyze_text(text: str) -> EmotionResult:
     if total <= 0:
         dist = {e: 0.0 for e in EMOTIONS}
         dist["neutral"] = 1.0
-        return EmotionResult(dist, "neutral", 0.0, 0.0, {}, emoji_count)
+        return EmotionResult(dist, "neutral", 0.0, 0.0, {}, emoji_count, lang)
 
     # Neutral decrece con la evidencia: 1 pista → 0.5, 2 → 0.33, 4 → 0.2
     neutral = 1.0 / (1.0 + total)
@@ -262,7 +208,7 @@ def analyze_text(text: str) -> EmotionResult:
     neg = dist["anger"] + dist["sadness"] + dist["fear"]
     polarity = round(dist["joy"] - neg, 4)
     intensity = round(1.0 - neutral, 4)
-    return EmotionResult(dist, dominant, intensity, polarity, scores, emoji_count)
+    return EmotionResult(dist, dominant, intensity, polarity, scores, emoji_count, lang)
 
 
 # ── Mezcla con salidas de modelos (pysentimiento / Claude) ────────────────────

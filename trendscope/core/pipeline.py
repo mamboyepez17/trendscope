@@ -79,14 +79,15 @@ _SERIAL_SOURCES = {"Twitter/X", "TweetClaw JSON"}
 
 
 # Bump when scraper logic changes so stale cache entries are ignored
-_CACHE_VERSION = "v9-mood-index-freshness"
+_CACHE_VERSION = "v10-i18n-comments"
 
 
 def _cache_key(query: TrendQuery) -> str:
     kw_hash = hashlib.sha1("|".join(query.keywords).encode("utf-8")).hexdigest()[:10]
     return (
         f"{_CACHE_VERSION}:{query.mode}:{query.category or query.free_topic}:"
-        f"{query.geo}:{query.sentiment_engine}:{query.top_n}:{query.max_age_days}d:{kw_hash}"
+        f"{query.geo}:{query.sentiment_engine}:{query.top_n}:{query.max_age_days}d:"
+        f"{query.ui_lang}:{kw_hash}"
     )
 
 
@@ -306,7 +307,7 @@ def _run_unlocked(query: TrendQuery) -> tuple[dict, str]:
     from trendscope.analyzer.mood_index import compute_mood_index, media_tone, overall_label
 
     topic_label = query.free_topic or query.category
-    mood_index = compute_mood_index(comments + scored, topic=topic_label)
+    mood_index = compute_mood_index(comments + scored, topic=topic_label, lang=query.ui_lang)
     if mood_index["sample_size"] == 0:
         # Sin opiniones: último recurso, índice sobre todas las señales
         from trendscope.analyzer.mood_index import _item_dist, _item_polarity
@@ -345,6 +346,7 @@ def _run_unlocked(query: TrendQuery) -> tuple[dict, str]:
     meta["stance_summary"] = stance_summary
     meta["sentiment_by_source"] = by_source
     meta["mood_index"] = mood_index
+    meta["lang"] = query.ui_lang
     meta["freshness"] = freshness
     meta["media_tone"] = media_tone(scored)
     meta["comments"] = {

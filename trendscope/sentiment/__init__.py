@@ -32,7 +32,7 @@ def analyze_items(items: list[dict], query: TrendQuery) -> list[dict]:
         else:
             from trendscope.sentiment.local_engine import analyze
 
-        results = analyze(texts)
+        results = analyze(texts) if engine == "claude" else analyze(texts, geo=query.geo)
 
         for i, result in enumerate(results):
             if i < len(items):
@@ -58,7 +58,7 @@ def analyze_items(items: list[dict], query: TrendQuery) -> list[dict]:
 
     # Emociones por ítem (alegría / enojo / tristeza / miedo / neutral)
     try:
-        enrich_emotions(items)
+        enrich_emotions(items, geo=query.geo)
     except Exception as e:
         logger.warning(f"Emociones fallo: {e}")
 
@@ -81,10 +81,11 @@ def analyze_items(items: list[dict], query: TrendQuery) -> list[dict]:
 _MODEL_ENGINES = ("local_es", "local_en", "claude")
 
 
-def enrich_emotions(items: list[dict]) -> list[dict]:
-    """Añade emotion, emotion_dist y polarity (−1…+1) a cada ítem.
+def enrich_emotions(items: list[dict], geo: str | None = None) -> list[dict]:
+    """Añade emotion, emotion_dist, polarity (−1…+1) y lang a cada ítem.
 
-    Mezcla la salida del modelo (si existe) con el léxico ES/EN + emojis.
+    Mezcla la salida del modelo (si existe) con el léxico del idioma del
+    texto + la jerga del país (geo) + emojis.
     """
     from trendscope.sentiment.emotions import (
         NEGATIVE_EMOTIONS,
@@ -96,7 +97,8 @@ def enrich_emotions(items: list[dict]) -> list[dict]:
 
     for item in items:
         text = _item_text(item) if not item.get("text") else (item.get("text") or "")
-        lex = analyze_text(text)
+        lex = analyze_text(text, geo=geo)
+        item["lang"] = item.get("lang") or lex.lang
         model = from_model_probas(item.get("emotions"))
         dist = blend(lex.distribution, model)
         emo_pol = dist.get("joy", 0.0) - sum(dist.get(e, 0.0) for e in NEGATIVE_EMOTIONS)

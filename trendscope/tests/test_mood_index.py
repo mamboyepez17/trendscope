@@ -137,7 +137,7 @@ def test_confidence_and_margin_reported():
     items = [_c("Me encanta 😍", author=f"u{i}") for i in range(3)]
     enrich_emotions(items)
     mi = compute_mood_index(items)
-    assert mi["confidence"] == "baja"
+    assert mi["confidence"] == "low"
     assert mi["margin"] is not None
 
 
@@ -174,3 +174,15 @@ def test_mood_label_respects_index_sign():
 def test_mixed_opinion_plurals():
     r = analyze_text("hay cosas buenas y cosas malas")
     assert r.dominant == "neutral" or abs(r.polarity) < 0.3
+
+
+def test_texts_in_english_and_portuguese():
+    items = [_c(t, author=f"u{i}") for i, t in enumerate([
+        "Qué rabia 😡", "Indignante 🤬", "Estoy harto 😤", "Una vergüenza 👎",
+    ])]
+    enrich_emotions(items)
+    en = compute_mood_index(items, topic="x", lang="en")
+    pt = compute_mood_index(items, topic="x", lang="pt")
+    assert en["label"] == "Angry" and en["headline"].startswith("People feel mostly angry")
+    assert pt["label"] == "Irritados" and "Índice líquido" in pt["headline"]
+    assert compute_mood_index(items, lang="ja")["label"] == "Angry"  # sin traducción → inglés

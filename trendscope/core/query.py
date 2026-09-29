@@ -25,6 +25,14 @@ class TrendQuery:
     top_n: int = TOP_N
     sentiment_engine: str = SENTIMENT_ENGINE_DEFAULT
     max_age_days: int = MAX_AGE_DAYS       # solo contenido reciente
+    lang: Optional[str] = None             # idioma de los textos (None → el del país)
+
+    @property
+    def ui_lang(self) -> str:
+        """Idioma de etiquetas y titulares: el pedido (es/en/pt) o el del país."""
+        from trendscope.core.locale import ui_language
+
+        return ui_language(self.lang, self.geo)
 
     @property
     def keywords(self) -> list[str]:

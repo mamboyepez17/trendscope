@@ -388,6 +388,35 @@ Además entrega: % por emoción, polarización, intensidad, nivel de confianza,
 citas representativas por emoción y palabras que explican cada emoción.
 Está en `meta.mood_index` de `/trends` y en `mood_index` de `/conversation`.
 
+### Cualquier país, cualquier idioma
+
+TrendScope funciona para cualquier país (`?geo=XX`, código ISO) y ajusta todo solo:
+
+| Qué | Cómo |
+|---|---|
+| Idioma de los textos | Detección por texto: **es, en, pt, fr, de, it** (léxico propio de cada uno) |
+| Jerga local | Paquetes por país que solo se activan en ese país: **CO, MX, AR, UY, CL, PE, VE, ES, BR, US** (p. ej. "qué chimba" es alegría en CO, neutral en MX) |
+| Tu propia jerga | `CUSTOM_LEXICON_PATH=mi_lexico.json` — palabras o frases por idioma o país ([ejemplo](docs/lexicon.example.json)) |
+| Noticias | Edición de Google News del país (`hl`/`gl`/`ceid`) y YouTube en su idioma |
+| Reddit | Busca también en el subreddit del país (r/Colombia, r/mexico, r/brasil…) |
+| Textos del índice y del resumen IA | `?lang=es\|en\|pt` (por defecto, el idioma del país; otros idiomas → inglés) |
+| Dashboard | Español / English / Português; idioma y país iniciales según tu navegador |
+
+Para idiomas sin léxico (japonés, árabe…) los emojis siguen funcionando y el motor
+`claude` es multilingüe: `?sentiment_engine=claude`.
+
+Para aportar la jerga de un país nuevo: agrega una entrada en
+`trendscope/sentiment/lexicons/regional.py` (solo palabras claras en ese país; lo ambiguo, fuera).
+
+### Comentarios de la gente: de dónde salen
+
+| Fuente | Qué trae | Requisito |
+|---|---|---|
+| **X** | Respuestas reales a los tweets del tema con más conversación (`get_tweet_replies_sync` de [xactions-py](https://github.com/mamboyepez17/xactions-py)) | Cookies de X en `.env`; opcional `pip install -e ".[x]"` para la versión más reciente |
+| **YouTube** | Comentarios de los videos recientes más vistos del tema | Nada (sin API key) |
+| **Reddit** | Comentarios de los hilos del tema (global + subreddit del país) | Opcional `pip install -e ".[reddit]"` ([reddit-actions](https://github.com/mamboyepez17/reddit-actions)) + cookie si da 403 |
+| **Hacker News** | Comentarios del tema | Nada |
+
 ### Solo información reciente
 
 Todas las fuentes piden contenido de los últimos `MAX_AGE_DAYS` días (por defecto 7;

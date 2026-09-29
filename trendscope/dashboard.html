@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>TrendScope · Ánimo de la gente</title>
+<title>TrendScope</title>
 <script src="/static/chart.umd.min.js"></script>
 <style>
   /* ── Tokens ─────────────────────────────────────────────────────────────
@@ -97,7 +97,8 @@
   .field label{font-size:11px;color:var(--muted);font-weight:600;letter-spacing:.02em}
   .field select,.field input{height:34px;border-radius:8px;border:1px solid var(--border);
     background:var(--surface-2);padding:0 10px;font-size:13px;min-width:120px;outline:none}
-  .field input.geo{min-width:0;width:64px;text-transform:uppercase}
+  .field input.geo{min-width:0;width:72px;text-transform:uppercase}
+  select.icon-btn{padding:5px 10px;height:auto}
   .toggle{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--ink-2);cursor:pointer;
     user-select:none;height:34px;padding:0 4px}
   .switch{position:relative;width:34px;height:20px;background:var(--surface-2);border:1px solid var(--border);border-radius:12px;transition:.2s}
@@ -266,74 +267,75 @@
   <div class="top-inner">
     <div class="brand">
       <div class="brand-mark">TS</div>
-      <div><b>TrendScope</b><small>Ánimo de la gente, en tiempo real</small></div>
+      <div><b>TrendScope</b><small data-i18n="tagline">Ánimo de la gente, en tiempo real</small></div>
     </div>
-    <div class="live" title="Conexión en vivo (WebSocket)"><span id="wsDot" class="connection-dot"></span><span id="wsText">Sin conexión</span></div>
-    <button type="button" id="themeToggle" class="icon-btn" title="Cambiar tema claro / oscuro">Tema</button>
+    <div class="live" data-i18n-title="wsTitle" title="Conexión en vivo (WebSocket)"><span id="wsDot" class="connection-dot"></span><span id="wsText">—</span></div>
+    <label class="sr" for="uiLang">Idioma</label>
+    <select id="uiLang" class="icon-btn" title="Idioma / Language / Idioma">
+      <option value="es">Español</option>
+      <option value="en">English</option>
+      <option value="pt">Português</option>
+    </select>
+    <button type="button" id="themeToggle" class="icon-btn" data-i18n-title="themeTitle" title="Cambiar tema claro / oscuro">Tema</button>
   </div>
 </header>
 
 <main>
   <!-- Buscador -->
-  <section class="search" aria-label="Buscar tema">
-    <h1>¿Cómo se siente la gente sobre…?</h1>
-    <p class="lead">Mide si la gente está contenta, enojada, triste o preocupada a partir de comentarios, tweets y noticias recientes.</p>
+  <section class="search" data-i18n-aria="searchAria" aria-label="Buscar tema">
+    <h1 data-i18n="heroTitle">¿Cómo se siente la gente sobre…?</h1>
+    <p class="lead" data-i18n="heroLead">Mide si la gente está contenta, enojada, triste o preocupada a partir de comentarios, tweets y noticias recientes.</p>
     <div class="search-row">
       <div class="topic-wrap" id="topicField">
-        <label for="topic" class="sr">Tema</label>
-        <input type="text" id="topic" placeholder="Ej: reforma a la salud, Petro, Bitcoin, Rappi…" autocomplete="off">
+        <label for="topic" class="sr" data-i18n="topic">Tema</label>
+        <input type="text" id="topic" data-i18n-ph="topicPh" placeholder="Ej: reforma a la salud, Bitcoin…" autocomplete="off">
       </div>
-      <button class="btn" id="analizar">Medir ánimo</button>
+      <button class="btn" id="analizar" data-i18n="analyze">Medir ánimo</button>
     </div>
     <div class="options">
       <div class="field">
-        <label for="days">Periodo</label>
+        <label for="days" data-i18n="period">Periodo</label>
         <select id="days">
-          <option value="1">Últimas 24 h</option>
-          <option value="3">Últimos 3 días</option>
-          <option value="7" selected>Últimos 7 días</option>
-          <option value="30">Últimos 30 días</option>
+          <option value="1" data-i18n="d1">Últimas 24 h</option>
+          <option value="3" data-i18n="d3">Últimos 3 días</option>
+          <option value="7" selected data-i18n="d7">Últimos 7 días</option>
+          <option value="30" data-i18n="d30">Últimos 30 días</option>
         </select>
       </div>
       <div class="field">
-        <label for="cat">o una categoría</label>
-        <select id="cat"><option value="">Cargando…</option></select>
+        <label for="cat" data-i18n="orCategory">o una categoría</label>
+        <select id="cat"><option value="">…</option></select>
       </div>
       <div class="field">
-        <label for="geo">País</label>
-        <input type="text" id="geo" class="geo" value="CO" maxlength="2">
+        <label for="geo" data-i18n="country">País</label>
+        <input type="text" id="geo" class="geo" value="CO" maxlength="2" list="countries" autocomplete="off">
+        <datalist id="countries"></datalist>
       </div>
       <div class="field">
-        <label for="engine">Motor</label>
+        <label for="engine" data-i18n="engine">Motor</label>
         <select id="engine">
-          <option value="local" selected>Local (gratis)</option>
-          <option value="claude">Claude (premium)</option>
+          <option value="local" selected data-i18n="engineLocal">Local (gratis)</option>
+          <option value="claude" data-i18n="engineClaude">Claude (premium)</option>
         </select>
       </div>
-      <div class="toggle" id="cmpToggle" role="switch" aria-checked="false" tabindex="0" title="Comparar dos temas">
-        <span class="switch"></span><span>Comparar</span>
+      <div class="toggle" id="cmpToggle" role="switch" aria-checked="false" tabindex="0" data-i18n-title="compareTitle" title="Comparar dos temas">
+        <span class="switch"></span><span data-i18n="compare">Comparar</span>
       </div>
       <div class="field hidden" id="topic2Field">
-        <label for="topic2">Tema 2</label>
-        <input type="text" id="topic2" placeholder="Ej: Ethereum">
+        <label for="topic2" data-i18n="topic2">Tema 2</label>
+        <input type="text" id="topic2" placeholder="…">
       </div>
     </div>
-    <div class="examples" id="examples">
-      <span class="muted" style="font-size:12px">Prueba:</span>
-      <button type="button" class="chip-btn" data-example="reforma a la salud">reforma a la salud</button>
-      <button type="button" class="chip-btn" data-example="Bitcoin">Bitcoin</button>
-      <button type="button" class="chip-btn" data-example="inteligencia artificial">inteligencia artificial</button>
-      <button type="button" class="chip-btn" data-example="Selección Colombia">Selección Colombia</button>
-    </div>
+    <div class="examples" id="examples"></div>
   </section>
 
   <div class="status" id="status"></div>
 
   <nav class="tabs" role="tablist">
-    <button type="button" class="tab active" role="tab" data-tab="mood">Ánimo</button>
-    <button type="button" class="tab" role="tab" data-tab="trends">Tendencias<span class="count" id="trendsCount">0</span></button>
-    <button type="button" class="tab" role="tab" data-tab="compare">Comparar</button>
-    <button type="button" class="tab" role="tab" data-tab="monitor">Monitoreo</button>
+    <button type="button" class="tab active" role="tab" data-tab="mood" data-i18n="tabMood">Ánimo</button>
+    <button type="button" class="tab" role="tab" data-tab="trends"><span data-i18n="tabTrends">Tendencias</span><span class="count" id="trendsCount">0</span></button>
+    <button type="button" class="tab" role="tab" data-tab="compare" data-i18n="tabCompare">Comparar</button>
+    <button type="button" class="tab" role="tab" data-tab="monitor" data-i18n="tabMonitor">Monitoreo</button>
   </nav>
 
   <!-- ── Ánimo ── -->
@@ -342,42 +344,42 @@
       <div class="card hero" id="moodBox">
         <div class="welcome" style="grid-column:1/-1">
           <div class="big mood-face" style="margin:0 auto 10px">😶</div>
-          <h2>Escribe un tema y presiona «Medir ánimo»</h2>
-          <p>Leemos lo que la gente comenta en Reddit, X, Bluesky y foros, y lo que dicen las noticias recientes.</p>
+          <h2 data-i18n="welcomeTitle">Escribe un tema y presiona «Medir ánimo»</h2>
+          <p data-i18n="welcomeText">Leemos lo que la gente comenta en Reddit, X, YouTube y foros, y lo que dicen las noticias recientes.</p>
         </div>
       </div>
       <div class="kpis" id="kpis"></div>
 
       <div class="grid g2" style="margin-top:14px">
         <section class="card">
-          <h2>Emociones de la gente</h2>
-          <p class="sub">Qué tanto de cada emoción hay en las opiniones (ponderado: una persona = un voto).</p>
-          <div id="emotions"><div class="empty">Sin datos todavía</div></div>
+          <h2 data-i18n="emoTitle">Emociones de la gente</h2>
+          <p class="sub" data-i18n="emoSub">Qué tanto de cada emoción hay en las opiniones (ponderado: una persona = un voto).</p>
+          <div id="emotions"><div class="empty" data-i18n="noData">Sin datos todavía</div></div>
         </section>
         <section class="card">
-          <h2>¿De qué hablan?</h2>
-          <p class="sub">Palabras que más aparecen en cada emoción.</p>
-          <div id="drivers"><div class="empty">Sin datos todavía</div></div>
+          <h2 data-i18n="driversTitle">¿De qué hablan?</h2>
+          <p class="sub" data-i18n="driversSub">Palabras que más aparecen en cada emoción.</p>
+          <div id="drivers"><div class="empty" data-i18n="noData">Sin datos todavía</div></div>
         </section>
       </div>
 
       <section class="card" style="margin-top:14px">
-        <h2>Voces de la gente</h2>
-        <p class="sub">Comentarios representativos de cada emoción.</p>
+        <h2 data-i18n="quotesTitle">Voces de la gente</h2>
+        <p class="sub" data-i18n="quotesSub">Comentarios representativos de cada emoción.</p>
         <div class="filters" id="quoteFilters"></div>
-        <div class="quotes" id="quotes"><div class="empty">Sin comentarios todavía</div></div>
+        <div class="quotes" id="quotes"><div class="empty" data-i18n="noComments">Sin comentarios todavía</div></div>
       </section>
 
       <div class="grid g2" style="margin-top:14px">
         <section class="card">
-          <h2>Ánimo por fuente</h2>
-          <p class="sub">Índice neto de cada red (−100 negativo · +100 positivo).</p>
-          <div id="bySource"><div class="empty">Sin datos todavía</div></div>
+          <h2 data-i18n="bySourceTitle">Ánimo por fuente</h2>
+          <p class="sub" data-i18n="bySourceSub">Índice neto de cada red (−100 negativo · +100 positivo).</p>
+          <div id="bySource"><div class="empty" data-i18n="noData">Sin datos todavía</div></div>
         </section>
         <section class="card">
-          <h2>Resumen con IA</h2>
-          <p class="sub">Narrativa ejecutiva generada a partir de los datos.</p>
-          <div id="narrativeBox" class="narrative"><div class="empty">Aparece después de analizar</div></div>
+          <h2 data-i18n="aiTitle">Resumen con IA</h2>
+          <p class="sub" data-i18n="aiSub">Narrativa ejecutiva generada a partir de los datos.</p>
+          <div id="narrativeBox" class="narrative"><div class="empty" data-i18n="aiEmpty">Aparece después de analizar</div></div>
         </section>
       </div>
     </div>
@@ -386,9 +388,9 @@
   <!-- ── Tendencias ── -->
   <section id="tab-trends" class="tab-panel hidden">
     <section class="card">
-      <h2>Lo más destacado del periodo</h2>
-      <p class="sub" id="meta">Noticias, posts y videos recientes ordenados por relevancia y engagement.</p>
-      <ul class="trends" id="trends"><li class="empty">Analiza un tema para ver sus tendencias</li></ul>
+      <h2 data-i18n="trendsTitle">Lo más destacado del periodo</h2>
+      <p class="sub" id="meta" data-i18n="trendsSub">Noticias, posts y videos recientes ordenados por relevancia y engagement.</p>
+      <ul class="trends" id="trends"><li class="empty" data-i18n="trendsEmpty">Analiza un tema para ver sus tendencias</li></ul>
     </section>
   </section>
 
@@ -396,7 +398,7 @@
   <section id="tab-compare" class="tab-panel hidden">
     <div id="cmpView">
       <div class="cmp-grid" id="cmpPanels">
-        <div class="card empty" style="grid-column:1/-1">Activa «Comparar», escribe dos temas y presiona «Medir ánimo».</div>
+        <div class="card empty" style="grid-column:1/-1" data-i18n="compareEmpty">Activa «Comparar», escribe dos temas y presiona «Medir ánimo».</div>
       </div>
     </div>
   </section>
@@ -405,19 +407,19 @@
   <section id="tab-monitor" class="tab-panel hidden">
     <div class="layout">
       <section class="card">
-        <h2>Temas vigilados</h2>
-        <p class="sub">Se analizan solos cada cierto tiempo.</p>
+        <h2 data-i18n="watchTitle">Temas vigilados</h2>
+        <p class="sub" data-i18n="watchSub">Se analizan solos cada cierto tiempo.</p>
         <div class="add-form">
-          <input type="text" id="wlTopic" placeholder="Tema a vigilar">
-          <input type="number" id="wlInterval" class="interval" value="60" min="5" title="minutos">
-          <button class="btn sm" id="wlAdd">Añadir</button>
+          <input type="text" id="wlTopic" data-i18n-ph="watchPh" placeholder="Tema a vigilar">
+          <input type="number" id="wlInterval" class="interval" value="60" min="5" data-i18n-title="minutes" title="minutos">
+          <button class="btn sm" id="wlAdd" data-i18n="add">Añadir</button>
         </div>
         <div id="watchlist"></div>
       </section>
       <section class="card" id="historyCard">
-        <h2>Evolución del ánimo · <span id="histTopic">—</span></h2>
-        <p class="sub"><span id="histCount">0</span> mediciones · índice neto por análisis</p>
-        <div class="chart-wrap"><canvas id="historyChart" aria-label="Evolución del índice neto"></canvas></div>
+        <h2><span data-i18n="historyTitle">Evolución del ánimo</span> · <span id="histTopic">—</span></h2>
+        <p class="sub"><span id="histCount">0</span> <span data-i18n="historySub">mediciones · índice neto por análisis</span></p>
+        <div class="chart-wrap"><canvas id="historyChart" data-i18n-aria="historyTitle" aria-label="Evolución del índice neto"></canvas></div>
         <div class="history-list" id="historyList"></div>
       </section>
     </div>

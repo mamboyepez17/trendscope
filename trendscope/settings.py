@@ -44,6 +44,9 @@ class Settings(BaseSettings):
     sentiment_engine: str = "local"
     # Modelo del motor "claude" (sentimiento + emociones)
     claude_sentiment_model: str = "claude-haiku-4-5"
+    # Léxico propio (JSON) para jerga local, marcas o sectores. Ver
+    # trendscope/sentiment/lexicons/__init__.py para el formato.
+    custom_lexicon_path: str = ""
     # /trends también recolecta comentarios para el Índice de Ánimo
     pipeline_collect_comments: bool = True
 

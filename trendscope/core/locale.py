@@ -65,3 +65,18 @@ def google_news_edition(geo: str | None) -> dict[str, str]:
 def youtube_client(geo: str | None) -> dict[str, str]:
     cc = country(geo)
     return {"hl": language_for(cc), "gl": cc}
+
+
+# Subreddits de conversación local por país (opiniones en el idioma del país)
+COUNTRY_SUBREDDITS: dict[str, list[str]] = {
+    "CO": ["Colombia"], "MX": ["mexico"], "AR": ["argentina"], "CL": ["chile"],
+    "PE": ["PERU"], "VE": ["vzla"], "EC": ["ecuador"], "UY": ["uruguay"],
+    "BO": ["BOLIVIA"], "PY": ["Paraguay"], "CR": ["costa_rica"], "DO": ["Dominican"],
+    "GT": ["guatemala"], "ES": ["spain", "es"], "BR": ["brasil"], "PT": ["portugal"],
+    "US": ["news"], "GB": ["unitedkingdom"], "CA": ["canada"], "AU": ["australia"],
+    "IN": ["india"], "FR": ["france"], "DE": ["de"], "IT": ["italy"],
+}
+
+
+def country_subreddits(geo: str | None) -> list[str]:
+    return COUNTRY_SUBREDDITS.get(country(geo), [])
