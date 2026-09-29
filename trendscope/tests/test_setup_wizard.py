@@ -82,6 +82,17 @@ def test_long_model_list_can_be_filtered(tmp_path):
     assert sw.read_env(env)["OPENROUTER_MODEL"] == "deepseek/deepseek-chat:free"
 
 
+def test_regional_provider_asks_for_url(tmp_path):
+    from trendscope.llm.providers import PROVIDERS
+
+    idx = str(list(PROVIDERS).index("glm") + 1)
+    coding = "https://api.z.ai/api/coding/paas/v4"
+    env, _ = run_wizard(tmp_path, ["ai"], [idx, "glm-key", coding, "glm-x"], [False])
+    vals = sw.read_env(env)
+    assert vals["LLM_PROVIDER"] == "glm" and vals["GLM_API_KEY"] == "glm-key"
+    assert vals["GLM_BASE_URL"] == coding and vals["GLM_MODEL"] == "glm-x"
+
+
 def test_ai_none_disables_llm(tmp_path):
     env, _ = run_wizard(tmp_path, ["ai"], ["0"], [])
     assert sw.read_env(env)["LLM_PROVIDER"] == "none"

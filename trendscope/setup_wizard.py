@@ -27,6 +27,20 @@ console = Console()
 
 SECTIONS = ("general", "ai", "x", "reddit")
 
+# Proveedores cuya URL cambia según región o plan (se pregunta en el asistente)
+REGIONAL_URLS = {
+    "qwen": [("International (Singapore)", "https://dashscope-intl.aliyuncs.com/compatible-mode/v1"),
+             ("US (Virginia)", "https://dashscope-us.aliyuncs.com/compatible-mode/v1"),
+             ("China (Beijing)", "https://dashscope.aliyuncs.com/compatible-mode/v1")],
+    "glm": [("Z.ai (international)", "https://api.z.ai/api/paas/v4"),
+            ("Z.ai Coding Plan", "https://api.z.ai/api/coding/paas/v4"),
+            ("Zhipu BigModel (China)", "https://open.bigmodel.cn/api/paas/v4")],
+    "kimi": [("International", "https://api.moonshot.ai/v1"),
+             ("China", "https://api.moonshot.cn/v1")],
+    "mimo": [("Pay-as-you-go", "https://api.xiaomimimo.com/v1"),
+             ("Token Plan", "copy the base URL from your Token Plan page (key tp-…)")],
+}
+
 # ── Textos (es / en) ─────────────────────────────────────────────────────────
 T = {
     "es": {
@@ -43,6 +57,8 @@ T = {
         "ai_key": "Pega la API key de {label}",
         "ai_keep": "(Enter = dejar la que ya tienes)",
         "ai_base": "URL base de la API (compatible con OpenAI, ej. http://localhost:1234/v1)",
+        "region_hint": "La URL depende de tu región o plan (la key solo sirve en la región donde la creaste):",
+        "ai_url": "URL de la API (Enter = la de arriba)",
         "ollama_host": "Dirección de Ollama",
         "ollama_hint": "Instala Ollama (https://ollama.com) y descarga un modelo: [bold]ollama pull <modelo>[/bold]",
         "models_loading": "Buscando los modelos disponibles…",
@@ -114,6 +130,8 @@ T = {
         "ai_key": "Paste your {label} API key",
         "ai_keep": "(Enter = keep the current one)",
         "ai_base": "API base URL (OpenAI-compatible, e.g. http://localhost:1234/v1)",
+        "region_hint": "The URL depends on your region or plan (a key only works in the region where you created it):",
+        "ai_url": "API URL (Enter = the one above)",
         "ollama_host": "Ollama address",
         "ollama_hint": "Install Ollama (https://ollama.com) and pull a model: [bold]ollama pull <model>[/bold]",
         "models_loading": "Fetching available models…",
@@ -339,6 +357,11 @@ class Wizard:
             if p.keys_url:
                 console.print(self.t["ai_keys"].format(url=p.keys_url))
             self.ask_secret(key_env, self.t["ai_key"].format(label=p.label))
+            if p.id in REGIONAL_URLS:
+                console.print(f"[dim]{self.t['region_hint']}[/dim]")
+                for name, url in REGIONAL_URLS[p.id]:
+                    console.print(f"[dim]  • {name}: {url}[/dim]")
+                self.ask(p.base_url_setting.upper(), self.t["ai_url"], p.base_url)
 
         self.choose_model(p)
 

@@ -55,7 +55,7 @@ def _ok(text="Hola", model="m"):
 
 def test_all_expected_providers_registered():
     for pid in ("openai", "claude", "deepseek", "opencode", "openrouter", "gemini",
-                "groq", "mistral", "xai", "ollama", "custom"):
+                "groq", "mistral", "xai", "qwen", "glm", "kimi", "mimo", "ollama", "custom"):
         assert pid in PROVIDERS
     assert get("chatgpt").id == "openai" and get("anthropic").id == "claude"
     assert get("grok").id == "xai" and get("nope") is None
@@ -115,6 +115,36 @@ def test_ollama_and_opencode_urls():
     assert fake.calls[0][1] == "https://opencode.ai/zen/v1/chat/completions"
     assert fake.calls[1][1].endswith(":11434/v1/chat/completions")
     assert "Authorization" not in fake.calls[1][2]
+
+
+def test_chinese_providers_urls_aliases_and_mimo_header():
+    assert get("xiaomi").id == "mimo" and get("moonshot").id == "kimi"
+    assert get("zhipu").id == "glm" and get("alibaba").id == "qwen"
+    keys = {"qwen_api_key": "q", "glm_api_key": "g", "kimi_api_key": "k", "mimo_api_key": "m"}
+    fake = FakeHttpx([_ok() for _ in keys])
+    with patch.dict("sys.modules", {"httpx": fake}):
+        with patch.multiple("trendscope.settings.settings", **keys):
+            for pid in ("qwen", "glm", "kimi", "mimo"):
+                chat("x", provider=pid, model="m")
+    urls = [c[1] for c in fake.calls]
+    assert urls == [
+        "https://dashscope-intl.aliyuncs.com/compatible-mode/v1/chat/completions",
+        "https://api.z.ai/api/paas/v4/chat/completions",
+        "https://api.moonshot.ai/v1/chat/completions",
+        "https://api.xiaomimimo.com/v1/chat/completions",
+    ]
+    mimo_headers = fake.calls[3][2]
+    assert mimo_headers["Authorization"] == "Bearer m" and mimo_headers["api-key"] == "m"
+    assert "api-key" not in fake.calls[0][2]
+
+
+def test_regional_base_url_override():
+    fake = FakeHttpx([_ok()])
+    with patch.dict("sys.modules", {"httpx": fake}), \
+         patch.multiple("trendscope.settings.settings", kimi_api_key="k",
+                        kimi_base_url="https://api.moonshot.cn/v1/"):
+        chat("x", provider="kimi", model="m")
+    assert fake.calls[0][1] == "https://api.moonshot.cn/v1/chat/completions"
 
 
 def test_list_models_strips_gemini_prefix_and_caches():

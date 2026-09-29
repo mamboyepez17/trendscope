@@ -59,7 +59,7 @@ Common parameters:
 | `days` | 1–30 | Freshness window (default 7) |
 | `lang` | `es` / `en` / `pt` | Language of the output (default: the country's language) |
 | `sentiment_engine` | `local` / `claude` / `llm` | Engine (`claude` and `llm` work for any language) |
-| `llm_provider` | `openai`, `claude`, `deepseek`, `opencode`, `openrouter`, `gemini`, `groq`, `mistral`, `xai`, `ollama`, `custom` | AI for `sentiment_engine=llm` and `/narrate` |
+| `llm_provider` | `openai`, `claude`, `deepseek`, `opencode`, `openrouter`, `gemini`, `groq`, `mistral`, `xai`, `qwen`, `glm`, `kimi`, `mimo`, `ollama`, `custom` | AI for `sentiment_engine=llm` and `/narrate` |
 | `llm_model` | any model id | Model of that provider (`GET /llm/models?provider=...`) |
 
 ### MCP Server (for MCP-compatible agents)

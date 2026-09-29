@@ -63,6 +63,25 @@ class Settings(BaseSettings):
     mistral_model: str = ""
     xai_api_key: str = ""
     xai_model: str = ""
+    # Qwen (Alibaba Model Studio). Región: intl por defecto; EE. UU.
+    # https://dashscope-us.aliyuncs.com/compatible-mode/v1; China
+    # https://dashscope.aliyuncs.com/compatible-mode/v1
+    qwen_api_key: str = ""
+    qwen_base_url: str = "https://dashscope-intl.aliyuncs.com/compatible-mode/v1"
+    qwen_model: str = ""
+    # GLM (Z.ai). China: https://open.bigmodel.cn/api/paas/v4;
+    # Coding Plan: https://api.z.ai/api/coding/paas/v4
+    glm_api_key: str = ""
+    glm_base_url: str = "https://api.z.ai/api/paas/v4"
+    glm_model: str = ""
+    # Kimi (Moonshot). China: https://api.moonshot.cn/v1
+    kimi_api_key: str = ""
+    kimi_base_url: str = "https://api.moonshot.ai/v1"
+    kimi_model: str = ""
+    # Xiaomi MiMo. Con Token Plan usa la URL y la key tp-… de tu suscripción
+    mimo_api_key: str = ""
+    mimo_base_url: str = "https://api.xiaomimimo.com/v1"
+    mimo_model: str = ""
     # Cualquier servidor compatible con OpenAI (LM Studio, vLLM, LiteLLM…)
     llm_base_url: str = ""
     llm_api_key: str = ""

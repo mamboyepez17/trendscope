@@ -28,6 +28,7 @@ class Provider:
     base_url_setting: str | None = None
     keys_url: str = ""
     extra_headers: dict = field(default_factory=dict)
+    key_header: str = ""         # encabezado extra con la key (además de Bearer)
 
     @property
     def api_key(self) -> str:
@@ -77,6 +78,22 @@ PROVIDERS: dict[str, Provider] = {p.id: p for p in (
              "https://api.mistral.ai/v1", keys_url="https://console.mistral.ai/api-keys"),
     Provider("xai", "xAI (Grok)", "openai", "xai_api_key", "xai_model",
              "https://api.x.ai/v1", keys_url="https://console.x.ai"),
+    # Proveedores chinos, todos compatibles con OpenAI. La URL base se puede
+    # cambiar en .env (región China, Coding Plan / Token Plan…).
+    Provider("qwen", "Qwen (Alibaba Model Studio)", "openai", "qwen_api_key", "qwen_model",
+             "https://dashscope-intl.aliyuncs.com/compatible-mode/v1",
+             base_url_setting="qwen_base_url",
+             keys_url="https://www.alibabacloud.com/help/en/model-studio/get-api-key"),
+    Provider("glm", "GLM (Z.ai / Zhipu)", "openai", "glm_api_key", "glm_model",
+             "https://api.z.ai/api/paas/v4", base_url_setting="glm_base_url",
+             keys_url="https://z.ai/manage-apikey/apikey-list"),
+    Provider("kimi", "Kimi (Moonshot)", "openai", "kimi_api_key", "kimi_model",
+             "https://api.moonshot.ai/v1", base_url_setting="kimi_base_url",
+             keys_url="https://platform.moonshot.ai"),
+    Provider("mimo", "Xiaomi MiMo", "openai", "mimo_api_key", "mimo_model",
+             "https://api.xiaomimimo.com/v1", base_url_setting="mimo_base_url",
+             keys_url="https://platform.xiaomimimo.com/console/api-keys",
+             key_header="api-key"),
     Provider("ollama", "Ollama (local)", "openai", None, "ollama_model",
              "http://localhost:11434", base_url_setting="ollama_host"),
     Provider("custom", "Custom (OpenAI-compatible)", "openai", "llm_api_key", "llm_model",
@@ -85,7 +102,9 @@ PROVIDERS: dict[str, Provider] = {p.id: p for p in (
 
 # Nombres alternativos que la gente escribe
 ALIASES = {"anthropic": "claude", "chatgpt": "openai", "gpt": "openai", "grok": "xai",
-           "google": "gemini", "zen": "opencode", "local": "ollama"}
+           "google": "gemini", "zen": "opencode", "local": "ollama",
+           "alibaba": "qwen", "dashscope": "qwen", "zhipu": "glm", "zai": "glm", "z.ai": "glm",
+           "moonshot": "kimi", "xiaomi": "mimo"}
 
 
 def get(provider_id: str | None) -> Provider | None:

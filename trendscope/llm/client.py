@@ -68,6 +68,8 @@ def _headers(p: Provider) -> dict:
     h = {"Content-Type": "application/json", **p.extra_headers}
     if p.api_key:
         h["Authorization"] = f"Bearer {p.api_key}"
+        if p.key_header:
+            h[p.key_header] = p.api_key
     return h
 
 

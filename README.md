@@ -6,7 +6,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/mamboyepez17/trendscope/actions"><img src="https://img.shields.io/badge/tests-375%2B-brightgreen" alt="tests"></a>
+  <a href="https://github.com/mamboyepez17/trendscope/actions"><img src="https://img.shields.io/badge/tests-410%2B-brightgreen" alt="tests"></a>
   <a href="https://www.python.org/downloads/"><img src="https://img.shields.io/badge/python-3.11%20%7C%203.12-blue" alt="python"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-lightgrey" alt="license"></a>
   <img src="https://img.shields.io/badge/sources-12%20%2B%20comments-orange" alt="sources">
@@ -17,7 +17,7 @@
 
 TrendScope measures **public mood** on any topic to support decisions. It reads what people write — **replies on X, YouTube comments, Reddit and Hacker News threads, Bluesky posts** — classifies every opinion as **joy, anger, sadness, fear or neutral**, and aggregates them into a **Mood Index from −100 to +100** with a margin of error. News headlines are measured separately as *media tone*, so the press never gets mistaken for the public.
 
-It also pulls **recent** signals from Google News, Bing News, GDELT, Google Trends, YouTube, Wikipedia and Amazon (products with star ratings and review counts), scores them 0–100, and produces insights, correlations and recommendations — **locally**, without a paid AI API for the core path.
+It also pulls **recent** signals from Google News, Bing News, GDELT, Google Trends, YouTube, Wikipedia and Amazon (products with star ratings and review counts), scores them 0–100, and produces insights, correlations and recommendations — **locally**, without a paid AI API for the core path. When you want an AI summary or AI emotion reading, plug in **any provider and pick the model** (OpenAI, Claude, DeepSeek, OpenCode, Qwen, GLM, Kimi, MiMo, Gemini, local Ollama…), and `trendscope setup` walks you through the keys and cookies.
 
 It works **in any country and language**: per-language lexicons (Spanish, English, Portuguese, French, German, Italian), regional slang packs that only switch on in their own country, your own custom lexicon, country-specific news editions, and a dashboard in Spanish, English and Portuguese.
 
@@ -26,6 +26,7 @@ It works **in any country and language**: per-language lexicons (Spanish, Englis
 ## Table of contents
 
 - [Quick start](#quick-start)
+- [Guided setup (`trendscope setup`)](#guided-setup-trendscope-setup)
 - [Usage](#usage)
 - [The Mood Index](#the-mood-index-how-people-feel)
 - [Any country, any language](#any-country-any-language)
@@ -71,14 +72,7 @@ scrapling install            # one-time browser download, used when Amazon shows
 trendscope setup
 ```
 
-`trendscope setup` walks you through everything step by step (Spanish or English, `--lang es|en`):
-
-- **Country and time window** — default `GEO_TARGET` and `MAX_AGE_DAYS`.
-- **AI** — pick OpenAI, Claude, DeepSeek, OpenCode, OpenRouter, Gemini, Groq, Mistral, xAI, Ollama or any OpenAI-compatible API; it shows where to get the key, fetches the provider's live model list (with a filter for long lists) and lets you choose the model.
-- **X** — step-by-step instructions to copy the `auth_token` and `ct0` cookies from your browser, with a format check.
-- **Reddit** — optional; the `reddit_session` cookie (fixes 403) and/or an app's client id/secret.
-
-Secrets are hidden while typing, `.env` keeps its comments and gets `chmod 600`, and the previous version is saved as `.env.bak`. Run a single part with `trendscope setup ai` (or `x`, `reddit`, `general`), and check what's configured — without showing secrets — with `trendscope setup --status`. Prefer editing by hand? `cp .env.example .env` works too.
+See [Guided setup](#guided-setup-trendscope-setup) for what it asks. Prefer editing by hand? `cp .env.example .env` (Windows: `copy .env.example .env`) works too.
 
 Start the API and open the dashboard:
 
@@ -131,6 +125,46 @@ trendscope --smoke --live
 
 If X cookies are set in `.env`, a full `GET /trends?topic=...` also reads real replies on X.
 
+## Guided setup (`trendscope setup`)
+
+You don't need to edit `.env` by hand. Run the wizard and answer the questions; it explains where to get every key or cookie and saves everything for you.
+
+```bash
+trendscope setup                 # everything, step by step
+trendscope setup ai              # only one part: general | ai | x | reddit
+trendscope setup ai x            # several parts
+trendscope setup --status        # what is configured (secrets are never shown)
+trendscope setup --lang en       # wizard language: es | en (default: your system language)
+trendscope setup --env-file /path/to/.env
+# Also available as: trendscope-setup   or   python -m trendscope.setup_wizard
+```
+
+What it asks, in order:
+
+| Step | What you choose | Saved as |
+|---|---|---|
+| **1. Country & window** | Default country (any ISO code) and how many days count as "recent" (1–30) | `GEO_TARGET`, `MAX_AGE_DAYS` |
+| **2. AI** | A provider from the list (or none), its API key, the API URL for providers with regional endpoints, and the model — picked from the provider's **live model list** (type part of a name to filter long lists such as OpenRouter's). Then whether to also use that AI to read the emotions in comments | `LLM_PROVIDER`, `<PROVIDER>_API_KEY`, `<PROVIDER>_MODEL`, `<PROVIDER>_BASE_URL`, `SENTIMENT_ENGINE` |
+| **3. X / Twitter** | Your session cookies, with step-by-step instructions (below) and a format check | `TWITTER_AUTH_TOKEN`, `TWITTER_CT0` |
+| **4. Reddit** (optional) | Works without credentials. Only if the doctor shows a 403: the `reddit_session` cookie and, optionally, an app's client id/secret | `REDDIT_SESSION_COOKIE`, `REDDIT_CLIENT_ID`, `REDDIT_CLIENT_SECRET` |
+
+At the end it shows a status table and offers to run the doctor so you can see which sources work.
+
+**Getting the X cookies** (used by [xactions-py](https://github.com/mamboyepez17/xactions-py); no paid X API needed):
+
+1. Open https://x.com and log in — a secondary account is recommended.
+2. Press **F12** → **Application** tab (Firefox: **Storage**) → **Cookies** → `https://x.com`.
+3. Copy the values of `auth_token` and `ct0` and paste them when the wizard asks.
+
+If you log out of X the cookies stop working; run `trendscope setup x` again.
+
+**Getting Reddit credentials** (only if Reddit returns 403; used by [reddit-actions](https://github.com/mamboyepez17/reddit-actions)):
+
+- *Session cookie:* log in at https://www.reddit.com → **F12** → **Application** → **Cookies** → copy `reddit_session`.
+- *Official API (optional):* https://www.reddit.com/prefs/apps → **create another app** → type **script**, redirect URI `http://localhost:8080`. The client id is the short code under the app name; the secret is labelled *secret*.
+
+**Safe by default:** secrets are hidden while you type, Enter keeps the current value (it never erases a key), `.env` keeps its comments and order, the file gets `chmod 600`, and the previous version is saved as `.env.bak` (ignored by git). If `.env` doesn't exist yet, the wizard starts from `.env.example`.
+
 ## Usage
 
 ### CLI
@@ -151,6 +185,7 @@ Start the API (see Quick start), then open **http://localhost:8000/dashboard**.
 
 - **Languages:** Spanish, English and Portuguese. The UI language and country start from your browser settings, and the country field suggests every country by name.
 - **Mood tab:** mood hero with the −100…+100 index and its margin, KPIs (opinions, distinct people, intensity, polarization, media tone, freshness), emotion bars, "what are they talking about?", representative quotes, mood by source and an AI summary.
+- **AI & model pickers:** next to the engine selector, choose the AI provider (providers without a key are marked) and the model (autocompletes from the provider's live list). The choice is remembered in the browser and used for the AI summary and, with the engine "Chosen AI", for reading emotions.
 - **Trends tab:** recent items with their age ("3 h ago") and emotion.
 - **Compare tab:** two topics side by side.
 - **Monitoring tab:** watchlist plus mood history.
@@ -382,6 +417,10 @@ One AI layer (`trendscope/llm`) powers both the narrative and the `llm` sentimen
 | `groq` | Groq | `GROQ_API_KEY` | `GROQ_MODEL` |
 | `mistral` | Mistral | `MISTRAL_API_KEY` | `MISTRAL_MODEL` |
 | `xai` (alias `grok`) | xAI Grok | `XAI_API_KEY` | `XAI_MODEL` |
+| `qwen` (alias `alibaba`, `dashscope`) | Qwen — Alibaba Cloud Model Studio | `QWEN_API_KEY` | `QWEN_MODEL` |
+| `glm` (alias `zhipu`, `zai`) | GLM — Z.ai / Zhipu | `GLM_API_KEY` | `GLM_MODEL` |
+| `kimi` (alias `moonshot`) | Kimi — Moonshot AI | `KIMI_API_KEY` | `KIMI_MODEL` |
+| `mimo` (alias `xiaomi`) | Xiaomi MiMo | `MIMO_API_KEY` | `MIMO_MODEL` |
 | `ollama` (alias `local`) | Local models, no key | — (`OLLAMA_HOST`) | `OLLAMA_MODEL` |
 | `custom` | Any OpenAI-compatible API (LM Studio, vLLM, Together, Azure…) | `LLM_API_KEY` + `LLM_BASE_URL` | `LLM_MODEL` |
 
@@ -391,6 +430,15 @@ GET /llm/models?provider=openai    # live model list from that provider
 GET /trends?topic=Bitcoin&sentiment_engine=llm&llm_provider=groq&llm_model=<model>
 GET /narrate?topic=Bitcoin&llm_provider=opencode&llm_model=<model>
 ```
+
+**Regional endpoints.** Qwen, GLM, Kimi and MiMo have different API URLs per region or plan, and a key only works in the region where it was created. The defaults are the international endpoints; change them with `<PROVIDER>_BASE_URL` (the wizard asks):
+
+| Provider | Default (`*_BASE_URL`) | Other options |
+|---|---|---|
+| Qwen | `https://dashscope-intl.aliyuncs.com/compatible-mode/v1` | US: `https://dashscope-us.aliyuncs.com/compatible-mode/v1` · China: `https://dashscope.aliyuncs.com/compatible-mode/v1` |
+| GLM | `https://api.z.ai/api/paas/v4` | Coding Plan: `https://api.z.ai/api/coding/paas/v4` · China: `https://open.bigmodel.cn/api/paas/v4` |
+| Kimi | `https://api.moonshot.ai/v1` | China: `https://api.moonshot.cn/v1` |
+| MiMo | `https://api.xiaomimimo.com/v1` | Token Plan: the URL shown on your subscription page (with its `tp-…` key) |
 
 Notes:
 
@@ -521,6 +569,7 @@ All local logic; no API keys required for this path.
 | `local` | pysentimiento models for Spanish and English; lexicon + regional slang + emojis for Portuguese, French, German and Italian | Free |
 | `local` (fallback) | Lexicon engine for every language (auto-activates if torch is unavailable) | Free |
 | `claude` | Claude (Haiku by default, `CLAUDE_SENTIMENT_MODEL`) — sentiment + emotions, any language; falls back to `local` per batch on any error | Low cost |
+| `llm` | Any provider from [AI providers](#ai-providers--model-choice) (`llm_provider` / `llm_model`, default `LLM_PROVIDER`) — sentiment + emotions, any language; same per-batch fallback to `local` | Depends on the provider |
 
 Language is detected per text, so no configuration is needed. If pysentimiento or torch is unavailable (e.g. Windows WDAC policies), TrendScope automatically uses the lexicon engine.
 
@@ -598,8 +647,9 @@ Source health scores live in memory and can skip unhealthy sources automatically
 | Runtime | Python 3.11–3.12 |
 | API | FastAPI + uvicorn |
 | Scraping | requests · Scrapling 0.4 (HTTP fetcher + stealth browser) · xactions-py (vendored or package) · reddit-actions (optional) |
-| Sentiment | pysentimiento (ES/EN) · per-language lexicons + regional slang + emojis · Claude optional |
-| Narrative | DeepSeek · OpenRouter · Claude · Ollama · statistical fallback |
+| Sentiment | pysentimiento (ES/EN) · per-language lexicons + regional slang + emojis · any AI provider optional |
+| AI (narrative + `llm` engine) | One layer for OpenAI · Claude · DeepSeek · OpenCode · OpenRouter · Gemini · Groq · Mistral · xAI · Qwen · GLM · Kimi · MiMo · Ollama · any OpenAI-compatible API · statistical fallback |
+| Setup | `trendscope setup` interactive wizard (rich) |
 | Persistence | SQLite (WAL): cache, watchlist, history, jobs |
 | Scheduling | APScheduler |
 | Agents | REST · WebSocket · SSE · MCP SDK 2.x |
@@ -637,20 +687,39 @@ REDDIT_SESSION_COOKIE=
 # TweetClaw/OpenClaw optional JSON export path
 TWEETCLAW_RESULTS_FILE=
 
-# Sentiment engine: local | claude
+# Sentiment engine: local | claude | llm (the AI from LLM_PROVIDER)
 SENTIMENT_ENGINE=local
-ANTHROPIC_API_KEY=
 CLAUDE_SENTIMENT_MODEL=claude-haiku-4-5
 
-# Narrative
-NARRATOR_PROVIDER=openrouter   # openrouter | deepseek | claude | ollama
+# AI (narrative + "llm" engine). Default provider:
+# openai | claude | deepseek | opencode | openrouter | gemini | groq | mistral |
+# xai | qwen | glm | kimi | mimo | ollama | custom | none
+LLM_PROVIDER=
 NARRATIVE_ENABLED=true
+# Each provider: <PROVIDER>_API_KEY + <PROVIDER>_MODEL (+ <PROVIDER>_BASE_URL where regional)
+OPENAI_API_KEY=
+OPENAI_MODEL=
+ANTHROPIC_API_KEY=
+CLAUDE_MODEL=claude-opus-5-5
+DEEPSEEK_API_KEY=
 OPENROUTER_API_KEY=
 OPENROUTER_MODEL=deepseek/deepseek-chat-v3-0324:free
-DEEPSEEK_API_KEY=
+QWEN_API_KEY=
+QWEN_BASE_URL=https://dashscope-intl.aliyuncs.com/compatible-mode/v1
+GLM_API_KEY=
+GLM_BASE_URL=https://api.z.ai/api/paas/v4
+KIMI_API_KEY=
+KIMI_BASE_URL=https://api.moonshot.ai/v1
+MIMO_API_KEY=
+MIMO_BASE_URL=https://api.xiaomimimo.com/v1
+# …also OPENCODE_, GEMINI_, GROQ_, MISTRAL_, XAI_ (see .env.example)
 OLLAMA_ENABLED=false
 OLLAMA_HOST=http://localhost:11434
 OLLAMA_MODEL=qwen3.5:9b
+# Any OpenAI-compatible API
+LLM_BASE_URL=
+LLM_API_KEY=
+LLM_MODEL=
 
 # API
 API_HOST=127.0.0.1
@@ -695,11 +764,11 @@ If you see `OSError: [WinError 4551]`, Windows WDAC is blocking PyTorch DLLs. Tr
 
 ### Reddit returns 403
 
-Reddit blocked the public JSON endpoint. Install the optional `reddit` extra (`pip install -e ".[reddit]"`, uses [reddit-actions](https://github.com/mamboyepez17/reddit-actions)) and set `REDDIT_SESSION_COOKIE` or `REDDIT_COOKIE_HEADER` so comments keep flowing. Without it, TrendScope falls back to RSS via `old.reddit.com` and other comment sources.
+Reddit blocked the public JSON endpoint. Install the optional `reddit` extra (`pip install -e ".[reddit]"`, uses [reddit-actions](https://github.com/mamboyepez17/reddit-actions)) and run `trendscope setup reddit` to save your `REDDIT_SESSION_COOKIE` (or set `REDDIT_COOKIE_HEADER`) so comments keep flowing. Without it, TrendScope falls back to RSS via `old.reddit.com` and other comment sources.
 
 ### X returns 401 or 403
 
-Your cookies may have expired. Get fresh cookies from x.com → DevTools (F12) → Application → Cookies → x.com and copy `auth_token` and `ct0` into your `.env`. Installing the `x` extra keeps xactions-py up to date with X's latest request signing.
+Your cookies may have expired. Run `trendscope setup x` and paste fresh `auth_token` and `ct0` values (x.com → DevTools (F12) → Application → Cookies → x.com). Installing the `x` extra keeps xactions-py up to date with X's latest request signing.
 
 ### No Amazon results
 
@@ -711,9 +780,12 @@ Your cookies may have expired. Get fresh cookies from x.com → DevTools (F12) �
 
 Some videos have comments disabled. YouTube's internal API can also change without notice; TrendScope then logs a warning and keeps working with the other sources.
 
-### OpenRouter returns 401
+### The AI summary shows an error (401, 403, "Elige un modelo…")
 
-Your API key may be invalid or missing. Get a free key at [openrouter.ai/keys](https://openrouter.ai/keys) and add it to `.env` as `OPENROUTER_API_KEY`.
+- **401 / 403:** the key is missing, invalid or out of credit. Run `trendscope setup ai` and paste it again; `trendscope setup --status` shows which provider and model are active.
+- **Qwen, GLM, Kimi, MiMo:** a key only works in the region (or plan) where it was created — check `<PROVIDER>_BASE_URL` (see [Regional endpoints](#ai-providers--model-choice)).
+- **"Elige un modelo…" / "choose a model":** that provider has no default model; set `<PROVIDER>_MODEL` (the wizard lists the available ones) or pass `llm_model`.
+- OpenRouter has free models; get a key at [openrouter.ai/keys](https://openrouter.ai/keys).
 
 ## Tests
 
@@ -726,9 +798,10 @@ Your API key may be invalid or missing. Get a free key at [openrouter.ai/keys](h
 
 Windows: use `.venv\Scripts\python.exe` instead of `.venv/bin/python`.
 
-**375+ tests** covering:
+**410+ tests** covering:
 
 - **Mood & sentiment:** Mood Index math, emotions in six languages, regional slang, custom lexicons.
+- **AI & setup:** every AI provider's URL, auth and parameter handling (mocked, no real calls), model choice, the `trendscope setup` wizard and `.env` writing.
 - **Data quality:** freshness window, news relevance, X replies, YouTube comments.
 - **API:** API security and scopes, middleware, pipeline, OpenAPI, MCP tools.
 - **Storage & jobs:** SQLite concurrency, watchlist, alerts, digests, jobs + SSE, forecast, org isolation.
@@ -750,7 +823,9 @@ trendscope/
   analyzer/          # dedup, scoring, insights, mood_index, forecast
   sentiment/         # local + claude engines, emotions, language detection
     lexicons/        # base.py (6 languages) + regional.py (slang by country)
-  narrator/          # DeepSeek / OpenRouter / Claude / Ollama
+  llm/               # one AI layer: providers.py (registry) + client.py (chat, model lists)
+  narrator/          # AI narrative (any provider) + statistical fallback
+  setup_wizard.py    # `trendscope setup` interactive configuration
   core/              # pipeline, dates, locale, text, cache, metrics, source health
   watchlist/         # store, scheduler, alerts, digest, repository
   jobs/              # async job queue (SQLite-backed)
@@ -770,7 +845,7 @@ Done:
 - [x] Installable package + pyproject
 - [x] Typed settings (pydantic-settings)
 - [x] Persistent SQLite cache (WAL)
-- [x] Multi-provider narratives (DeepSeek, OpenRouter, Claude, Ollama)
+- [x] Multi-provider narratives
 - [x] CSV / JSON / Excel export
 - [x] Rate limiting + API keys + scopes + org isolation
 - [x] Watchlist + alerts + digests + forecast
@@ -782,6 +857,8 @@ Done:
 - [x] Real X replies and YouTube comments
 - [x] Recent-content window across all sources + exact-phrase news relevance
 - [x] Any country / any language (6 lexicons, regional slang, custom lexicons, es/en/pt UI)
+- [x] Any AI provider with per-request model choice (OpenAI, Claude, DeepSeek, OpenCode, OpenRouter, Gemini, Groq, Mistral, xAI, Qwen, GLM, Kimi, MiMo, Ollama, OpenAI-compatible)
+- [x] Guided setup wizard (`trendscope setup`) for AI keys, X cookies and Reddit
 
 Next:
 
