@@ -49,3 +49,39 @@ def test_google_news_parses_rss():
     assert items
     assert items[0]["source"] == "google_news"
     assert "Abelardo" in items[0]["title"]
+
+
+def test_news_must_name_the_whole_topic():
+    items = [
+        {"source": "google_news", "title": "Avanza la reforma a la salud en el Senado",
+         "keyword": '"reforma a la salud"'},
+        {"source": "google_news", "title": "Gobierno radica reforma tributaria",
+         "keyword": '"reforma a la salud"'},
+        {"source": "bing_news", "title": "Claves para cuidar la salud mental",
+         "keyword": '"reforma a la salud"'},
+        # Un tweet con una sola palabra del tema sí vale (lenguaje coloquial)
+        {"source": "twitter", "title": "La reforma nos va a dejar sin EPS"},
+    ]
+    kept = _filter_topic_relevant(items, "reforma a la salud")
+    titles = {i["title"] for i in kept}
+    assert titles == {
+        "Avanza la reforma a la salud en el Senado",
+        "La reforma nos va a dejar sin EPS",
+    }
+
+
+def test_google_news_splits_media_suffix_and_quotes_phrase():
+    rss = """<?xml version="1.0"?>
+    <rss><channel><item>
+      <title>Avanza la reforma a la salud - El Tiempo</title>
+      <link>https://news.google.com/y</link>
+      <pubDate>Fri, 12 Sep 2026 10:00:00 GMT</pubDate>
+    </item></channel></rss>"""
+    session = MagicMock()
+    session.get.return_value = MagicMock(text=rss)
+    q = TrendQuery(mode="free", free_topic="reforma a la salud")
+    with patch("trendscope.scrapers.google_news.get_session", return_value=session):
+        out = google_news.run(q)
+    assert out[0]["title"] == "Avanza la reforma a la salud"
+    assert out[0]["domain"] == "El Tiempo"
+    assert "%22reforma%20a%20la%20salud%22" in session.get.call_args_list[0].args[0]

@@ -12,15 +12,11 @@ class QueryTest(unittest.TestCase):
         self.assertIn("bitcoin tendencias", kws)
 
     def test_free_topic_keywords(self):
-        from datetime import datetime
-
         q = TrendQuery(mode="free", free_topic="IA generativa", geo="CO")
-        kws = q.keywords
-        year = str(datetime.now().year)
-        self.assertIn("IA generativa", kws)
-        self.assertIn("IA generativa CO", kws)
-        self.assertIn(f"IA generativa {year}", kws)
-        self.assertIn("tendencias IA generativa", kws)
+        # Solo el tema: sin "CO", año ni "tendencias" (traían ruido)
+        self.assertEqual(q.keywords, ["IA generativa"])
+        self.assertEqual(q.search_phrases, ['"IA generativa"'])
+        self.assertEqual(TrendQuery(mode="free", free_topic="Bitcoin").search_phrases, ["Bitcoin"])
 
     def test_subreddits_for_category(self):
         q = TrendQuery(mode="category", category="crypto")

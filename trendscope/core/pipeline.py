@@ -118,22 +118,36 @@ def run(query: TrendQuery) -> tuple[dict, str]:
         _PIPELINE_SEMAPHORE.release()
 
 
+# Titulares de prensa/video: deben nombrar el tema completo. Sin esto,
+# "reforma tributaria" o "salud mental" pasaban por "reforma a la salud".
+_STRICT_RELEVANCE_SOURCES = {"google_news", "bing_news", "gdelt", "youtube", "hackernews"}
+
+
 def _filter_topic_relevant(items: list[dict], topic: str) -> list[dict]:
-    """Mantiene items que mencionan el tema (palabra completa, sin tildes)."""
-    from trendscope.core.text import mentions, topic_tokens
+    """Mantiene items que mencionan el tema (palabra completa, sin tildes).
+
+    - Noticias y videos: todas las palabras del tema (≥2/3 si tiene más de 3).
+    - Posts y comentarios: basta una (la gente escribe "Petro" sin apellido).
+    """
+    from trendscope.core.text import mentions, mentions_count, topic_tokens
 
     tokens = topic_tokens(topic)
     if not tokens:
         return items
-    return [
-        item for item in items
-        if mentions(
-            " ".join(
-                str(item.get(k) or "") for k in ("title", "keyword", "text")
-            ),
-            tokens,
-        )
-    ]
+    need_strict = len(tokens) if len(tokens) <= 3 else -(-2 * len(tokens) // 3)
+    kept = []
+    for item in items:
+        # Solo lo que dice el ítem: el campo "keyword" es la búsqueda que lo
+        # trajo y contiene el tema siempre (antes ninguna noticia se filtraba).
+        text = " ".join(str(item.get(k) or "") for k in ("title", "text"))
+        if not text.strip():
+            text = str(item.get("keyword") or "")
+        if (item.get("source") or "") in _STRICT_RELEVANCE_SOURCES:
+            if mentions_count(text, tokens) >= need_strict:
+                kept.append(item)
+        elif mentions(text, tokens):
+            kept.append(item)
+    return kept
 
 
 def _timed_scrape(name: str, fn, query) -> tuple[list[dict], str | None]:

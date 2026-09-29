@@ -20,7 +20,7 @@ def run(query: TrendQuery) -> list[dict]:
     session = get_session()
     results: list[dict] = []
 
-    for keyword in query.keywords[:2]:
+    for keyword in query.search_phrases[:2]:
         try:
             params = {
                 "query": keyword,

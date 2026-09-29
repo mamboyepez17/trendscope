@@ -28,16 +28,30 @@ class TrendQuery:
 
     @property
     def keywords(self) -> list[str]:
-        """Keywords para buscar en todas las fuentes."""
-        from datetime import datetime
+        """Keywords para buscar en todas las fuentes.
 
+        Tema libre → solo el tema tal cual. Antes se añadían variantes
+        ("tema CO", "tema 2026", "tendencias tema") que los buscadores leían
+        como palabras sueltas y traían noticias de cualquier cosa. La frescura
+        la dan los filtros de fecha y el país va como parámetro de región.
+        """
         if self.mode == "category" and self.category in CATEGORIES:
             return CATEGORIES[self.category]
         elif self.mode == "free" and self.free_topic:
-            t = self.free_topic.strip()
-            year = datetime.now().year
-            return [t, f"{t} {self.geo}", f"{t} {year}", f"tendencias {t}"]
+            return [self.free_topic.strip()]
         return []
+
+    @property
+    def search_phrases(self) -> list[str]:
+        """Consultas para buscadores de noticias: frase exacta entre comillas
+        si el tema tiene varias palabras (evita "reforma" o "salud" sueltas)."""
+        out = []
+        for kw in self.keywords:
+            kw = kw.strip().strip('"')
+            if not kw:
+                continue
+            out.append(f'"{kw}"' if " " in kw else kw)
+        return out
 
     @property
     def subreddits(self) -> list[str]:

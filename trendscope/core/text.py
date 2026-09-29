@@ -18,6 +18,16 @@ def topic_tokens(topic: str | None) -> list[str]:
     return long_toks or toks
 
 
+def _hit(tok: str, words: list[str]) -> bool:
+    return any(w == tok or (len(tok) >= 5 and w.startswith(tok)) for w in words)
+
+
+def mentions_count(text: str, tokens: list[str]) -> int:
+    """Cuántos tokens distintos del tema aparecen en el texto."""
+    words = tokenize(text)
+    return sum(1 for tok in set(tokens) if _hit(tok, words))
+
+
 def mentions(text: str, tokens: list[str]) -> bool:
     """¿El texto menciona algún token? Palabra completa; ≥5 letras admite
     variantes por prefijo (colombia → colombiano). Nunca subcadenas internas:

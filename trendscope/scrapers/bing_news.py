@@ -15,7 +15,7 @@ from trendscope.core.query import TrendQuery
 def run(query: TrendQuery) -> list[dict]:
     session = get_session()
     results: list[dict] = []
-    for keyword in query.keywords[:2]:
+    for keyword in query.search_phrases[:2]:
         # qft interval: 4 = 24 h, 7 = semana, 8 = mes
         days = query.max_age_days
         interval = "4" if days <= 1 else "7" if days <= 7 else "8"
