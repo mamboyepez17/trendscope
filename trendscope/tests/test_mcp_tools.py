@@ -70,6 +70,24 @@ def test_analyze_trends_mocked():
     assert result["meta"]["query"]["topic"] == "ai"
 
 
+def test_analyze_trends_passes_window_language_and_ai():
+    payload = {"meta": {}, "top_trends": []}
+    with patch("trendscope.server_mcp.run_pipeline", return_value=(payload, "r")) as rp:
+        asyncio.run(analyze_trends(topic="ai", geo="br", days=3, lang="pt",
+                                   sentiment_engine="llm", llm_provider="kimi", llm_model="k"))
+    q = rp.call_args.args[0]
+    assert (q.geo, q.max_age_days, q.lang) == ("BR", 3, "pt")
+    assert (q.sentiment_engine, q.llm_provider, q.llm_model) == ("llm", "kimi", "k")
+
+
+def test_narrate_trends_uses_chosen_ai():
+    payload = {"meta": {}, "top_trends": []}
+    with patch("trendscope.server_mcp.run_pipeline", return_value=(payload, "r")), \
+         patch("trendscope.narrator.engine.generate_summary", return_value={"narrative": "ok"}) as gs:
+        asyncio.run(narrate_trends(topic="ai", llm_provider="glm", llm_model="g"))
+    assert gs.call_args.kwargs["provider"] == "glm" and gs.call_args.kwargs["model"] == "g"
+
+
 def test_compare_mocked():
     p = {"meta": {}, "top_trends": []}
     with patch("trendscope.server_mcp.run_pipeline", return_value=(p, "r")):

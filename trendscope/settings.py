@@ -17,6 +17,9 @@ class Settings(BaseSettings):
     reddit_client_id: str = ""
     reddit_client_secret: str = ""
     reddit_user_agent: str = "TrendScope/1.5.0"
+    # Cookie de sesión para reddit-actions cuando Reddit responde 403
+    reddit_session_cookie: str = ""
+    reddit_cookie_header: str = ""
 
     # Twitter/X
     twitter_auth_token: str = ""
@@ -41,11 +44,63 @@ class Settings(BaseSettings):
     deepseek_base_url: str = "https://api.deepseek.com"
     deepseek_model: str = "deepseek-flash"
 
+    # ── IA: cualquier proveedor (ver trendscope/llm/providers.py) ────────────
+    # Proveedor por defecto para narrativas y sentimiento "llm". Vacío → el de
+    # NARRATOR_PROVIDER. Opciones: openai, claude, deepseek, opencode,
+    # openrouter, gemini, groq, mistral, xai, ollama, custom, none.
+    llm_provider: str = ""
+    openai_api_key: str = ""
+    openai_model: str = ""
+    claude_model: str = "claude-opus-5-5"
+    opencode_api_key: str = ""
+    opencode_base_url: str = "https://opencode.ai/zen/v1"
+    opencode_model: str = ""
+    gemini_api_key: str = ""
+    gemini_model: str = ""
+    groq_api_key: str = ""
+    groq_model: str = ""
+    mistral_api_key: str = ""
+    mistral_model: str = ""
+    xai_api_key: str = ""
+    xai_model: str = ""
+    # Qwen (Alibaba Model Studio). Región: intl por defecto; EE. UU.
+    # https://dashscope-us.aliyuncs.com/compatible-mode/v1; China
+    # https://dashscope.aliyuncs.com/compatible-mode/v1
+    qwen_api_key: str = ""
+    qwen_base_url: str = "https://dashscope-intl.aliyuncs.com/compatible-mode/v1"
+    qwen_model: str = ""
+    # GLM (Z.ai). China: https://open.bigmodel.cn/api/paas/v4;
+    # Coding Plan: https://api.z.ai/api/coding/paas/v4
+    glm_api_key: str = ""
+    glm_base_url: str = "https://api.z.ai/api/paas/v4"
+    glm_model: str = ""
+    # Kimi (Moonshot). China: https://api.moonshot.cn/v1
+    kimi_api_key: str = ""
+    kimi_base_url: str = "https://api.moonshot.ai/v1"
+    kimi_model: str = ""
+    # Xiaomi MiMo. Con Token Plan usa la URL y la key tp-… de tu suscripción
+    mimo_api_key: str = ""
+    mimo_base_url: str = "https://api.xiaomimimo.com/v1"
+    mimo_model: str = ""
+    # Cualquier servidor compatible con OpenAI (LM Studio, vLLM, LiteLLM…)
+    llm_base_url: str = ""
+    llm_api_key: str = ""
+    llm_model: str = ""
+
     sentiment_engine: str = "local"
+    # Modelo del motor "claude" (sentimiento + emociones)
+    claude_sentiment_model: str = "claude-haiku-4-5"
+    # Léxico propio (JSON) para jerga local, marcas o sectores. Ver
+    # trendscope/sentiment/lexicons/__init__.py para el formato.
+    custom_lexicon_path: str = ""
+    # /trends también recolecta comentarios para el Índice de Ánimo
+    pipeline_collect_comments: bool = True
 
     # General
     geo_target: str = "CO"
     top_n: int = 25
+    # Ventana de frescura: solo contenido de los últimos N días (1–30)
+    max_age_days: int = 7
     data_dir: str = "data"
 
     # API

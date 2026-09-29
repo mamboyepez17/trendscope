@@ -6,6 +6,7 @@ import time
 from loguru import logger
 
 from trendscope.config import TWITTER_AUTH_TOKEN, TWITTER_CT0
+from trendscope.core.dates import since_day
 from trendscope.core.query import TrendQuery
 
 
@@ -63,8 +64,11 @@ def run(query: TrendQuery) -> list[dict]:
         return []
 
     try:
-        from trendscope.xactions import TwitterError, search_tweets_sync
+        from trendscope.scrapers.x_client import xactions
 
+        xa = xactions()
+        TwitterError = xa.TwitterError
+        search_tweets_sync = xa.search_tweets_sync
         cookie_str = f"auth_token={TWITTER_AUTH_TOKEN}; ct0={TWITTER_CT0}"
         results: list[dict] = []
         # Más keywords del tema (hasta 4) para cubrir variantes
@@ -75,6 +79,8 @@ def run(query: TrendQuery) -> list[dict]:
             q = _twitter_query(keyword)
             if not q:
                 continue
+            # Solo tweets de la ventana de frescura (Top sin fecha trae virales viejos)
+            q = f"{q} since:{since_day(query.max_age_days)}"
             for mode in ("Latest", "Top"):
                 try:
                     # Latest: recientes del tema; Top: más engagement del tema (ya con comillas)

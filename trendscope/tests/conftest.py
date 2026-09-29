@@ -5,6 +5,14 @@ from pathlib import Path
 import pytest
 
 
+@pytest.fixture(autouse=True)
+def _no_live_comment_collection(monkeypatch):
+    """Los tests no deben salir a internet a buscar comentarios desde /trends."""
+    from trendscope.settings import settings
+
+    monkeypatch.setattr(settings, "pipeline_collect_comments", False)
+
+
 @pytest.fixture
 def tmp_data_dir(tmp_path: Path, monkeypatch):
     """Point settings.data_dir at a temp folder."""

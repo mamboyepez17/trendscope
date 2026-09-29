@@ -36,6 +36,7 @@ TWEETCLAW_RESULTS_FILE = settings.tweetclaw_results_file
 ANTHROPIC_API_KEY = settings.anthropic_api_key
 
 SENTIMENT_ENGINE_DEFAULT = settings.sentiment_engine
+MAX_AGE_DAYS = settings.max_age_days
 
 GEO_TARGET = settings.geo_target
 TOP_N = settings.top_n

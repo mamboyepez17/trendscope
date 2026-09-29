@@ -129,31 +129,33 @@ def _check_youtube() -> dict:
 
 
 def _check_amazon() -> dict:
-    """Amazon — Scrapling StealthyFetcher."""
+    """Amazon — búsqueda real con Scrapling Fetcher (detecta captcha)."""
     try:
-        from scrapling.fetchers import StealthyFetcher
-        return {"status": "ok", "message": "Scrapling StealthyFetcher disponible"}
+        from scrapling.fetchers import Fetcher
     except ImportError:
-        return {"status": "off", "message": "Scrapling no instalado o curl_cffi faltante. Ejecutar: pip install scrapling curl_cffi"}
-    except Exception as e:
-        return {"status": "warn", "message": f"Scrapling importo pero podria fallar: {e}"}
-
-
-def _check_tiktok() -> dict:
-    """TikTok — API interna del Creative Center."""
+        return {
+            "status": "off",
+            "message": 'Falta Scrapling con fetchers. Ejecutar: pip install "scrapling[fetchers]"',
+        }
     try:
-        import requests
-        params = {"page": 1, "limit": 1, "period": 7, "country_code": "CO", "sort_by": "popular"}
-        headers = {"User-Agent": "Mozilla/5.0", "Accept": "application/json"}
-        resp = requests.get(
-            "https://ads.tiktok.com/creative_radar_api/v1/popular_trend/hashtag/list",
-            params=params, headers=headers, timeout=10,
+        from trendscope.scrapers.amazon import is_blocked
+
+        page = Fetcher.get(
+            "https://www.amazon.com/s?k=headphones",
+            impersonate="chrome", stealthy_headers=True, timeout=15,
         )
-        if resp.status_code == 200:
-            return {"status": "ok", "message": "TikTok API disponible (gratis, sin auth)"}
-        return {"status": "warn", "message": f"TikTok API respondio {resp.status_code} — puede haber cambiado"}
+        html = getattr(page, "html_content", "") or ""
+        if is_blocked(html, getattr(page, "status", None)):
+            return {
+                "status": "warn",
+                "message": "Amazon muestra captcha por HTTP; se usará el navegador "
+                           "(ejecutar una vez: scrapling install)",
+            }
+        if 's-search-result' not in html:
+            return {"status": "warn", "message": "Amazon respondió sin resultados reconocibles (¿cambió el HTML?)"}
+        return {"status": "ok", "message": "Amazon búsqueda disponible (sin navegador)"}
     except Exception as e:
-        return {"status": "error", "message": f"TikTok API fallo: {e}"}
+        return {"status": "error", "message": f"Amazon falló: {e}"}
 
 
 def _check_tweetclaw() -> dict:
@@ -199,7 +201,6 @@ def check_all() -> dict:
         "Hacker News": _check_hackernews,
         "YouTube": _check_youtube,
         "Amazon": _check_amazon,
-        "TikTok": _check_tiktok,
         "TweetClaw": _check_tweetclaw,
         "Sentiment": _check_sentiment,
     }

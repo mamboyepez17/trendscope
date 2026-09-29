@@ -9,7 +9,12 @@ from trendscope.config import DATA_DIR
 from trendscope.core.query import TrendQuery
 
 
-def export(items: list[dict], query: TrendQuery, insights: dict = None) -> dict:
+def export(
+    items: list[dict],
+    query: TrendQuery,
+    insights: dict = None,
+    sentiment_summary: dict | None = None,
+) -> dict:
     """
     Exporta items puntuados como JSON estructurado para agentes.
     Genera archivo en data/ y retorna el payload como dict.
@@ -19,7 +24,7 @@ def export(items: list[dict], query: TrendQuery, insights: dict = None) -> dict:
 
     # Resumen de sentimiento
     labels = [i.get("sentiment_label", "neutral") for i in top]
-    sentiment_summary = {
+    sentiment_summary = sentiment_summary or {
         "positive": labels.count("positive"),
         "negative": labels.count("negative"),
         "neutral": labels.count("neutral"),
@@ -52,10 +57,14 @@ def export(items: list[dict], query: TrendQuery, insights: dict = None) -> dict:
                 "trend_score": i["trend_score"],
                 "url": i.get("url") or i.get("permalink", ""),
                 "category": i.get("category") or i.get("subreddit") or "general",
+                "created_utc": i.get("created_utc") or None,
+                "author": i.get("author") or "",
                 "sentiment": {
                     "label": i.get("sentiment_label", "neutral"),
                     "score": i.get("sentiment_score", 0.5),
                     "emotions": i.get("emotions", {}),
+                    "emotion": i.get("emotion", "neutral"),
+                    "polarity": i.get("polarity", 0.0),
                 },
                 "signals": {
                     "reddit_score": i.get("score"),
@@ -65,6 +74,8 @@ def export(items: list[dict], query: TrendQuery, insights: dict = None) -> dict:
                     "retweets": i.get("retweets"),
                     "google_traffic": i.get("approx_traffic"),
                     "amazon_rank": i.get("rank"),
+                    "rating": i.get("rating"),
+                    "reviews": i.get("reviews"),
                     "price": i.get("price"),
                     "hn_points": i.get("hn_points"),
                     "youtube_views": i.get("views"),

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from loguru import logger
 
+from trendscope.core.dates import parse_date, since_iso
 from trendscope.core.http import get_session
 from trendscope.core.query import TrendQuery
 
@@ -19,7 +20,12 @@ def run(query: TrendQuery) -> list[dict]:
     try:
         resp = session.get(
             SEARCH,
-            params={"q": keyword, "limit": 15, "sort": "latest"},
+            params={
+                "q": keyword,
+                "limit": 25,
+                "sort": "latest",
+                "since": since_iso(query.max_age_days),
+            },
             timeout=12,
             headers={"User-Agent": "TrendScope/1.8"},
         )
@@ -48,6 +54,7 @@ def run(query: TrendQuery) -> list[dict]:
                     "user_followers": (p.get("author") or {}).get("followersCount", 0),
                     "created_at": record.get("createdAt"),
                     "published_at": record.get("createdAt"),
+                    "created_utc": parse_date(record.get("createdAt")),
                 }
             )
         logger.info(f"Bluesky '{keyword}': {len(results)} posts")

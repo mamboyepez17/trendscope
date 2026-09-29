@@ -8,6 +8,7 @@ from trendscope.config import (
     SENTIMENT_ENGINE_DEFAULT,
     TOP_N,
     GEO_TARGET,
+    MAX_AGE_DAYS,
 )
 
 
@@ -23,19 +24,44 @@ class TrendQuery:
     geo: str = GEO_TARGET
     top_n: int = TOP_N
     sentiment_engine: str = SENTIMENT_ENGINE_DEFAULT
+    max_age_days: int = MAX_AGE_DAYS       # solo contenido reciente
+    lang: Optional[str] = None             # idioma de los textos (None → el del país)
+    llm_provider: Optional[str] = None     # IA para sentiment_engine="llm" (openai, claude…)
+    llm_model: Optional[str] = None        # modelo de esa IA (None → el de .env)
+
+    @property
+    def ui_lang(self) -> str:
+        """Idioma de etiquetas y titulares: el pedido (es/en/pt) o el del país."""
+        from trendscope.core.locale import ui_language
+
+        return ui_language(self.lang, self.geo)
 
     @property
     def keywords(self) -> list[str]:
-        """Keywords para buscar en todas las fuentes."""
-        from datetime import datetime
+        """Keywords para buscar en todas las fuentes.
 
+        Tema libre → solo el tema tal cual. Antes se añadían variantes
+        ("tema CO", "tema 2026", "tendencias tema") que los buscadores leían
+        como palabras sueltas y traían noticias de cualquier cosa. La frescura
+        la dan los filtros de fecha y el país va como parámetro de región.
+        """
         if self.mode == "category" and self.category in CATEGORIES:
             return CATEGORIES[self.category]
         elif self.mode == "free" and self.free_topic:
-            t = self.free_topic.strip()
-            year = datetime.now().year
-            return [t, f"{t} {self.geo}", f"{t} {year}", f"tendencias {t}"]
+            return [self.free_topic.strip()]
         return []
+
+    @property
+    def search_phrases(self) -> list[str]:
+        """Consultas para buscadores de noticias: frase exacta entre comillas
+        si el tema tiene varias palabras (evita "reforma" o "salud" sueltas)."""
+        out = []
+        for kw in self.keywords:
+            kw = kw.strip().strip('"')
+            if not kw:
+                continue
+            out.append(f'"{kw}"' if " " in kw else kw)
+        return out
 
     @property
     def subreddits(self) -> list[str]:

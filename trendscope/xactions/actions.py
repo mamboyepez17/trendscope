@@ -15,14 +15,44 @@ import logging
 from collections.abc import Callable
 from typing import Any
 
+from .caps import check_write, load_caps, record_write, save_caps
 from .client import UPLOAD_BASE, AuthError, TwitterClient
 
 _log = logging.getLogger(__name__)
+
+# Set to False to bypass on-disk daily caps (not recommended)
+CAPS_ENABLED = True
 
 
 def _require_auth(client: TwitterClient) -> None:
     if not client.is_authenticated():
         raise AuthError("Se requiere autenticación. Configura auth_token y ct0.")
+
+
+def _account_key(client: Any) -> str:
+    cookies = getattr(client, "_cookies", None) or {}
+    token = cookies.get("auth_token") or getattr(client, "_cookie_str", "")[:20]
+    return f"acct:{hash(token) & 0xFFFFFFFF:08x}"
+
+
+def _before_write(client: Any, operation: str) -> None:
+    """Raise WriteCapExceeded before hitting X (does not record yet)."""
+    if not CAPS_ENABLED:
+        return
+    data = load_caps()
+    check_write(data, operation, _account_key(client))
+
+
+def _after_write(client: Any, operation: str) -> None:
+    """Record a successful write against the daily budget."""
+    if not CAPS_ENABLED:
+        return
+    try:
+        data = load_caps()
+        data = record_write(data, operation, _account_key(client))
+        save_caps(data)
+    except OSError as e:
+        _log.warning("No se pudo registrar write cap: %s", e)
 
 
 # ─── Media upload ─────────────────────────────────────────────────────────────
@@ -51,6 +81,7 @@ async def post_tweet(
 ) -> dict[str, Any]:
     """Publica un tweet (con media opcional). Requiere auth."""
     _require_auth(client)
+    _before_write(client, "tweet")
 
     media_entities = [{"media_id": mid, "tagged_users": []} for mid in (media_ids or [])]
     variables = {
@@ -89,6 +120,9 @@ async def post_tweet(
     error_msg = None
     if errors:
         error_msg = errors[0].get("message") if isinstance(errors[0], dict) else str(errors[0])
+
+    if tweet_id:
+        _after_write(client, "tweet")
 
     return {
         "success": bool(tweet_id),
@@ -155,12 +189,16 @@ async def delete_tweet(client: TwitterClient, tweet_id: str) -> dict[str, Any]:
 
 async def like_tweet(client: TwitterClient, tweet_id: str) -> dict[str, Any]:
     _require_auth(client)
+    _before_write(client, "like")
     data = await client.graphql(
         "FavoriteTweet",
         variables={"tweet_id": tweet_id},
         mutation=True,
     )
-    return {"success": data.get("data", {}).get("favorite_tweet") == "Done"}
+    ok = data.get("data", {}).get("favorite_tweet") == "Done"
+    if ok:
+        _after_write(client, "like")
+    return {"success": ok}
 
 
 async def unlike_tweet(client: TwitterClient, tweet_id: str) -> dict[str, Any]:
@@ -221,21 +259,29 @@ async def delete_bookmark(client: TwitterClient, tweet_id: str) -> dict[str, Any
 async def follow_user(client: TwitterClient, user_id: str) -> dict[str, Any]:
     """Follow por user_id. Usa REST endpoint (no GraphQL mutation disponible)."""
     _require_auth(client)
+    _before_write(client, "follow")
     data = await client.rest_post(
         "/1.1/friendships/create.json",
         {"user_id": user_id, "skip_status": "true"},
     )
-    return {"success": bool(data.get("id_str") or data.get("id"))}
+    ok = bool(data.get("id_str") or data.get("id"))
+    if ok:
+        _after_write(client, "follow")
+    return {"success": ok}
 
 
 async def unfollow_user(client: TwitterClient, user_id: str) -> dict[str, Any]:
     """Unfollow por user_id."""
     _require_auth(client)
+    _before_write(client, "unfollow")
     data = await client.rest_post(
         "/1.1/friendships/destroy.json",
         {"user_id": user_id, "skip_status": "true"},
     )
-    return {"success": bool(data.get("id_str") or data.get("id"))}
+    ok = bool(data.get("id_str") or data.get("id"))
+    if ok:
+        _after_write(client, "unfollow")
+    return {"success": ok}
 
 
 # ─── Bulk unfollow ─────────────────────────────────────────────────────────────

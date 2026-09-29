@@ -7,11 +7,20 @@ from urllib.parse import quote
 
 from loguru import logger
 
+from trendscope.core.dates import parse_date
 from trendscope.core.http import get_session
 from trendscope.core.query import TrendQuery
 
-# Feeds por keyword (es/CO)
-_RSS = "https://news.google.com/rss/search?q={q}&hl=es-419&gl=CO&ceid=CO:es-419"
+_RSS = "https://news.google.com/rss/search?q={q}&hl={hl}&gl={gl}&ceid={ceid}"
+
+
+def _split_title(title: str) -> tuple[str, str]:
+    """Google News añade " - Medio" al final del titular; lo separa."""
+    if " - " in title:
+        head, _, src = title.rpartition(" - ")
+        if head and len(src) <= 60:
+            return head.strip(), src.strip()
+    return title, ""
 
 
 def run(query: TrendQuery) -> list[dict]:
@@ -19,22 +28,27 @@ def run(query: TrendQuery) -> list[dict]:
     session = get_session()
     results: list[dict] = []
 
-    for keyword in query.keywords[:3]:
-        url = _RSS.format(q=quote(keyword))
+    from trendscope.core.locale import google_news_edition
+
+    edition = google_news_edition(query.geo)
+    for keyword in query.search_phrases[:3]:
+        # Frase exacta + when:Nd → solo artículos del tema de los últimos N días
+        q = f"{keyword} when:{max(1, int(query.max_age_days))}d"
+        url = _RSS.format(q=quote(q), **edition)
         try:
             resp = session.get(url, timeout=15, headers={"User-Agent": "TrendScope/1.8"})
             resp.raise_for_status()
             root = ET.fromstring(resp.text)
             items = root.findall(".//item")
             for item in items[:20]:
-                title = (item.findtext("title") or "").strip()
+                title, media = _split_title((item.findtext("title") or "").strip())
                 link = (item.findtext("link") or "").strip()
                 pub = (item.findtext("pubDate") or "").strip()
                 source_el = item.find("{https://news.google.com}source")
                 source_name = (
                     (source_el.text or "").strip()
                     if source_el is not None
-                    else (item.findtext("source") or "google_news")
+                    else (item.findtext("source") or media or "google_news")
                 )
                 if not title:
                     continue
@@ -46,6 +60,7 @@ def run(query: TrendQuery) -> list[dict]:
                         "text": title[:250],
                         "url": link,
                         "published_at": pub,
+                        "created_utc": parse_date(pub),
                         "domain": source_name,
                     }
                 )

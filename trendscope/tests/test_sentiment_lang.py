@@ -25,7 +25,10 @@ def test_analyze_items_labels_spanish_negative():
     q = TrendQuery(mode="free", free_topic="x", sentiment_engine="local")
     out = analyze_items(items, q)
     assert out[0]["sentiment_label"] == "negative"
-    assert out[0]["sentiment_engine"].startswith("local_es")
+    # local_es (pysentimiento) o local_fallback_es (léxico, sin torch)
+    assert out[0]["sentiment_engine"] in {"local_es", "local_fallback_es"}
+    assert out[0]["emotion"] == "anger"
+    assert out[0]["polarity"] < 0
 
 
 def test_analyze_items_uses_text_when_title_short():

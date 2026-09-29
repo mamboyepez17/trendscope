@@ -6,17 +6,23 @@ from trendscope.core.query import TrendQuery
 from trendscope.settings import Settings
 
 
-def test_free_topic_uses_geo_not_hardcoded_colombia():
+def test_free_topic_keywords_have_no_geo_or_year_noise():
     q = TrendQuery(mode="free", free_topic="cafe", geo="MX")
-    kws = q.keywords
-    assert any("MX" in k for k in kws)
-    assert not any("Colombia" in k for k in kws)
+    assert q.keywords == ["cafe"]
+    assert not any(str(datetime.now().year) in k for k in q.keywords)
 
 
-def test_free_topic_uses_current_year():
-    q = TrendQuery(mode="free", free_topic="ai", geo="CO")
-    year = str(datetime.now().year)
-    assert any(year in k for k in q.keywords)
+def test_google_news_uses_query_geo_edition():
+    from unittest.mock import MagicMock, patch
+
+    from trendscope.scrapers import google_news
+
+    session = MagicMock()
+    session.get.return_value = MagicMock(text="<rss><channel></channel></rss>")
+    with patch("trendscope.scrapers.google_news.get_session", return_value=session):
+        google_news.run(TrendQuery(mode="free", free_topic="cafe", geo="MX"))
+    url = session.get.call_args_list[0].args[0]
+    assert "gl=MX" in url and "ceid=MX" in url
 
 
 def test_ollama_default_false():

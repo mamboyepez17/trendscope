@@ -9,6 +9,7 @@ import requests
 from loguru import logger
 
 from trendscope.config import REDDIT_CLIENT_ID, REDDIT_CLIENT_SECRET, REDDIT_USER_AGENT
+from trendscope.core.dates import reddit_time_filter
 from trendscope.core.query import TrendQuery
 
 
@@ -86,11 +87,7 @@ def _fetch_rss(subreddit: str, feed: str = "hot", limit: int = 20) -> list[dict]
                 except Exception:
                     pass
 
-            # Estimar score basado en recencia si no hay score
-            if score == 0 and created_utc:
-                hours_old = (time.time() - created_utc) / 3600
-                # Posts nuevos en hot suelen tener score creciente
-                score = max(1, int(500 / max(1, hours_old)))
+            # Sin score en el RSS: se deja en 0 (no se inventan votos)
 
             if title:
                 results.append({
@@ -99,7 +96,7 @@ def _fetch_rss(subreddit: str, feed: str = "hot", limit: int = 20) -> list[dict]
                     "title": title,
                     "score": score,
                     "comments": comments,
-                    "upvote_ratio": 0.8,  # Estimado, RSS no lo da
+                    "upvote_ratio": None,  # RSS no lo da
                     "url": link,
                     "permalink": link,
                     "created_utc": created_utc,
@@ -114,12 +111,17 @@ def _fetch_rss(subreddit: str, feed: str = "hot", limit: int = 20) -> list[dict]
         return []
 
 
-def _fetch_search_rss(query_str: str, sort: str = "new", limit: int = 15) -> list[dict]:
+def _fetch_search_rss(
+    query_str: str, sort: str = "new", limit: int = 15, time_filter: str = "week"
+) -> list[dict]:
     """
     Busqueda por keywords via RSS de Reddit — sin API key.
     Busca en todos los subreddits.
     """
-    url = f"https://old.reddit.com/search.rss?q={requests.utils.quote(query_str)}&sort={sort}&limit={limit}"
+    url = (
+        f"https://old.reddit.com/search.rss?q={requests.utils.quote(query_str)}"
+        f"&sort={sort}&limit={limit}&t={time_filter}"
+    )
 
     headers = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
@@ -164,10 +166,6 @@ def _fetch_search_rss(query_str: str, sort: str = "new", limit: int = 15) -> lis
                 except Exception:
                     pass
 
-            if score == 0 and created_utc:
-                hours_old = (time.time() - created_utc) / 3600
-                score = max(1, int(300 / max(1, hours_old)))
-
             if title:
                 results.append({
                     "source": "reddit",
@@ -175,7 +173,7 @@ def _fetch_search_rss(query_str: str, sort: str = "new", limit: int = 15) -> lis
                     "title": title,
                     "score": score,
                     "comments": 0,
-                    "upvote_ratio": 0.8,
+                    "upvote_ratio": None,
                     "url": link,
                     "permalink": link,
                     "created_utc": created_utc,
@@ -238,7 +236,10 @@ def run(query: TrendQuery) -> list[dict]:
         # Busqueda por keyword principal via RSS
         if query.keywords:
             for kw in query.keywords[:2]:
-                search_results = _fetch_search_rss(kw, sort="new", limit=15)
+                search_results = _fetch_search_rss(
+                    kw, sort="new", limit=15,
+                    time_filter=reddit_time_filter(query.max_age_days),
+                )
                 all_posts.extend(search_results)
                 time.sleep(delay)
 

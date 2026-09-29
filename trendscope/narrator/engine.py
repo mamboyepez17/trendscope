@@ -43,7 +43,22 @@ def _build_context(payload: dict) -> str:
             "negative": sentiment.get("negative", 0),
             "neutral": sentiment.get("neutral", 0),
             "compound": sentiment.get("compound"),
+            "net_score": sentiment.get("net_score"),
         },
+        # Ánimo de la gente (comentarios) — lo más importante para decidir
+        "public_mood": {
+            k: (meta.get("mood_index") or {}).get(k)
+            for k in (
+                "label", "headline", "net_score", "margin", "confidence",
+                "sample_size", "emotions", "polarization", "drivers",
+            )
+        },
+        "public_quotes": {
+            emo: [q.get("text") for q in qs[:2]]
+            for emo, qs in ((meta.get("mood_index") or {}).get("quotes") or {}).items()
+        },
+        "media_tone": meta.get("media_tone"),
+        "freshness_days": (meta.get("freshness") or {}).get("max_age_days"),
         "top_trends": [
             {
                 "title": t.get("title"),
@@ -61,19 +76,35 @@ def _build_context(payload: dict) -> str:
     return json.dumps(context, ensure_ascii=False, indent=2)
 
 
+# Idioma de la narrativa: el del análisis (meta.lang) o el del país.
+_LANG_RULE = {
+    "es": "IMPORTANTE: Responde exclusivamente en español.",
+    "en": "IMPORTANT: Reply exclusively in English.",
+    "pt": "IMPORTANTE: Responda exclusivamente em português.",
+}
+
+
+def _narrative_lang(payload: dict) -> str:
+    from trendscope.core.locale import ui_language
+
+    meta = payload.get("meta", {}) or {}
+    return ui_language(meta.get("lang"), (meta.get("query") or {}).get("geo"))
+
+
 def _build_prompt(payload: dict, style: str) -> str:
     system = NARRATIVE_STYLES.get(style, NARRATIVE_STYLES["executive"])
     context = _build_context(payload)
+    rule = _LANG_RULE.get(_narrative_lang(payload), _LANG_RULE["en"])
     return (
         f"{system}\n\n"
-        "IMPORTANTE: Responde exclusivamente en español. "
+        f"{rule} "
         "Analiza los siguientes datos de tendencias y genera un resumen. "
         "Sé concreto, accionable y basado estrictamente en los datos proporcionados.\n\n"
         f"{context}"
     )
 
 
-def _call_openrouter(prompt: str) -> str:
+def _call_openrouter(prompt: str, model: str | None = None) -> str:
     try:
         import httpx
     except ImportError:
@@ -87,7 +118,7 @@ def _call_openrouter(prompt: str) -> str:
     }
 
     body = {
-        "model": settings.openrouter_model,
+        "model": model or settings.openrouter_model,
         "messages": [
             {"role": "system", "content": "Eres un experto en an\u00e1lisis de tendencias."},
             {"role": "user", "content": prompt},
@@ -109,51 +140,6 @@ def _call_openrouter(prompt: str) -> str:
     except Exception as e:
         logger.error(f"OpenRouter error: {e}")
         return f"Error al contactar OpenRouter: {e}"
-
-
-def _call_claude(prompt: str) -> str:
-    try:
-        import anthropic
-    except ImportError:
-        return "Error: anthropic no instalado."
-
-    if not settings.anthropic_api_key:
-        return "Error: ANTHROPIC_API_KEY no configurada."
-
-    try:
-        client = anthropic.Anthropic(api_key=settings.anthropic_api_key)
-        resp = client.messages.create(
-            model="claude-3-haiku-20240307",
-            max_tokens=800,
-            system="Eres un experto en an\u00e1lisis de tendencias.",
-            messages=[{"role": "user", "content": prompt}],
-        )
-        return resp.content[0].text.strip()
-    except Exception as e:
-        logger.error(f"Claude error: {e}")
-        return f"Error al contactar Claude: {e}"
-
-
-def _call_ollama(prompt: str) -> str:
-    try:
-        import ollama
-    except ImportError:
-        return "Error: ollama no instalado."
-
-    try:
-        client = ollama.Client(host=settings.ollama_host)
-        response = client.chat(
-            model=settings.ollama_model,
-            messages=[
-                {"role": "system", "content": "Eres un experto en an\u00e1lisis de tendencias."},
-                {"role": "user", "content": prompt},
-            ],
-            options={"temperature": 0.7, "num_predict": 800},
-        )
-        return response["message"]["content"].strip()
-    except Exception as e:
-        logger.error(f"Ollama error: {e}")
-        return f"Error al contactar Ollama: {e}"
 
 
 _DEEPSEEK_MODEL_FALLBACKS = (
@@ -193,7 +179,7 @@ def _post_deepseek(url: str, headers: dict, body: dict):
         raise
 
 
-def _call_deepseek(prompt: str) -> str:
+def _call_deepseek(prompt: str, model: str | None = None) -> str:
     """DeepSeek Chat — API oficial compatible con OpenAI."""
     try:
         import httpx  # noqa: F401
@@ -211,7 +197,7 @@ def _call_deepseek(prompt: str) -> str:
         "Content-Type": "application/json",
     }
     models: list[str] = []
-    for m in (settings.deepseek_model, *_DEEPSEEK_MODEL_FALLBACKS):
+    for m in (model or settings.deepseek_model, *_DEEPSEEK_MODEL_FALLBACKS):
         if m and m not in models:
             models.append(m)
 
@@ -224,10 +210,10 @@ def _call_deepseek(prompt: str) -> str:
                 {
                     "role": "system",
                     "content": (
-                        "Eres un analista senior de tendencias en español. "
-                        "Responde SIEMPRE en español de España/Latinoamérica, "
-                        "nunca en inglés. Entrega un análisis COMPLETO y cerrado "
-                        "(no lo dejes a medias)."
+                        "Eres un analista senior de tendencias. "
+                        "Responde SIEMPRE en el idioma que indica el mensaje del "
+                        "usuario (por defecto español) y nunca mezcles idiomas. "
+                        "Entrega un análisis COMPLETO y cerrado (no lo dejes a medias)."
                     ),
                 },
                 {"role": "user", "content": prompt},
@@ -291,61 +277,77 @@ def _statistical_summary(payload: dict) -> str:
         )
     lines.append("")
     lines.append(
-        "*Para narrativas generadas por IA, configura OPENROUTER_API_KEY, "
-        "ANTHROPIC_API_KEY o Ollama.*"
+        "*Para narrativas generadas por IA, configura un proveedor (OpenAI, Claude, "
+        "DeepSeek, OpenCode, OpenRouter, Gemini, Groq, Mistral, xAI u Ollama) en .env.*"
     )
     return "\n".join(lines)
+
+
+_SYSTEM = "Eres un analista senior de tendencias y opinión pública."
 
 
 def generate_summary(
     payload: dict,
     style: Literal["executive", "creative", "technical", "alert"] = "executive",
+    provider: str | None = None,
+    model: str | None = None,
 ) -> dict:
-    """Genera una narrativa usando el proveedor configurado."""
+    """Genera una narrativa con el proveedor/modelo elegido (o el de .env).
 
+    provider: openai, claude, deepseek, opencode, openrouter, gemini, groq,
+              mistral, xai, ollama, custom o none (resumen local).
+    model:    cualquier modelo del proveedor; vacío → el de .env.
+    """
     if not settings.narrative_enabled:
-        return {"narrative": "Narrador deshabilitado.", "provider": "none", "style": style}
+        return {"narrative": "Narrador deshabilitado.", "provider": "none", "model": "", "style": style}
 
-    provider = settings.narrator_provider
+    from trendscope.llm import LLMError
+    from trendscope.llm import chat as llm_chat
+    from trendscope.llm.providers import get as get_provider
+
+    requested = (provider or getattr(settings, "llm_provider", "") or settings.narrator_provider or "")
+    requested = requested.strip().lower()
     prompt = _build_prompt(payload, style)
 
-    if provider == "openrouter":
+    if requested == "none":
+        return {"narrative": _statistical_summary(payload), "provider": "none",
+                "style": style, "model": "local"}
+
+    p = get_provider(requested)
+    if p is None:
+        return {
+            "narrative": (
+                f"Proveedor '{requested}' no soportado. Usa openai, claude, deepseek, "
+                "opencode, openrouter, gemini, groq, mistral, xai, ollama, custom o none."
+            ),
+            "provider": requested, "style": style, "model": "", "error": True,
+        }
+
+    # OpenRouter y DeepSeek conservan su lógica propia (respaldo de modelos, TLS)
+    if p.id == "openrouter":
         if not settings.openrouter_api_key:
             return {
                 "narrative": "OpenRouter API key no configurada. "
                 "Ve a https://openrouter.ai/keys y a\u00f1ade OPENROUTER_API_KEY a .env",
-                "provider": "openrouter",
-                "style": style,
-                "error": True,
+                "provider": "openrouter", "style": style, "model": "", "error": True,
             }
-        narrative = _call_openrouter(prompt)
-    elif provider == "deepseek":
-        narrative = _call_deepseek(prompt)
-    elif provider == "claude":
-        narrative = _call_claude(prompt)
-    elif provider == "ollama":
-        narrative = _call_ollama(prompt)
-    elif provider == "none":
-        narrative = _statistical_summary(payload)
-    else:
-        narrative = (
-            f"Proveedor '{provider}' no soportado. "
-            "Usa openrouter, deepseek, claude, ollama o none."
-        )
+        used = model or settings.openrouter_model
+        narrative = _call_openrouter(prompt, model=used)
+        return {"narrative": narrative, "provider": "openrouter", "style": style, "model": used,
+                **({"error": True} if narrative.startswith("Error") else {})}
+    if p.id == "deepseek":
+        used = model or settings.deepseek_model
+        narrative = _call_deepseek(prompt, model=used)
+        return {"narrative": narrative, "provider": "deepseek", "style": style, "model": used,
+                **({"error": True} if narrative.startswith(("Error", "DeepSeek API key")) else {})}
 
-    return {
-        "narrative": narrative,
-        "provider": provider,
-        "style": style,
-        "model": (
-            settings.openrouter_model
-            if provider == "openrouter"
-            else settings.deepseek_model
-            if provider == "deepseek"
-            else settings.ollama_model
-            if provider == "ollama"
-            else "claude-3-haiku"
-            if provider == "claude"
-            else "local"
-        ),
-    }
+    try:
+        result = llm_chat(prompt, provider=p.id, model=model, system=_SYSTEM, max_tokens=2000)
+    except LLMError as e:
+        logger.warning(f"Narrativa {p.id}: {e}")
+        return {"narrative": f"Error: {e}", "provider": p.id, "style": style,
+                "model": model or p.default_model, "error": True}
+    text = result.text
+    if result.truncated:
+        text += "\n\n*(Análisis truncado por límite de tokens del modelo.)*"
+    return {"narrative": text, "provider": p.id, "style": style, "model": result.model}

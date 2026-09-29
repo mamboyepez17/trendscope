@@ -66,12 +66,13 @@ def _detect_emerging_vs_established(items: list[dict]) -> dict:
         neighbors: set[int] = set()
         for w in words:
             neighbors |= word_index.get(w, set())
-        source_count = sum(
-            1
+        # Fuentes DISTINTAS que hablan de lo mismo (no cantidad de ítems)
+        other_sources = {
+            items[j].get("source")
             for j in neighbors
             if j != i and items[j].get("source") != item.get("source")
-        )
-        total_sources = 1 + source_count
+        }
+        total_sources = 1 + len(other_sources)
 
         if score >= 65 and total_sources <= 1:
             emerging.append({**item, "_total_sources": total_sources})

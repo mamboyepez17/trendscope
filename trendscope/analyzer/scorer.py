@@ -13,14 +13,13 @@ def _score_by_source(item: dict) -> float:
     source = item.get("source", "")
 
     if source == "reddit":
-        upvotes = min(item.get("score", 0), 50000)
-        ratio = item.get("upvote_ratio", 0.5)
-        comments = min(item.get("comments", 0), 5000)
-        # Bonus por recencia
-        created = item.get("created_utc", 0)
-        hours_old = (datetime.now(timezone.utc).timestamp() - created) / 3600 if created else 999
-        recency = 15 if hours_old < 6 else (8 if hours_old < 24 else 0)
-        return (upvotes / 50000 * 35) + (ratio * 25) + (comments / 5000 * 25) + recency
+        upvotes = min(item.get("score") or 0, 50000)
+        # RSS no trae ratio: None → 0.5 (neutro), nunca un valor inventado
+        ratio = item.get("upvote_ratio")
+        ratio = 0.5 if ratio is None else ratio
+        comments = min(item.get("comments") or 0, 5000)
+        # La recencia se suma una sola vez en _recency_bonus()
+        return (upvotes / 50000 * 35) + (ratio * 25) + (comments / 5000 * 25)
 
     elif source == "google_trends_rss":
         t = item.get("approx_traffic", "0").replace("+", "").replace(",", "")
@@ -69,26 +68,25 @@ def _score_by_source(item: dict) -> float:
         reposts = min(item.get("reposts", 0) or 0, 5000)
         return 25.0 + (likes / 10000 * 30) + (reposts / 5000 * 20)
 
+    elif source == "amazon":
+        # Producto buscado por tema: popularidad = reseñas (log), calidad = estrellas
+        reviews = max(0, int(item.get("reviews") or 0))
+        rating = float(item.get("rating") or 0)
+        base = 25.0 + min(45.0, math.log10(1 + reviews) * 11)
+        if rating:
+            base += (rating - 3.0) * 6  # 5★ +12 · 3★ 0 · 1★ −12
+        return max(0.0, min(90.0, base))
+
     elif source == "amazon_bestsellers":
         rank_str = item.get("rank", "#99")
         rank_num = int(re.sub(r"[^0-9]", "", rank_str) or "99")
         return max(0, 100 - rank_num * 1.5)
 
-    elif source == "tiktok_trending":
-        # Si tiene video_count, usar eso como proxy de popularidad
-        video_count = item.get("video_count", 0)
-        if video_count > 0:
-            return min(85, 50 + (video_count / 1000000) * 35)
-        return 65.0
-
     elif source == "hackernews":
-        points = min(item.get("score", 0), 2000)
-        comments = min(item.get("comments", 0), 1000)
-        # Bonus por recencia
-        created = item.get("created_utc", 0)
-        hours_old = (datetime.now(timezone.utc).timestamp() - created) / 3600 if created else 999
-        recency = 15 if hours_old < 24 else (8 if hours_old < 72 else 0)
-        return (points / 2000 * 45) + (comments / 1000 * 30) + recency
+        points = min(item.get("score") or 0, 2000)
+        comments = min(item.get("comments") or 0, 1000)
+        # La recencia se suma una sola vez en _recency_bonus()
+        return (points / 2000 * 45) + (comments / 1000 * 30)
 
     elif source == "youtube":
         views = min(item.get("views", 0), 10_000_000)
@@ -129,12 +127,8 @@ def score_item(item: dict, query: TrendQuery) -> float:
         matches = sum(1 for k in kws if k in text)
         score = min(100, score + matches * 8)
 
-    # Bonus/penalizacion por sentimiento
-    sentiment = item.get("sentiment_label", "neutral")
-    if sentiment == "positive":
-        score = min(100, score + 5)
-    elif sentiment == "negative":
-        score = max(0, score - 3)
+    # El sentimiento NO altera el ranking: si lo hiciera, el top-N quedaría
+    # sesgado hacia lo positivo y el medidor de ánimo mediría ese sesgo.
 
     # Frescura: prioriza lo reciente sobre lo antiguo con engagement alto
     score = max(0.0, min(100.0, score + _recency_bonus(item)))

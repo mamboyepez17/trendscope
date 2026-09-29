@@ -45,6 +45,15 @@ _AGAINST_EN = {
 
 _NEGATION = {"no", "ni", "nunca", "jamás", "nunca", "not", "never", "without", "sin"}
 
+# Raíces que como prefijo generan falsos positivos (contrato, contrario, backup…)
+_EXACT_ONLY = {"contra", "back", "support"}
+
+
+def _words(text: str) -> list[str]:
+    import re
+
+    return re.findall(r"[a-záéíóúñü]+", text.lower())
+
 
 @dataclass
 class StanceResult:
@@ -54,15 +63,20 @@ class StanceResult:
     against_hits: int
 
 
+def _lex_match(word: str, lex: set[str]) -> bool:
+    """Palabra exacta o, para raíces ≥5 letras, prefijo de palabra.
+
+    Nunca subcadena interna ("contra" ya no coincide dentro de "encontrar"), y
+    las raíces de _EXACT_ONLY solo cuentan como palabra completa ("contrato").
+    """
+    if word in lex:
+        return True
+    return any(len(root) >= 5 and root not in _EXACT_ONLY and word.startswith(root) for root in lex)
+
+
 def _hits(text: str, lexicon: set[str]) -> int:
-    words = set(text.lower().split())
-    # También match simple de substrings para conjugaciones
-    count = sum(1 for w in words if w in lexicon)
-    # fallback substring para "criticó" vs "critica"
-    for lex in lexicon:
-        if len(lex) >= 5 and lex in text.lower() and lex not in words:
-            count += 1
-    return count
+    """Cuenta palabras del texto que pertenecen al léxico (una vez por palabra)."""
+    return sum(1 for w in _words(text) if _lex_match(w, lexicon))
 
 
 def analyze_stance(
@@ -79,14 +93,9 @@ def analyze_stance(
     ag = _hits(t, _AGAINST_ES) + _hits(t, _AGAINST_EN)
 
     # Negación simple: "no apoya" / "no apoyan" cuenta como against
-    words = t.split()
+    words = _words(t)
     support_words = _SUPPORT_ES | _SUPPORT_EN
     against_words = _AGAINST_ES | _AGAINST_EN
-
-    def _lex_match(word: str, lex: set[str]) -> bool:
-        if word in lex:
-            return True
-        return any(len(root) >= 5 and root in word for root in lex)
 
     for i, w in enumerate(words):
         if w in _NEGATION and i + 1 < len(words):
@@ -100,8 +109,9 @@ def analyze_stance(
 
     # Señal débil del sentimiento si el tema aparece en el texto
     if topic:
-        topic_tokens = [x for x in topic.lower().split() if len(x) > 3]
-        mentions_topic = any(tok in t for tok in topic_tokens) if topic_tokens else False
+        from trendscope.core.text import mentions, topic_tokens
+
+        mentions_topic = mentions(text, topic_tokens(topic))
     else:
         mentions_topic = True
 

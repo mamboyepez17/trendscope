@@ -38,6 +38,16 @@ def test_wikipedia_parses_json():
         items = wikipedia.run(TrendQuery(mode="free", free_topic="Colombia"))
     assert items and items[0]["source"] == "wikipedia"
     assert "Colombia" in items[0]["url"]
+    assert session.get.call_args.args[0] == "https://es.wikipedia.org/w/api.php"
+
+
+def test_wikipedia_uses_country_or_requested_language():
+    from trendscope.scrapers.wikipedia import wiki_lang
+
+    assert wiki_lang(TrendQuery(mode="free", free_topic="x", geo="US")) == "en"
+    assert wiki_lang(TrendQuery(mode="free", free_topic="x", geo="BR")) == "pt"
+    assert wiki_lang(TrendQuery(mode="free", free_topic="x", geo="CO")) == "es"
+    assert wiki_lang(TrendQuery(mode="free", free_topic="x", geo="CO", lang="fr")) == "fr"
 
 
 def test_bluesky_parses_posts():

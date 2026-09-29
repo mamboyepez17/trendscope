@@ -1,0 +1,23 @@
+{
+  "*": {
+    "joy": ["bakano"],
+    "anger": ["estafadores"]
+  },
+  "es": {
+    "anger": ["tumbada"],
+    "sadness": ["qué tusa"]
+  },
+  "CO": {
+    "joy": ["parchado", "qué nota"],
+    "anger": ["mamera"],
+    "fear": ["culillo"]
+  },
+  "MX": {
+    "joy": ["poca madre"],
+    "anger": ["qué oso"]
+  },
+  "BR": {
+    "joy": ["mó legal"],
+    "anger": ["pistola"]
+  }
+}

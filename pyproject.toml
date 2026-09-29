@@ -22,7 +22,7 @@ classifiers = [
     "Programming Language :: Python :: 3.12",
 ]
 dependencies = [
-    "scrapling",
+    "scrapling[fetchers]>=0.3",
     "requests>=2.31.0",
     "praw>=7.8.1",
     "pytrends>=4.9.2",
@@ -44,6 +44,14 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+# Comentarios de Reddit vía github.com/mamboyepez17/reddit-actions
+reddit = [
+    "reddit-actions @ git+https://github.com/mamboyepez17/reddit-actions.git",
+]
+# X/Twitter con xactions-py al día (firma x-client-transaction-id)
+x = [
+    "xactions-py @ git+https://github.com/mamboyepez17/xactions-py.git",
+]
 dev = [
     "pytest>=8.0.0",
     "pytest-asyncio>=0.23.0",
@@ -56,6 +64,7 @@ trendscope = "trendscope.main:main"
 trendscope-api = "trendscope.server_api:run"
 trendscope-mcp = "trendscope.server_mcp:main"
 trendscope-ops = "trendscope.ops:main"
+trendscope-setup = "trendscope.setup_wizard:main"
 
 [tool.setuptools.packages.find]
 where = ["."]

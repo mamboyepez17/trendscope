@@ -23,6 +23,7 @@ from .actions import (
     upload_media,
 )
 from .analyzer import analyze_tweets, compare_accounts, parse_tweet_date
+from .caps import WriteCapExceeded, try_charge
 from .client import (
     GRAPHQL_ENDPOINTS,
     AuthError,
@@ -34,6 +35,7 @@ from .client import (
     refresh_graphql_endpoints,
 )
 from .db import TrackerDB, compute_profile_delta
+from .doctor import run_doctor
 from .pool import ClientPool
 from .scrapers import (
     clear_user_id_cache,
@@ -126,4 +128,8 @@ __all__ = [
     "parse_tweet_date",
     "TrackerDB",
     "compute_profile_delta",
+    # v1.6
+    "WriteCapExceeded",
+    "try_charge",
+    "run_doctor",
 ]

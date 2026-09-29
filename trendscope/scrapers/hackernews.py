@@ -4,10 +4,11 @@
 import requests
 from loguru import logger
 
+from trendscope.core.dates import cutoff_ts
 from trendscope.core.query import TrendQuery
 
 
-def _search_stories(keyword: str, limit: int = 15) -> list[dict]:
+def _search_stories(keyword: str, limit: int = 15, max_age_days: float = 7) -> list[dict]:
     """
     API de busqueda de Hacker News (Algolia).
     https://hn.algolia.com/api/v1/search?query=keyword
@@ -17,7 +18,7 @@ def _search_stories(keyword: str, limit: int = 15) -> list[dict]:
         "query": keyword,
         "tags": "story",
         "hitsPerPage": limit,
-        "numericFilters": "points>5",
+        "numericFilters": f"points>5,created_at_i>{int(cutoff_ts(max_age_days))}",
     }
     try:
         resp = requests.get(url, params=params, timeout=10)
@@ -109,7 +110,7 @@ def run(query: TrendQuery) -> list[dict]:
 
     # Buscar por keywords
     for kw in query.keywords[:3]:
-        stories = _search_stories(kw, limit=15)
+        stories = _search_stories(kw, limit=15, max_age_days=query.max_age_days)
         all_stories.extend(stories)
 
     # Top stories solo en modo categoría (tech/general).
