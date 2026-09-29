@@ -26,6 +26,8 @@ class TrendQuery:
     sentiment_engine: str = SENTIMENT_ENGINE_DEFAULT
     max_age_days: int = MAX_AGE_DAYS       # solo contenido reciente
     lang: Optional[str] = None             # idioma de los textos (None → el del país)
+    llm_provider: Optional[str] = None     # IA para sentiment_engine="llm" (openai, claude…)
+    llm_model: Optional[str] = None        # modelo de esa IA (None → el de .env)
 
     @property
     def ui_lang(self) -> str:

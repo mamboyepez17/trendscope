@@ -151,6 +151,8 @@ def submit_analysis_job(
     org_id: str = "default",
     days: int | None = None,
     lang: str | None = None,
+    llm_provider: str | None = None,
+    llm_model: str | None = None,
 ) -> str:
     """Encola un análisis y retorna job_id inmediatamente."""
     store = get_job_store()
@@ -173,6 +175,8 @@ def submit_analysis_job(
             if days:
                 query.max_age_days = days
             query.lang = lang
+            query.llm_provider = llm_provider
+            query.llm_model = llm_model
             payload, _ = run_pipeline(query)
             from trendscope.output.exporter import export_json
 

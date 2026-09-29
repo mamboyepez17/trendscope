@@ -72,6 +72,7 @@ const I18N = {
     wsOn:'En vivo', wsOff:'Sin conexión', themeLight:'☀︎ Claro', themeDark:'☾ Oscuro',
     aiGenerating:'Generando resumen…', aiDisabled:'El resumen con IA está desactivado (NARRATIVE_ENABLED=false o sin API key).',
     aiFailed:'No se pudo generar el resumen', provider:'proveedor',
+    engineLlm:'IA elegida', aiProvider:'IA', aiDefault:'Por defecto (.env)', aiModel:'Modelo', aiModelPh:'el de .env', aiNoKey:'sin API key',
     src:{reddit_comment:'Reddit (comentarios)', hackernews_comment:'HN (comentarios)', twitter_comment:'X (respuestas)', youtube_comment:'YouTube (comentarios)'},
   },
   en: {
@@ -127,6 +128,7 @@ const I18N = {
     wsOn:'Live', wsOff:'Offline', themeLight:'☀︎ Light', themeDark:'☾ Dark',
     aiGenerating:'Generating summary…', aiDisabled:'AI summary is disabled (NARRATIVE_ENABLED=false or no API key).',
     aiFailed:'Could not generate the summary', provider:'provider',
+    engineLlm:'Chosen AI', aiProvider:'AI', aiDefault:'Default (.env)', aiModel:'Model', aiModelPh:'from .env', aiNoKey:'no API key',
     src:{reddit_comment:'Reddit (comments)', hackernews_comment:'HN (comments)', twitter_comment:'X (replies)', youtube_comment:'YouTube (comments)'},
   },
   pt: {
@@ -182,6 +184,7 @@ const I18N = {
     wsOn:'Ao vivo', wsOff:'Sem conexão', themeLight:'☀︎ Claro', themeDark:'☾ Escuro',
     aiGenerating:'Gerando resumo…', aiDisabled:'O resumo com IA está desativado (NARRATIVE_ENABLED=false ou sem chave de API).',
     aiFailed:'Não foi possível gerar o resumo', provider:'provedor',
+    engineLlm:'IA escolhida', aiProvider:'IA', aiDefault:'Padrão (.env)', aiModel:'Modelo', aiModelPh:'o do .env', aiNoKey:'sem chave de API',
     src:{reddit_comment:'Reddit (comentários)', hackernews_comment:'HN (comentários)', twitter_comment:'X (respostas)', youtube_comment:'YouTube (comentários)'},
   },
 };
@@ -317,7 +320,48 @@ async function loadCategories(){
   }
 }
 
+/* ---------- Proveedores de IA ---------- */
+let llmProviders=[];
+async function loadLlmProviders(){
+  const sel=$('llmProvider');
+  try{
+    const r=await fetch(API+'/llm/providers', {headers: apiHeaders()});
+    if(!r.ok) throw new Error('HTTP '+r.status);
+    llmProviders=((await r.json()).providers)||[];
+  }catch(e){ llmProviders=[]; }
+  renderLlmProviders();
+  const saved=store('ts_llm_provider')||'';
+  if(saved && llmProviders.some(p=>p.id===saved)) sel.value=saved;
+  $('llmModel').value=store('ts_llm_model')||'';
+  loadLlmModels();
+}
+function renderLlmProviders(){
+  const sel=$('llmProvider'), cur=sel.value;
+  sel.innerHTML=`<option value="">${esc(t('aiDefault'))}</option>`+llmProviders.map(p=>
+    `<option value="${esc(p.id)}">${esc(p.label)}${(p.configured||!p.needs_key)?'':' — '+esc(t('aiNoKey'))}</option>`).join('');
+  sel.value=cur;
+}
+async function loadLlmModels(){
+  const prov=$('llmProvider').value, dl=$('llmModels');
+  const info=llmProviders.find(p=>p.id===prov) || llmProviders.find(p=>p.default);
+  $('llmModel').placeholder = (info && info.default_model) || t('aiModelPh');
+  dl.innerHTML='';
+  if(!prov) return;
+  try{
+    const r=await fetch(API+'/llm/models?provider='+encodeURIComponent(prov), {headers: apiHeaders()});
+    if(!r.ok) return;
+    const models=((await r.json()).models)||[];
+    dl.innerHTML=models.slice(0,300).map(m=>`<option value="${esc(m)}">`).join('');
+  }catch(e){ /* sin lista: se escribe el modelo a mano */ }
+}
+
 /* ---------- Fetch ---------- */
+function setLlmParams(p){
+  const prov=$('llmProvider').value, model=$('llmModel').value.trim();
+  if(prov) p.set('llm_provider', prov);
+  if(model) p.set('llm_model', model);
+  return p;
+}
 async function fetchTrends({category, topic, geo='CO', days, engine}){
   const p = new URLSearchParams();
   if(topic) p.set('topic', topic);
@@ -325,6 +369,7 @@ async function fetchTrends({category, topic, geo='CO', days, engine}){
   if(geo) p.set('geo', geo);
   if(days) p.set('days', days);
   if(engine) p.set('sentiment_engine', engine);
+  if(engine==='llm') setLlmParams(p);
   p.set('lang', LANG);
   p.set('top_n','30');
   const r = await fetch(API+'/trends?'+p.toString(), {headers: apiHeaders()});
@@ -741,7 +786,8 @@ async function analyze(){
   showTab('mood');
   showLoading(t('measuring',{t:topic||cat}));
   if(ws && ws.readyState===WebSocket.OPEN){
-    ws.send(JSON.stringify({topic:topic||undefined, category:topic?undefined:(cat||undefined), geo, days:Number(days), sentiment_engine:engine, lang:LANG}));
+    ws.send(JSON.stringify({topic:topic||undefined, category:topic?undefined:(cat||undefined), geo, days:Number(days), sentiment_engine:engine, lang:LANG,
+      llm_provider:(engine==='llm' && $('llmProvider').value)||undefined, llm_model:(engine==='llm' && $('llmModel').value.trim())||undefined}));
     return;
   }
   try{
@@ -769,6 +815,7 @@ async function loadNarrative(topic, category, geo){
     p.set('lang', LANG);
     p.set('top_n','30');
     p.set('style','executive');
+    setLlmParams(p);
     const r=await fetch(API+'/narrate?'+p.toString(), {headers: apiHeaders()});
     const j=await r.json();
     if(j.provider==='none'){
@@ -842,6 +889,7 @@ $('uiLang').addEventListener('change', ev=>{
   if(lastMood && lastMood.mood) renderMood(lastMood.mood, lastMood.topic);
   if(lastCmp) renderComparison(...lastCmp);
   renderWatchlist();
+  renderLlmProviders();
   if(historyRecords.length){ renderHistoryList(historyRecords.slice().reverse()); renderHistoryChart(historyRecords); }
 });
 
@@ -853,6 +901,10 @@ $('cat').addEventListener('change',e=>{ if(e.target.value) $('topic').value=''; 
 $('cmpToggle').addEventListener('click',()=>setCompare(!cmpMode));
 $('cmpToggle').addEventListener('keydown',e=>{ if(e.key===' '||e.key==='Enter'){ e.preventDefault(); setCompare(!cmpMode); } });
 $('wlAdd').addEventListener('click', addWatchItem);
+$('llmProvider').addEventListener('change', ev=>{
+  store('ts_llm_provider', ev.target.value); $('llmModel').value=''; store('ts_llm_model',''); loadLlmModels();
+});
+$('llmModel').addEventListener('change', ev=>store('ts_llm_model', ev.target.value.trim()));
 $('examples').addEventListener('click', ev=>{
   const b=ev.target.closest('[data-example]'); if(!b) return;
   $('topic').value=b.dataset.example; $('cat').value=''; analyze();
@@ -877,6 +929,7 @@ $('geo').value = defaultGeo();
 initTheme();
 applyI18n();
 loadCategories();
+loadLlmProviders();
 loadWatchlist();
 connectWS();
 { const tab=store('ts_tab'); if(tab && tab!=='compare') showTab(tab); }

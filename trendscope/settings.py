@@ -41,6 +41,30 @@ class Settings(BaseSettings):
     deepseek_base_url: str = "https://api.deepseek.com"
     deepseek_model: str = "deepseek-flash"
 
+    # ── IA: cualquier proveedor (ver trendscope/llm/providers.py) ────────────
+    # Proveedor por defecto para narrativas y sentimiento "llm". Vacío → el de
+    # NARRATOR_PROVIDER. Opciones: openai, claude, deepseek, opencode,
+    # openrouter, gemini, groq, mistral, xai, ollama, custom, none.
+    llm_provider: str = ""
+    openai_api_key: str = ""
+    openai_model: str = ""
+    claude_model: str = "claude-opus-5-5"
+    opencode_api_key: str = ""
+    opencode_base_url: str = "https://opencode.ai/zen/v1"
+    opencode_model: str = ""
+    gemini_api_key: str = ""
+    gemini_model: str = ""
+    groq_api_key: str = ""
+    groq_model: str = ""
+    mistral_api_key: str = ""
+    mistral_model: str = ""
+    xai_api_key: str = ""
+    xai_model: str = ""
+    # Cualquier servidor compatible con OpenAI (LM Studio, vLLM, LiteLLM…)
+    llm_base_url: str = ""
+    llm_api_key: str = ""
+    llm_model: str = ""
+
     sentiment_engine: str = "local"
     # Modelo del motor "claude" (sentimiento + emociones)
     claude_sentiment_model: str = "claude-haiku-4-5"

@@ -97,6 +97,8 @@
   .field label{font-size:11px;color:var(--muted);font-weight:600;letter-spacing:.02em}
   .field select,.field input{height:34px;border-radius:8px;border:1px solid var(--border);
     background:var(--surface-2);padding:0 10px;font-size:13px;min-width:120px;outline:none}
+  .field input.model{min-width:0;width:170px}
+  .field select#llmProvider{max-width:230px}
   .field input.geo{min-width:0;width:72px;text-transform:uppercase}
   select.icon-btn{padding:5px 10px;height:auto}
   .toggle{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--ink-2);cursor:pointer;
@@ -316,7 +318,17 @@
         <select id="engine">
           <option value="local" selected data-i18n="engineLocal">Local (gratis)</option>
           <option value="claude" data-i18n="engineClaude">Claude (premium)</option>
+          <option value="llm" data-i18n="engineLlm">IA elegida</option>
         </select>
+      </div>
+      <div class="field">
+        <label for="llmProvider" data-i18n="aiProvider">IA</label>
+        <select id="llmProvider"><option value="" data-i18n="aiDefault">Por defecto (.env)</option></select>
+      </div>
+      <div class="field">
+        <label for="llmModel" data-i18n="aiModel">Modelo</label>
+        <input type="text" id="llmModel" class="model" list="llmModels" autocomplete="off" data-i18n-ph="aiModelPh" placeholder="el de .env">
+        <datalist id="llmModels"></datalist>
       </div>
       <div class="toggle" id="cmpToggle" role="switch" aria-checked="false" tabindex="0" data-i18n-title="compareTitle" title="Comparar dos temas">
         <span class="switch"></span><span data-i18n="compare">Comparar</span>

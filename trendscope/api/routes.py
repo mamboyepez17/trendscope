@@ -37,6 +37,9 @@ def _org_id(request) -> str:
     return getattr(request.state, "org_id", None) or "default"
 
 
+_ENGINES = {"local", "claude", "llm"}
+
+
 def _run_pipeline_query(
     topic: str | None,
     category: str | None,
@@ -45,6 +48,8 @@ def _run_pipeline_query(
     top_n: int = 25,
     days: int | None = None,
     lang: str | None = None,
+    llm_provider: str | None = None,
+    llm_model: str | None = None,
 ) -> dict:
     if not topic and not category:
         raise HTTPException(
@@ -64,9 +69,13 @@ def _run_pipeline_query(
         sentiment_engine=sentiment_engine,
         top_n=top_n,
     )
+    if sentiment_engine not in _ENGINES:
+        raise HTTPException(status_code=400, detail=f"sentiment_engine debe ser: {', '.join(sorted(_ENGINES))}")
     if days:
         query.max_age_days = days
     query.lang = lang
+    query.llm_provider = llm_provider or None
+    query.llm_model = llm_model or None
     try:
         payload, _ = run_pipeline(query)
     except RuntimeError as e:
@@ -87,12 +96,16 @@ def register_routes(app: FastAPI, state) -> None:
             "executive", description="executive | creative | technical | alert"
         ),
         geo: str = QParam("CO", description="Codigo ISO pais"),
-        sentiment_engine: str = QParam("local", description="local | claude"),
+        sentiment_engine: str = QParam("local", description="local | claude | llm (IA elegida en llm_provider)"),
         top_n: int = QParam(25, ge=1, le=100, description="Numero de resultados"),
         days: int | None = QParam(None, ge=1, le=30, description="Últimos N días"),
         lang: str | None = QParam(
             None, description="Idioma de etiquetas/titulares: es | en | pt (default: el del país)"
         ),
+        llm_provider: str | None = QParam(
+            None, description="IA: openai, claude, deepseek, opencode, openrouter, gemini, groq, mistral, xai, ollama, custom"
+        ),
+        llm_model: str | None = QParam(None, description="Modelo de esa IA (GET /llm/models)"),
     ):
         """Genera una narrativa inteligente sobre un tema usando el proveedor configurado."""
         if not topic and not category:
@@ -110,8 +123,9 @@ def register_routes(app: FastAPI, state) -> None:
                 status_code=400,
                 detail=f"Estilo '{style}' no valido. Opciones: {', '.join(NARRATIVE_STYLES.keys())}",
             )
-        payload = _run_pipeline_query(topic, category, geo, sentiment_engine, top_n, days, lang)
-        result = generate_summary(payload, style=style)
+        payload = _run_pipeline_query(topic, category, geo, sentiment_engine, top_n, days, lang,
+                                      llm_provider, llm_model)
+        result = generate_summary(payload, style=style, provider=llm_provider, model=llm_model)
         return {
             "topic": topic or category,
             "style": result.get("style", style),
@@ -125,7 +139,7 @@ def register_routes(app: FastAPI, state) -> None:
         topic: str | None = QParam(None, description="Tema libre"),
         category: str | None = QParam(None, description="Categoria predefinida"),
         geo: str = QParam("CO", description="Codigo ISO pais"),
-        sentiment_engine: str = QParam("local", description="local | claude"),
+        sentiment_engine: str = QParam("local", description="local | claude | llm (IA elegida en llm_provider)"),
         top_n: int = QParam(25, ge=1, le=100, description="Numero de resultados"),
     ):
         """Exporta el análisis completo a JSON descargable."""
@@ -138,7 +152,7 @@ def register_routes(app: FastAPI, state) -> None:
         topic: str | None = QParam(None, description="Tema libre"),
         category: str | None = QParam(None, description="Categoria predefinida"),
         geo: str = QParam("CO", description="Codigo ISO pais"),
-        sentiment_engine: str = QParam("local", description="local | claude"),
+        sentiment_engine: str = QParam("local", description="local | claude | llm (IA elegida en llm_provider)"),
         top_n: int = QParam(25, ge=1, le=100, description="Numero de resultados"),
     ):
         """Exporta las tendencias top a CSV descargable."""
@@ -151,7 +165,7 @@ def register_routes(app: FastAPI, state) -> None:
         topic: str | None = QParam(None, description="Tema libre"),
         category: str | None = QParam(None, description="Categoria predefinida"),
         geo: str = QParam("CO", description="Codigo ISO pais"),
-        sentiment_engine: str = QParam("local", description="local | claude"),
+        sentiment_engine: str = QParam("local", description="local | claude | llm (IA elegida en llm_provider)"),
         top_n: int = QParam(25, ge=1, le=100, description="Numero de resultados"),
     ):
         """Exporta las tendencias top a Excel (.xlsx) descargable."""
@@ -164,6 +178,23 @@ def register_routes(app: FastAPI, state) -> None:
                 "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
             ),
         )
+
+    @app.get("/llm/providers", tags=["ai"], summary="Proveedores de IA y su estado")
+    def llm_providers():
+        """Proveedores de IA soportados, si están configurados y su modelo por defecto."""
+        from trendscope.llm import default_provider, providers_status
+
+        return {"default": default_provider(), "providers": providers_status()}
+
+    @app.get("/llm/models", tags=["ai"], summary="Modelos disponibles de un proveedor")
+    def llm_models(provider: str = QParam(..., description="openai, claude, deepseek, …")):
+        """Lista en vivo los modelos del proveedor (usa la API key del servidor)."""
+        from trendscope.llm import LLMError, list_models
+
+        try:
+            return {"provider": provider, "models": list_models(provider)}
+        except LLMError as e:
+            raise HTTPException(status_code=400, detail=str(e)) from e
 
     @app.get("/health", tags=["ops"])
     def health():
@@ -242,7 +273,7 @@ def register_routes(app: FastAPI, state) -> None:
         topic: str | None = QParam(None, description="Tema libre"),
         category: str | None = QParam(None, description="Categoria predefinida"),
         geo: str = QParam("CO", description="Codigo ISO pais"),
-        sentiment_engine: str = QParam("local", description="local | claude"),
+        sentiment_engine: str = QParam("local", description="local | claude | llm (IA elegida en llm_provider)"),
         top_n: int = QParam(25, ge=1, le=100, description="Numero de resultados"),
         days: int | None = QParam(
             None, ge=1, le=30, description="Solo contenido de los últimos N días (default 7)"
@@ -250,6 +281,10 @@ def register_routes(app: FastAPI, state) -> None:
         lang: str | None = QParam(
             None, description="Idioma de etiquetas/titulares: es | en | pt (default: el del país)"
         ),
+        llm_provider: str | None = QParam(
+            None, description="IA: openai, claude, deepseek, opencode, openrouter, gemini, groq, mistral, xai, ollama, custom"
+        ),
+        llm_model: str | None = QParam(None, description="Modelo de esa IA (GET /llm/models)"),
         async_mode: bool = QParam(
             False, alias="async", description="Si true, devuelve 202 + job_id"
         ),
@@ -270,6 +305,8 @@ def register_routes(app: FastAPI, state) -> None:
                 org_id=_org_id(request),
                 days=days,
                 lang=lang,
+                llm_provider=llm_provider,
+                llm_model=llm_model,
             )
             return JSONResponse(
                 status_code=202,
@@ -279,7 +316,8 @@ def register_routes(app: FastAPI, state) -> None:
                     "poll": f"/jobs/{job_id}",
                 },
             )
-        return _run_pipeline_query(topic, category, geo, sentiment_engine, top_n, days, lang)
+        return _run_pipeline_query(topic, category, geo, sentiment_engine, top_n, days, lang,
+                                   llm_provider, llm_model)
 
     @app.get("/jobs/{job_id}", tags=["jobs"], summary="Poll async job status")
     def get_job(request: Request, job_id: str):
@@ -381,7 +419,7 @@ def register_routes(app: FastAPI, state) -> None:
     def compare_topics(
         topic1: str = QParam(..., description="Primer tema a comparar"),
         topic2: str = QParam(..., description="Segundo tema a comparar"),
-        sentiment_engine: str = QParam("local", description="local | claude"),
+        sentiment_engine: str = QParam("local", description="local | claude | llm (IA elegida en llm_provider)"),
     ):
         """Compara dos temas lado a lado."""
         q1 = TrendQuery(
@@ -403,7 +441,7 @@ def register_routes(app: FastAPI, state) -> None:
         topic: str = QParam(..., description="Topic to monitor"),
         category: str | None = QParam(None, description="Predefined category (optional)"),
         geo: str = QParam("CO", description="ISO country code"),
-        sentiment_engine: str = QParam("local", description="local | claude"),
+        sentiment_engine: str = QParam("local", description="local | claude | llm (IA elegida en llm_provider)"),
         interval_minutes: int = QParam(
             settings.watchlist_default_interval_minutes,
             ge=5,
@@ -475,7 +513,7 @@ def register_routes(app: FastAPI, state) -> None:
         topic: str = QParam(..., description="Topic to monitor"),
         category: str | None = QParam(None, description="Predefined category (optional)"),
         geo: str = QParam("CO", description="ISO country code"),
-        sentiment_engine: str = QParam("local", description="local | claude"),
+        sentiment_engine: str = QParam("local", description="local | claude | llm (IA elegida en llm_provider)"),
         interval_minutes: int = QParam(
             60, ge=5, le=1440, description="Analysis interval in minutes"
         ),
@@ -679,9 +717,9 @@ def register_routes(app: FastAPI, state) -> None:
                     )
                     continue
 
-                if sentiment_engine not in {"local", "claude"}:
+                if sentiment_engine not in _ENGINES:
                     await websocket.send_json(
-                        {"error": "sentiment_engine must be local or claude"}
+                        {"error": "sentiment_engine must be local, claude or llm"}
                     )
                     continue
 
@@ -720,6 +758,10 @@ def register_routes(app: FastAPI, state) -> None:
                 lang = params.get("lang")
                 if isinstance(lang, str) and lang.isalpha() and len(lang) <= 5:
                     query.lang = lang
+                for attr in ("llm_provider", "llm_model"):
+                    val = params.get(attr)
+                    if isinstance(val, str) and 0 < len(val) <= 120:
+                        setattr(query, attr, val.strip())
 
                 try:
                     loop = asyncio.get_running_loop()

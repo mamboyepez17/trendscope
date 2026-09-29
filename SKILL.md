@@ -58,7 +58,9 @@ Common parameters:
 | `geo` | ISO 3166-1 alpha-2 | Country |
 | `days` | 1–30 | Freshness window (default 7) |
 | `lang` | `es` / `en` / `pt` | Language of the output (default: the country's language) |
-| `sentiment_engine` | `local` / `claude` | Engine (`claude` works for any language) |
+| `sentiment_engine` | `local` / `claude` / `llm` | Engine (`claude` and `llm` work for any language) |
+| `llm_provider` | `openai`, `claude`, `deepseek`, `opencode`, `openrouter`, `gemini`, `groq`, `mistral`, `xai`, `ollama`, `custom` | AI for `sentiment_engine=llm` and `/narrate` |
+| `llm_model` | any model id | Model of that provider (`GET /llm/models?provider=...`) |
 
 ### MCP Server (for MCP-compatible agents)
 ```bash
@@ -108,6 +110,7 @@ Copy `.env.example` to `.env`. All credentials are optional; without any, TrendS
 
 - X/Twitter replies: set `TWITTER_AUTH_TOKEN` and `TWITTER_CT0` (x.com cookies). Optional: `pip install -e ".[x]"`.
 - Reddit comments: optional `pip install -e ".[reddit]"`; set `REDDIT_SESSION_COOKIE` if Reddit returns 403.
+- AI: set the key of any provider (`OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `DEEPSEEK_API_KEY`, `OPENCODE_API_KEY`, `OPENROUTER_API_KEY`, `GEMINI_API_KEY`, `GROQ_API_KEY`, `MISTRAL_API_KEY`, `XAI_API_KEY`, or `LLM_BASE_URL`+`LLM_API_KEY`) and choose the default with `LLM_PROVIDER`. `GET /llm/providers` shows what is configured.
 - `GEO_TARGET` (default country), `MAX_AGE_DAYS` (default window), `CUSTOM_LEXICON_PATH` (your own slang/brand words).
 
 ## Tips for agents
@@ -116,6 +119,6 @@ Copy `.env.example` to `.env`. All credentials are optional; without any, TrendS
 - `quotes` and `drivers` explain *why* people feel that way — cite them.
 - Compare `mood_index.net_score` (people) against `media_tone.net_score` (press): a gap is itself an insight.
 - Use `days=1` for breaking topics and `days=30` for slow ones.
-- Use `sentiment_engine=local` for free analysis; use `claude` for languages without a lexicon.
+- Use `sentiment_engine=local` for free analysis; use `claude` or `llm` (with `llm_provider`/`llm_model`) for languages without a lexicon.
 - The cache lasts 5 minutes, so repeated queries are instant.
 - Run `doctor` first to check which sources are available.

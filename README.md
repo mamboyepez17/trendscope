@@ -32,6 +32,7 @@ It works **in any country and language**: per-language lexicons (Spanish, Englis
 - [Where people's comments come from](#where-peoples-comments-come-from)
 - [Recent content only](#recent-content-only)
 - [REST API](#rest-api-for-http-agents)
+- [AI providers & model choice](#ai-providers--model-choice)
 - [Watchlist, alerts & digests](#watchlist--alerts--digests)
 - [Multi-tenant API keys](#multi-tenant-api-keys)
 - [Security defaults](#api-protection--security-defaults)
@@ -328,7 +329,8 @@ Common query parameters:
 | `geo` | Country code (ISO 3166-1 alpha-2) |
 | `days` | Freshness window, 1–30 (default `MAX_AGE_DAYS`) |
 | `lang` | Language of mood labels, headlines and AI narrative: `es`, `en`, `pt` |
-| `sentiment_engine` | `local` (free) or `claude` (multilingual, premium) |
+| `sentiment_engine` | `local` (free), `claude` (multilingual, premium) or `llm` (any AI provider — see below) |
+| `llm_provider` / `llm_model` | AI provider and model for `sentiment_engine=llm` and `/narrate` (default: `LLM_PROVIDER` and its `*_MODEL` in `.env`) |
 
 Headers on responses: `X-RateLimit-Limit`, `X-RateLimit-Remaining`, `Retry-After` on 429.
 
@@ -342,13 +344,46 @@ curl "http://localhost:8000/narrate?topic=crypto&geo=US&style=executive"
 # Styles: executive, creative, technical, alert
 ```
 
-Supported providers:
+Pick any provider and model per request:
 
-- **DeepSeek** (official API): set `NARRATOR_PROVIDER=deepseek` and `DEEPSEEK_API_KEY=...`. Override the model with `DEEPSEEK_MODEL`.
-- **OpenRouter** (default): free models like `deepseek/deepseek-chat-v3-0324:free`. Get a free key at [openrouter.ai/keys](https://openrouter.ai/keys).
-- **Claude**: via `ANTHROPIC_API_KEY`.
-- **Ollama**: local models via `OLLAMA_ENABLED=true`.
-- **Statistical fallback**: if no provider is configured, returns a structured local summary.
+```bash
+curl "http://localhost:8000/narrate?topic=crypto&llm_provider=claude&llm_model=claude-opus-5-5"
+curl "http://localhost:8000/narrate?topic=crypto&llm_provider=deepseek"   # model from DEEPSEEK_MODEL
+```
+
+If no provider is configured, `/narrate` returns a structured statistical summary instead.
+
+## AI providers & model choice
+
+One AI layer (`trendscope/llm`) powers both the narrative and the `llm` sentiment engine. Put the key of the provider you want in `.env`, choose a default with `LLM_PROVIDER`, and optionally override provider and model on each request with `llm_provider` / `llm_model`. The dashboard has an **AI** and **Model** picker next to the engine selector (the model box autocompletes from the provider's live model list).
+
+| `llm_provider` | Service | Key | Default model |
+|---|---|---|---|
+| `openai` (alias `chatgpt`) | OpenAI / ChatGPT | `OPENAI_API_KEY` | `OPENAI_MODEL` |
+| `claude` (alias `anthropic`) | Anthropic Claude | `ANTHROPIC_API_KEY` | `CLAUDE_MODEL` (`claude-opus-5-5`) |
+| `deepseek` | DeepSeek | `DEEPSEEK_API_KEY` | `DEEPSEEK_MODEL` |
+| `opencode` (alias `zen`) | OpenCode Zen | `OPENCODE_API_KEY` | `OPENCODE_MODEL` |
+| `openrouter` | OpenRouter (hundreds of models, some free) | `OPENROUTER_API_KEY` | `OPENROUTER_MODEL` |
+| `gemini` (alias `google`) | Google Gemini | `GEMINI_API_KEY` | `GEMINI_MODEL` |
+| `groq` | Groq | `GROQ_API_KEY` | `GROQ_MODEL` |
+| `mistral` | Mistral | `MISTRAL_API_KEY` | `MISTRAL_MODEL` |
+| `xai` (alias `grok`) | xAI Grok | `XAI_API_KEY` | `XAI_MODEL` |
+| `ollama` (alias `local`) | Local models, no key | — (`OLLAMA_HOST`) | `OLLAMA_MODEL` |
+| `custom` | Any OpenAI-compatible API (LM Studio, vLLM, Together, Azure…) | `LLM_API_KEY` + `LLM_BASE_URL` | `LLM_MODEL` |
+
+```bash
+GET /llm/providers                 # which providers exist, which are configured (keys are never returned)
+GET /llm/models?provider=openai    # live model list from that provider
+GET /trends?topic=Bitcoin&sentiment_engine=llm&llm_provider=groq&llm_model=<model>
+GET /narrate?topic=Bitcoin&llm_provider=opencode&llm_model=<model>
+```
+
+Notes:
+
+- If a provider has no default model in `.env`, you must pass `llm_model` — the error message tells you which variable to set and where to list models.
+- Model names change often; use `/llm/models` (or the dashboard autocomplete) instead of hard-coding them.
+- The `llm` sentiment engine classifies in batches and falls back to the local engine for any batch that fails (missing key, rate limit, bad JSON), so an analysis never comes back silently "neutral".
+- Unsupported parameters are handled automatically (e.g. models that reject `temperature` or need `max_completion_tokens`).
 
 ## Data Export
 

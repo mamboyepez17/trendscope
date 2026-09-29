@@ -84,7 +84,7 @@ def _cache_key(query: TrendQuery) -> str:
     return (
         f"{_CACHE_VERSION}:{query.mode}:{query.category or query.free_topic}:"
         f"{query.geo}:{query.sentiment_engine}:{query.top_n}:{query.max_age_days}d:"
-        f"{query.ui_lang}:{kw_hash}"
+        f"{query.ui_lang}:{query.llm_provider or ''}:{query.llm_model or ''}:{kw_hash}"
     )
 
 

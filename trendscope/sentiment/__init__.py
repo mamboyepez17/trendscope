@@ -27,12 +27,21 @@ def analyze_items(items: list[dict], query: TrendQuery) -> list[dict]:
     logger.info(f"Analizando sentimiento: {len(texts)} items con motor '{engine}'")
 
     try:
-        if engine == "claude":
-            from trendscope.sentiment.claude_engine import analyze
+        if engine in ("claude", "llm"):
+            from trendscope.sentiment.claude_engine import analyze as ai_analyze
+
+            # "claude" = Claude; "llm" = el proveedor elegido (llm_provider)
+            ai_provider = "claude" if engine == "claude" else (query.llm_provider or None)
+            if ai_provider is None:
+                from trendscope.llm import default_provider
+
+                ai_provider = default_provider()
+            results = ai_analyze(texts, provider=ai_provider, model=query.llm_model or None,
+                                 geo=query.geo)
         else:
             from trendscope.sentiment.local_engine import analyze
 
-        results = analyze(texts) if engine == "claude" else analyze(texts, geo=query.geo)
+            results = analyze(texts, geo=query.geo)
 
         for i, result in enumerate(results):
             if i < len(items):
@@ -78,7 +87,7 @@ def analyze_items(items: list[dict], query: TrendQuery) -> list[dict]:
 
 
 # Motores cuyo sentimiento viene de un modelo real (no del léxico)
-_MODEL_ENGINES = ("local_es", "local_en", "claude")
+_MODEL_ENGINES = ("local_es", "local_en", "claude", "llm:")
 
 
 def enrich_emotions(items: list[dict], geo: str | None = None) -> list[dict]:
