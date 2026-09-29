@@ -64,8 +64,11 @@ def run(query: TrendQuery) -> list[dict]:
         return []
 
     try:
-        from trendscope.xactions import TwitterError, search_tweets_sync
+        from trendscope.scrapers.x_client import xactions
 
+        xa = xactions()
+        TwitterError = xa.TwitterError
+        search_tweets_sync = xa.search_tweets_sync
         cookie_str = f"auth_token={TWITTER_AUTH_TOKEN}; ct0={TWITTER_CT0}"
         results: list[dict] = []
         # Más keywords del tema (hasta 4) para cubrir variantes

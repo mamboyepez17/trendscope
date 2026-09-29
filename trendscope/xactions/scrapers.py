@@ -293,10 +293,17 @@ async def _paginate_users(
     endpoint: str,
     user_id: str,
     limit: int = 100,
+    checkpoint_key: str | None = None,
 ) -> list[dict[str, Any]]:
     """Paginador generico para followers/following/favoriters/retweeters."""
+    from .watch import load_cursor, mark_scrape_complete, save_cursor
+
     all_users: list[dict[str, Any]] = []
     cursor: str | None = None
+    if checkpoint_key:
+        cursor = load_cursor(checkpoint_key)
+        if cursor:
+            _log.info("Resuming scrape %s from checkpoint cursor", checkpoint_key)
 
     while len(all_users) < limit:
         variables: dict[str, Any] = {
@@ -324,9 +331,18 @@ async def _paginate_users(
 
         all_users.extend(batch)
 
+        if checkpoint_key and new_cursor:
+            save_cursor(checkpoint_key, new_cursor)
+
         if not new_cursor or new_cursor == cursor:
             break
         cursor = new_cursor
+
+    if checkpoint_key and len(all_users) >= limit:
+        # finished requested slice — keep cursor so next call continues
+        pass
+    elif checkpoint_key and not cursor:
+        mark_scrape_complete(checkpoint_key)
 
     return all_users[:limit]
 
@@ -344,14 +360,26 @@ async def get_user_id(client: TwitterClient, username: str) -> str:
     return uid
 
 
-async def scrape_followers(client: TwitterClient, username: str, limit: int = 100) -> list[dict[str, Any]]:
+async def scrape_followers(
+    client: TwitterClient,
+    username: str,
+    limit: int = 100,
+    checkpoint: bool = False,
+) -> list[dict[str, Any]]:
     user_id = await get_user_id(client, username)
-    return await _paginate_users(client, "Followers", user_id, limit)
+    key = f"followers:{username.lower()}" if checkpoint else None
+    return await _paginate_users(client, "Followers", user_id, limit, checkpoint_key=key)
 
 
-async def scrape_following(client: TwitterClient, username: str, limit: int = 100) -> list[dict[str, Any]]:
+async def scrape_following(
+    client: TwitterClient,
+    username: str,
+    limit: int = 100,
+    checkpoint: bool = False,
+) -> list[dict[str, Any]]:
     user_id = await get_user_id(client, username)
-    return await _paginate_users(client, "Following", user_id, limit)
+    key = f"following:{username.lower()}" if checkpoint else None
+    return await _paginate_users(client, "Following", user_id, limit, checkpoint_key=key)
 
 
 async def scrape_non_followers(client: TwitterClient, username: str, limit: int = 200) -> list[dict[str, Any]]:

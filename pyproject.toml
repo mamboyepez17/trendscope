@@ -48,6 +48,10 @@ dependencies = [
 reddit = [
     "reddit-actions @ git+https://github.com/mamboyepez17/reddit-actions.git",
 ]
+# X/Twitter con xactions-py al día (firma x-client-transaction-id)
+x = [
+    "xactions-py @ git+https://github.com/mamboyepez17/xactions-py.git",
+]
 dev = [
     "pytest>=8.0.0",
     "pytest-asyncio>=0.23.0",

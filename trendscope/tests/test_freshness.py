@@ -66,7 +66,8 @@ def test_twitter_query_has_since():
         return []
 
     q = TrendQuery(mode="free", free_topic="petro", max_age_days=7)
+    fake_xa = MagicMock(TwitterError=RuntimeError, search_tweets_sync=fake_search)
     with patch.object(twitter, "TWITTER_AUTH_TOKEN", "a"), patch.object(twitter, "TWITTER_CT0", "b"):
-        with patch("trendscope.xactions.search_tweets_sync", side_effect=fake_search):
+        with patch("trendscope.scrapers.x_client.xactions", return_value=fake_xa):
             twitter.run(q)
     assert captured["queries"] and all("since:" in x for x in captured["queries"])

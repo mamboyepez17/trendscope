@@ -611,7 +611,51 @@ async def x_bulk_unfollow_non_followers(
         return _fmt_error(e)
 
 
+@mcp.tool()
+async def x_list_drafts(status: str = "pending") -> str:
+    """List write drafts. status: pending|approved|discarded|executed or empty for all."""
+    try:
+        from .drafts import list_drafts
+
+        items = list_drafts(status=status or None)
+        return json.dumps({"count": len(items), "drafts": items}, ensure_ascii=False, indent=2)
+    except Exception as e:
+        return _fmt_error(e)
+
+
+@mcp.tool()
+async def x_approve_draft(draft_id: str) -> str:
+    """Mark a draft as approved (does not execute; use CLI drafts approve to run)."""
+    try:
+        from .drafts import approve
+
+        d = approve(draft_id)
+        if not d:
+            return f"Draft not found: {draft_id}"
+        return f"✅ Draft {draft_id} approved. Run via: xactions drafts approve {draft_id}"
+    except Exception as e:
+        return _fmt_error(e)
+
+
+@mcp.tool()
+async def x_discard_draft(draft_id: str) -> str:
+    """Discard a pending draft."""
+    try:
+        from .drafts import discard
+
+        d = discard(draft_id)
+        if not d:
+            return f"Draft not found: {draft_id}"
+        return f"🗑️ Draft {draft_id} discarded."
+    except Exception as e:
+        return _fmt_error(e)
+
+
 # ─── Entry point ──────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
+    from .mcp_groups import apply_env_filter_to_mcp
+
+    kept = apply_env_filter_to_mcp(mcp)
+    logging.getLogger(__name__).info("MCP tools advertised: %d", len(kept))
     mcp.run(transport="stdio")

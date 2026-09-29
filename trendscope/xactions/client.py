@@ -26,6 +26,7 @@ from urllib.parse import unquote
 import httpx
 
 from .gql_refresh import endpoints_with_cache, refresh_endpoints
+from .transaction_id import generate_transaction_id
 
 # ─── Bearer Token público (embebido en el JS bundle de Twitter) ───────────────
 BEARER_TOKEN = (
@@ -293,7 +294,12 @@ class TwitterClient:
     def is_authenticated(self) -> bool:
         return bool(self._cookies.get("auth_token"))
 
-    def _build_headers(self, extra: dict[str, str] | None = None) -> dict[str, str]:
+    def _build_headers(
+        self,
+        extra: dict[str, str] | None = None,
+        method: str = "GET",
+        path: str = "/",
+    ) -> dict[str, str]:
         headers: dict[str, str] = {
             "Authorization": f"Bearer {BEARER_TOKEN}",
             "User-Agent": self._user_agent,
@@ -305,7 +311,7 @@ class TwitterClient:
             "x-twitter-active-user": "yes",
             "x-twitter-client-language": "en",
             "x-client-uuid": self._client_uuid,
-            "x-client-transaction-id": str(uuid.uuid4()),
+            "x-client-transaction-id": generate_transaction_id(method, path),
         }
         if self._csrf_token:
             headers["x-csrf-token"] = self._csrf_token
@@ -412,7 +418,11 @@ class TwitterClient:
         allow_replay: bool = True,
     ) -> httpx.Response:
         """Request base con reintentos, rate-limit handling y logging."""
-        request_headers = self._build_headers(headers)
+        request_headers = self._build_headers(
+            headers,
+            method=method,
+            path=url.split("?", 1)[0],
+        )
         last_exception: Exception | None = None
         # Las mutations no se reintentan: un timeout tras ser procesada
         # por el servidor duplicaría la acción (like, tweet, unfollow...).

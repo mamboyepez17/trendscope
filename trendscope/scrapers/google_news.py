@@ -11,19 +11,7 @@ from trendscope.core.dates import parse_date
 from trendscope.core.http import get_session
 from trendscope.core.query import TrendQuery
 
-_RSS = "https://news.google.com/rss/search?q={q}&hl={hl}&gl={gl}&ceid={gl}:{lang}"
-
-# Idioma de la edición según el país (por defecto español latinoamericano)
-_EDITION = {
-    "ES": ("es", "es"), "US": ("en-US", "en"), "GB": ("en-GB", "en"),
-    "BR": ("pt-BR", "pt-419"), "PT": ("pt-PT", "pt-150"),
-}
-
-
-def _edition(geo: str) -> tuple[str, str, str]:
-    gl = (geo or "CO").upper()
-    hl, lang = _EDITION.get(gl, ("es-419", "es-419"))
-    return hl, gl, lang
+_RSS = "https://news.google.com/rss/search?q={q}&hl={hl}&gl={gl}&ceid={ceid}"
 
 
 def _split_title(title: str) -> tuple[str, str]:
@@ -40,11 +28,13 @@ def run(query: TrendQuery) -> list[dict]:
     session = get_session()
     results: list[dict] = []
 
-    hl, gl, lang = _edition(query.geo)
+    from trendscope.core.locale import google_news_edition
+
+    edition = google_news_edition(query.geo)
     for keyword in query.search_phrases[:3]:
         # Frase exacta + when:Nd → solo artículos del tema de los últimos N días
         q = f"{keyword} when:{max(1, int(query.max_age_days))}d"
-        url = _RSS.format(q=quote(q), hl=hl, gl=gl, lang=lang)
+        url = _RSS.format(q=quote(q), **edition)
         try:
             resp = session.get(url, timeout=15, headers={"User-Agent": "TrendScope/1.8"})
             resp.raise_for_status()

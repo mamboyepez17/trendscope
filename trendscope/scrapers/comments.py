@@ -38,6 +38,13 @@ def _hn(topic: str, limit: int, comments_per_post: int, days: float) -> tuple[li
     return posts, comments, f"posts={len(posts)} comments={len(comments)}"
 
 
+def _youtube(query: TrendQuery, comments_per_post: int) -> tuple[list, list, str]:
+    from trendscope.scrapers import youtube
+
+    videos, comments = youtube.collect_comments(query, videos=4, per_video=comments_per_post)
+    return [], comments, f"videos={len(videos)} comments={len(comments)}"
+
+
 def _x(query: TrendQuery) -> tuple[list, list, str]:
     from trendscope.scrapers import x_replies
 
@@ -53,12 +60,13 @@ def collect(topic: str, query: TrendQuery | None = None, limit: int = 8,
     jobs = {
         "reddit": lambda: _reddit(topic, limit, comments_per_post, days),
         "hackernews": lambda: _hn(topic, limit, comments_per_post, days),
+        "youtube": lambda: _youtube(query, comments_per_post),
         "x": lambda: _x(query),
     }
     posts: list[dict] = []
     comments: list[dict] = []
     sources: dict[str, str] = {}
-    with ThreadPoolExecutor(max_workers=3) as pool:
+    with ThreadPoolExecutor(max_workers=len(jobs)) as pool:
         futures = {name: pool.submit(fn) for name, fn in jobs.items()}
         for name, fut in futures.items():
             try:
